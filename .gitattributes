@@ -1,0 +1,54 @@
+# =============================================
+# Git 行尾符配置（.gitattributes）
+# 解决 Windows 环境下 LF/CRLF 转换警告
+# =============================================
+
+# 默认使用 LF（Unix 风格行尾）
+* text=auto eol=lf
+
+# Java 源代码
+*.java text eol=lf
+*.class binary
+
+# SQL 脚本
+*.sql text eol=lf
+
+# 配置文件
+*.yml text eol=lf
+*.yaml text eol=lf
+*.properties text eol=lf
+*.xml text eol=lf
+*.json text eol=lf
+
+# Markdown 文档
+*.md text eol=lf
+
+# Shell 脚本
+*.sh text eol=lf
+
+# Windows 批处理（保持 CRLF）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# IDE 配置
+.idea/ text eol=lf
+.vscode/ text eol=lf
+*.iml text eol=lf
+
+# Git 配置
+.gitignore text eol=lf
+.gitattributes text eol=lf
+
+# 图片等二进制文件
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg binary
+
+# 归档文件
+*.zip binary
+*.jar binary
+*.war binary
