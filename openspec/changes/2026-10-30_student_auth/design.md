@@ -168,10 +168,9 @@ public class JwtUtil {
     /**
      * 判断 JWT 是否需要刷新
      * 边界条件：exp - now <= refreshThreshold && exp - now > 0
-     * 前置条件：调用前必须先通过 validateToken() 确认 token 未过期，
-     *           否则内部 parseToken() 会抛出 ExpiredJwtException
-     * @param token JWT 字符串（必须未过期）
-     * @return true=需要刷新（过期前 5 分钟内，且尚未过期）
+     * 内部捕获 ExpiredJwtException，已过期则返回 false，无需前置校验
+     * @param token JWT 字符串
+     * @return true=需要刷新（过期前 5 分钟内，且尚未过期）；已过期返回 false
      */
     public boolean shouldRefresh(String token);
     
@@ -206,6 +205,7 @@ public class JwtUtil {
 **异常契约**：
 - `parseToken()` 对过期/无效/格式错误的 token 直接抛出 jjwt 异常（`ExpiredJwtException`、`MalformedJwtException` 等），调用方需自行捕获
 - `validateToken()` 内部捕获所有 jjwt 异常，统一返回 `false`，不向外抛异常
+- `shouldRefresh()` 内部捕获 `ExpiredJwtException`，已过期则返回 `false`（无需前置校验）
 - `getStudentIdFromToken()` / `getOpenidFromToken()` / `getTenantIdFromToken()` 内部调用 `parseToken()`，可能抛出 jjwt 异常；调用前必须先通过 `validateToken()` 确认 token 有效
 
 ### 3.3 JWT 拦截器
@@ -443,7 +443,7 @@ public class StudentLoginTxService {
                 student.setUpdateTime(LocalDateTime.now());
                 studentMapper.insert(student);
             } catch (DuplicateKeyException e) {
-                // 并发首登兑底：唯一索引冲突，回查已有记录
+                // 并发首登兜底：唯一索引冲突，回查已有记录
                 // 注意：DuplicateKeyException 依赖 Spring 的异常翻译（@Repository 或 MyBatis-Plus 异常转换器）
                 // 确保 StudentMapper 被正确翻译，否则原始异常为 SQLIntegrityConstraintViolationException
                 log.warn("并发首登触发唯一索引冲突，回查学生记录: openid={}", openid);
@@ -731,7 +731,7 @@ public class RestTemplateConfig {
 
 ## 7. 数据库变更
 
-### 7.1 student 表唯一索引（并发首登兑底）
+### 7.1 student 表唯一索引（并发首登兜底）
 
 > 对应 M2 问题修复：并发首次登录可能创建重复学生记录。
 
@@ -784,8 +784,8 @@ ALTER TABLE `student`
 | 测试类 | 测试对象 | 测试场景 |
 |--------|---------|----------|
 | `JwtUtilTest` | JWT 工具类 | 签发、解析、校验、刷新判断、**过期 token 的 parse/validate 行为** |
-| `AuthServiceTest` | AuthService | 登录（首次/非首次）、获取当前学生、微信 API 重试逻辑 |
-| `StudentLoginTxServiceTest` | StudentLoginTxService | 事务登录、并发首登兑底、`DuplicateKeyException` 回查 |
+| `AuthServiceTest` | AuthService | `login()` 委托调用验证、`getCurrentStudent()` 正常/401 分支、微信 API 重试逻辑 |
+| `StudentLoginTxServiceTest` | StudentLoginTxService | 首次登录自动创建、非首次登录返回、并发首登兜底、`DuplicateKeyException` 回查 |
 
 ### 9.2 集成测试
 

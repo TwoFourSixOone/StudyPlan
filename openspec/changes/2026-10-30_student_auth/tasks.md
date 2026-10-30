@@ -66,6 +66,7 @@
 **异常契约**：
 - `parseToken()` 对过期/无效 token 直接抛出 jjwt 异常，调用方需自行捕获
 - `validateToken()` 吞掉所有 jjwt 异常，统一返回 `false`
+- `shouldRefresh()` 内部捕获 `ExpiredJwtException`，已过期则返回 `false`（无需前置校验）
 - `getXxxFromToken()` 内部调用 `parseToken()`，调用前必须先通过 `validateToken()` 确认有效
 
 **验收标准**：
@@ -202,7 +203,7 @@
 
 **具体任务**：
 1. `transactionalLogin(openid)` - 查询/创建学生，签发 JWT。添加 `@Transactional(rollbackFor = Exception.class)`
-2. 并发首登兑底：`insert` 捕获 `DuplicateKeyException` 后回查已有记录
+2. 并发首登兜底：`insert` 捕获 `DuplicateKeyException` 后回查已有记录
 3. 极端窗口说明：回查为 null 时抛出 `INTERNAL_ERROR`（Demo 阶段接受，后续可 upsert 优化）
 4. 注意：`DuplicateKeyException` 依赖 Spring 异常翻译，确保 `StudentMapper` 被 `@Repository` 或 MyBatis-Plus 异常转换器覆盖
 
@@ -298,13 +299,16 @@
 - `src/test/java/com/jiang/service/StudentLoginTxServiceTest.java`
 
 **具体任务**：
-1. `AuthServiceTest`：测试首次登录（自动创建学生）
-2. `AuthServiceTest`：测试非首次登录（返回已有学生）
-3. `AuthServiceTest`：测试微信 API 失败重试
-4. `AuthServiceTest`：测试获取当前学生信息
-5. `AuthServiceTest`：Mock 微信 API 和数据库
-6. `StudentLoginTxServiceTest`：测试事务登录（Mock 环境，不验证 @Transactional 实际生效）
-7. `StudentLoginTxServiceTest`：测试并发首登 DuplicateKeyException 回查
+1. `AuthServiceTest`：测试 `login()` 正确调用 `fetchOpenidFromWechat` → 委托 `txService.transactionalLogin()`
+2. `AuthServiceTest`：测试 `getCurrentStudent()` 正常分支
+3. `AuthServiceTest`：测试 `getCurrentStudent()` 学生不存在时抛出 `UNAUTHORIZED`（401）
+4. `AuthServiceTest`：测试微信 API 网络失败重试、业务失败不重试
+5. `AuthServiceTest`：Mock `txService`、微信 API
+6. `StudentLoginTxServiceTest`：测试首次登录自动创建学生
+7. `StudentLoginTxServiceTest`：测试非首次登录返回已有学生
+8. `StudentLoginTxServiceTest`：测试并发首登 `DuplicateKeyException` 回查
+9. `StudentLoginTxServiceTest`：测试回查为 null 抛出 `INTERNAL_ERROR`
+10. `StudentLoginTxServiceTest`：Mock `StudentMapper` 和 `JwtUtil`
 
 **验收标准**：
 - 所有测试通过
@@ -343,7 +347,7 @@ Task 2 (RestTemplate 配置)
     ↓
 Task 3 (JWT 工具类) ──┬──→ Task 5 (JWT 拦截器) ──→ Task 6 (WebMvcConfig)
                    └──→ Task 4 (StudentContext) ──↗
-Task 7 (DTO/VO) + Task 11-b (StudentConverter)
+Task 7 (DTO/VO + StudentConverter)
     ↓
 Task 8 (AuthService 接口)
     ↓
