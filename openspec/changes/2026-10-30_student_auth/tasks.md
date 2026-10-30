@@ -5,23 +5,28 @@
 
 ---
 
-## Task 1：创建 JWT 配置类
+## Task 1：创建 JWT 配置类与微信配置类
 
-**目标**：读取 application.yml 中的 JWT 配置。
+**目标**：读取 application.yml 中的 JWT 和微信配置，并添加 fail-fast 校验。
 
 **涉及文件**：
 - `src/main/java/com/jiang/config/JwtConfig.java`
+- `src/main/java/com/jiang/config/WechatConfig.java`
 
 **具体任务**：
-1. 使用 `@ConfigurationProperties(prefix = "jwt")` 绑定配置
-2. 包含字段：`secret`、`expiration`、`refreshThreshold`
-3. 添加 `@Data` 注解
-4. `secret` 字段添加 `@ToString.Exclude` 注解（防止日志泄露密钥）
-5. 添加 `@PostConstruct validate()` 方法，启动时校验密钥长度 >= 32 字节
+1. `JwtConfig`：使用 `@ConfigurationProperties(prefix = "jwt")` 绑定配置
+2. `JwtConfig` 包含字段：`secret`、`expiration`、`refreshThreshold`
+3. `JwtConfig` 添加 `@Data` 注解
+4. `JwtConfig.secret` 字段添加 `@ToString.Exclude` 注解（防止日志泄露密钥）
+5. `JwtConfig` 添加 `@PostConstruct validate()` 方法，启动时校验密钥长度 >= 32 字节
+6. `WechatConfig`：使用 `@ConfigurationProperties(prefix = "wechat")` 绑定配置
+7. `WechatConfig` 包含字段：`appid`、`secret`，均添加 `@ToString.Exclude`
+8. `WechatConfig` 添加 `@PostConstruct validate()` 方法，校验 `appid` 和 `secret` 非空且非空串
 
 **验收标准**：
 - 配置类可正确读取 yml 中的值
-- 密钥长度不足 32 字节时启动失败
+- JWT 密钥长度不足 32 字节时启动失败
+- `wechat.appid` / `wechat.secret` 空值或空串时启动失败
 - `toString()` 不包含 secret 字段
 
 ---
@@ -51,16 +56,22 @@
 
 **具体任务**：
 1. `generateToken(openid, studentId, tenantId)` - 签发 JWT
-2. `parseToken(token)` - 解析 JWT
-3. `validateToken(token)` - 校验 JWT 有效性
-4. `shouldRefresh(token)` - 判断是否需要刷新（过期前 5 分钟）
+2. `parseToken(token)` - 解析 JWT（过期抛 `ExpiredJwtException`，格式错误抛 `MalformedJwtException` 等）
+3. `validateToken(token)` - 校验 JWT 有效性（内部捕获所有 jjwt 异常，返回 false）
+4. `shouldRefresh(token)` - 判断是否需要刷新（边界：exp - now <= refreshThreshold && exp - now > 0）
 5. `getOpenidFromToken(token)` - 提取 openid
 6. `getStudentIdFromToken(token)` - 提取 studentId
 7. `getTenantIdFromToken(token)` - 提取 tenantId
 
+**异常契约**：
+- `parseToken()` 对过期/无效 token 直接抛出 jjwt 异常，调用方需自行捕获
+- `validateToken()` 吞掉所有 jjwt 异常，统一返回 `false`
+- `getXxxFromToken()` 内部调用 `parseToken()`，调用前必须先通过 `validateToken()` 确认有效
+
 **验收标准**：
 - 单元测试覆盖所有方法
 - JWT 格式正确，包含所需字段
+- 过期 token：`parseToken()` 抛 `ExpiredJwtException`，`validateToken()` 返回 `false`
 
 ---
 
@@ -161,29 +172,47 @@
 
 ## Task 9：实现 AuthServiceImpl
 
-**目标**：实现认证业务逻辑。
+**目标**：实现认证业务逻辑（微信调用 + 委托事务服务）。
 
 **涉及文件**：
 - `src/main/java/com/jiang/service/impl/AuthServiceImpl.java`
 
 **具体任务**：
-1. `login()` - 调用微信 API 换取 openid（**事务外**），再调用 `transactionalLogin()`（**事务内**）
-2. `transactionalLogin()` - 查询/创建学生，签发 JWT。添加 `@Transactional(rollbackFor = Exception.class)`
-3. `getCurrentStudent()` - 从 StudentContext 获取 studentId，查询学生。学生不存在时返回 `UNAUTHORIZED`（非 `STUDENT_NOT_FOUND`），提示重新登录
-4. `fetchOpenidFromWechat()` - 调用微信 API，**仅对网络/超时异常重试**（`ResourceAccessException`），业务失败（`errcode != 0`）直接抛出 `OPENID_INVALID`，重试间加 200ms 退避
-5. 并发首登兑底：`insert` 捕获 `DuplicateKeyException` 后回查已有记录
+1. `login()` - 调用微信 API 换取 openid（**事务外**），再调用 `StudentLoginTxService.transactionalLogin()`（跨 Bean，走代理）
+2. `getCurrentStudent()` - 从 StudentContext 获取 studentId，查询学生。学生不存在时返回 `UNAUTHORIZED`（非 `STUDENT_NOT_FOUND`），提示重新登录
+3. `fetchOpenidFromWechat()` - 调用微信 API，**仅对网络/超时异常重试**（`ResourceAccessException`），业务失败（`errcode != 0`）直接抛出 `OPENID_INVALID`，重试间加 200ms 退避
+4. 中断处理：`Thread.sleep` 被中断时直接抛出 `BusinessException(INTERNAL_ERROR, "登录被中断")`，不继续重试
+5. 注入 `WechatConfig` 获取 appid/secret（而非 `@Value`）
 
 **验收标准**：
-- 首次登录自动创建学生
-- 非首次登录返回已有学生信息
 - 微信 API 网络失败时重试（业务失败不重试）
-- 并发首登触发唯一索引冲突时正确回查
-- 微信 API 调用在事务外执行（避免长事务）
+- 中断后直接抛出，不继续循环
 - 单元测试覆盖核心逻辑
 
 ---
 
-## Task 10：实现 AuthController
+## Task 10：实现 StudentLoginTxService
+
+**目标**：将事务性数据库操作拆分到独立 Bean，确保 `@Transactional` 经过 Spring AOP 代理生效。
+
+**涉及文件**：
+- `src/main/java/com/jiang/service/StudentLoginTxService.java`
+
+**具体任务**：
+1. `transactionalLogin(openid)` - 查询/创建学生，签发 JWT。添加 `@Transactional(rollbackFor = Exception.class)`
+2. 并发首登兑底：`insert` 捕获 `DuplicateKeyException` 后回查已有记录
+3. 极端窗口说明：回查为 null 时抛出 `INTERNAL_ERROR`（Demo 阶段接受，后续可 upsert 优化）
+4. 注意：`DuplicateKeyException` 依赖 Spring 异常翻译，确保 `StudentMapper` 被 `@Repository` 或 MyBatis-Plus 异常转换器覆盖
+
+**验收标准**：
+- 首次登录自动创建学生
+- 并发首登触发唯一索引冲突时正确回查
+- `@Transactional` 实际生效（通过 `TransactionSynchronizationManager.isActualTransactionActive()` 断言验证）
+- 单元测试覆盖事务逻辑
+
+---
+
+## Task 11：实现 AuthController
 
 **目标**：提供登录和获取学生信息接口。
 
@@ -201,7 +230,7 @@
 
 ---
 
-## Task 11：修改 GlobalExceptionHandler 支持 HTTP 状态码区分
+## Task 12：修改 GlobalExceptionHandler 支持 HTTP 状态码区分
 
 **目标**：当前 `GlobalExceptionHandler` 对所有 `BusinessException` 统一返回 HTTP 200，但鉴权场景需要返回 HTTP 401。需新增 UNAUTHORIZED 专用处理器。
 
@@ -220,7 +249,7 @@
 
 ---
 
-## Task 12：更新 application.yml
+## Task 13：更新 application.yml
 
 **目标**：添加微信小程序配置。
 
@@ -237,7 +266,7 @@
 
 ---
 
-## Task 13：编写 JWT 工具类单元测试
+## Task 14：编写 JWT 工具类单元测试
 
 **目标**：验证 JWT 签发、解析、校验功能。
 
@@ -250,6 +279,8 @@
 3. 测试校验有效/无效 JWT
 4. 测试刷新判断逻辑
 5. 测试提取字段
+6. **测试过期 token：`parseToken()` 抛 `ExpiredJwtException`，`validateToken()` 返回 `false`**
+7. **测试格式错误 token：`parseToken()` 抛 `MalformedJwtException`**
 
 **验收标准**：
 - 所有测试通过
@@ -257,7 +288,7 @@
 
 ---
 
-## Task 14：编写 AuthService 单元测试
+## Task 15：编写 AuthService 单元测试
 
 **目标**：验证登录和获取学生信息逻辑。
 
@@ -277,7 +308,7 @@
 
 ---
 
-## Task 15：编写 AuthController 集成测试
+## Task 16：编写 AuthController 集成测试
 
 **目标**：验证接口层功能。
 
@@ -301,13 +332,13 @@
 ## 任务依赖关系
 
 ```
-Task 1 (JWT 配置)
+Task 1 (JWT 配置 + 微信配置)
     ↓
 Task 2 (RestTemplate 配置)
     ↓
 Task 3 (JWT 工具类)
-    ↓        ↘
-Task 4      Task 5 (JWT 拦截器)
+    ↓
+Task 4 (学生上下文)     Task 5 (JWT 拦截器)
     ↓        ↑
     └────────┘
     ↓
@@ -317,15 +348,15 @@ Task 7 (DTO/VO)
     ↓
 Task 8 (AuthService 接口)
     ↓
-Task 9 (AuthServiceImpl)
+Task 9 (AuthServiceImpl) ←→ Task 10 (StudentLoginTxService)
     ↓
-Task 10 (AuthController)
+Task 11 (AuthController)
     ↓
-Task 11 (GlobalExceptionHandler 修改)
+Task 12 (GlobalExceptionHandler 修改)
     ↓
-Task 12 (application.yml)
+Task 13 (application.yml)
     ↓
-Task 13-15 (单元测试)
+Task 14-16 (单元测试)
 ```
 
 ---
@@ -336,11 +367,11 @@ Task 13-15 (单元测试)
 |------|----------|
 | Task 1-2 | 0.5 小时 |
 | Task 3-6 | 2 小时 |
-| Task 7-10 | 2 小时 |
-| Task 11 | 0.5 小时 |
-| Task 12 | 0.5 小时 |
-| Task 13-15 | 2 小时 |
-| **总计** | **7.5 小时** |
+| Task 7-8 | 1 小时 |
+| Task 9-10 | 1.5 小时 |
+| Task 11-13 | 1 小时 |
+| Task 14-16 | 2 小时 |
+| **总计** | **8 小时** |
 
 ---
 
@@ -358,7 +389,12 @@ Task 13-15 (单元测试)
 - [ ] `StudentVO` 不包含 `openid` 字段（隐私保护）
 - [ ] 微信 API 业务失败不重试，网络/超时失败重试（最多 2 次）
 - [ ] JWT 密钥长度不足 32 字节时启动失败（fail-fast）
+- [ ] `wechat.appid` / `wechat.secret` 空值或空串时启动失败（fail-fast）
 - [ ] 微信 API 调用在事务外执行，事务内仅包含 DB 操作
+- [ ] `@Transactional` 实际生效（跨 Bean 调用，经过 Spring AOP 代理）
+- [ ] 过期 token：`parseToken()` 抛 `ExpiredJwtException`，`validateToken()` 返回 `false`
+- [ ] 中断后 `fetchOpenidFromWechat` 直接抛出，不继续重试
+- [ ] CORS 配置为 Demo 阶段放宽，上线前需收敛域名
 
 ### 测试验收
 - [ ] 单元测试覆盖 JWT 工具类核心方法

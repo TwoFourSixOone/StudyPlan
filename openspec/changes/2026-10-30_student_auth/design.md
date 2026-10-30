@@ -25,10 +25,12 @@ com.jiang
 │   └── AuthController          # 登录接口
 ├── service
 │   ├── AuthService             # 登录业务逻辑
+│   ├── StudentLoginTxService   # 登录事务服务（独立 Bean，解决 @Transactional 自调用失效）
 │   └── impl
 │       └── AuthServiceImpl
 ├── config
 │   ├── JwtConfig               # JWT 配置类
+│   ├── WechatConfig            # 微信配置类（含 fail-fast 校验）
 │   └── WebMvcConfig            # MVC 配置（注册拦截器）
 ├── security
 │   ├── JwtUtil                 # JWT 工具类
@@ -144,13 +146,19 @@ public class JwtUtil {
      * 解析 JWT
      * @param token JWT 字符串
      * @return Claims 对象
+     * @throws ExpiredJwtException token 已过期
+     * @throws UnsupportedJwtException token 格式不支持
+     * @throws MalformedJwtException token 结构不完整
+     * @throws SignatureException 签名校验失败
+     * @throws IllegalArgumentException token 为空或 null
      */
     public Claims parseToken(String token);
     
     /**
      * 校验 JWT 是否有效
+     * 内部调用 parseToken()，捕获所有 jjwt 异常后返回 false
      * @param token JWT 字符串
-     * @return true=有效，false=无效或过期
+     * @return true=有效，false=无效或过期或格式错误
      */
     public boolean validateToken(String token);
     
@@ -189,6 +197,11 @@ public class JwtUtil {
   "exp": 1698660000             // 过期时间
 }
 ```
+
+**异常契约**：
+- `parseToken()` 对过期/无效/格式错误的 token 直接抛出 jjwt 异常（`ExpiredJwtException`、`MalformedJwtException` 等），调用方需自行捕获
+- `validateToken()` 内部捕获所有 jjwt 异常，统一返回 `false`，不向外抛异常
+- `getStudentIdFromToken()` / `getOpenidFromToken()` / `getTenantIdFromToken()` 内部调用 `parseToken()`，可能抛出 jjwt 异常；调用前必须先通过 `validateToken()` 确认 token 有效
 
 ### 3.3 JWT 拦截器
 
@@ -330,6 +343,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 - 前端收到 `X-Refresh-Token` 响应头时，无条件覆盖本地存储的 JWT
 - CORS 配置中 `exposedHeaders` 暴露 `X-Refresh-Token`，确保浏览器/小程序可读取
 
+**CORS 安全说明**：
+- 当前配置 `allowedOriginPatterns("*")` + `allowCredentials(true)` 为 **Demo 阶段放宽配置**
+- 本项目使用 JWT 放 Header 而非 cookie，`allowCredentials` 实际影响有限
+- **上线前必须收敛为具体域名列表**，如 `allowedOriginPatterns("https://xxx.com")`
+
 ### 3.6 登录请求 DTO
 
 ```java
@@ -382,12 +400,14 @@ public interface AuthService {
 }
 ```
 
-### 3.10 AuthServiceImpl 实现
+### 3.10 StudentLoginTxService（独立事务 Bean）
+
+> **设计动机**：Spring `@Transactional` 基于 AOP 代理，同类内部调用（`this.method()`）不经过代理，注解不生效。将事务方法拆分到独立 Bean，通过跨 Bean 调用确保事务生效。
 
 ```java
 @Service
 @Slf4j
-public class AuthServiceImpl implements AuthService {
+public class StudentLoginTxService {
     
     @Autowired
     private StudentMapper studentMapper;
@@ -395,26 +415,9 @@ public class AuthServiceImpl implements AuthService {
     @Autowired
     private JwtUtil jwtUtil;
     
-    @Autowired
-    private RestTemplate restTemplate;
-    
-    @Value("${wechat.appid}")
-    private String appid;
-    
-    @Value("${wechat.secret}")
-    private String secret;
-    
-    @Override
-    public LoginResponse login(String code) {
-        // 1. 调用微信 API 换取 openid（事务外，避免长事务占用 DB 连接）
-        String openid = fetchOpenidFromWechat(code);
-        
-        // 2. 事务内执行数据库操作
-        return transactionalLogin(openid);
-    }
-    
     /**
      * 事务内登录逻辑（仅包含 DB 操作）
+     * 由 AuthServiceImpl.login() 调用，跨 Bean 确保 @Transactional 生效
      */
     @Transactional(rollbackFor = Exception.class)
     public LoginResponse transactionalLogin(String openid) {
@@ -436,6 +439,8 @@ public class AuthServiceImpl implements AuthService {
                 studentMapper.insert(student);
             } catch (DuplicateKeyException e) {
                 // 并发首登兑底：唯一索引冲突，回查已有记录
+                // 注意：DuplicateKeyException 依赖 Spring 的异常翻译（@Repository 或 MyBatis-Plus 异常转换器）
+                // 确保 StudentMapper 被正确翻译，否则原始异常为 SQLIntegrityConstraintViolationException
                 log.warn("并发首登触发唯一索引冲突，回查学生记录: openid={}", openid);
                 student = studentMapper.selectOne(
                     new LambdaQueryWrapper<Student>()
@@ -443,6 +448,8 @@ public class AuthServiceImpl implements AuthService {
                         .eq(Student::getTenantId, "default")
                 );
                 if (student == null) {
+                    // 极端并发窗口：冲突后、回查前另一事务删除了记录
+                    // Demo 阶段接受该风险，后续可通过 upsert 优化
                     throw new BusinessException(ErrorCodes.INTERNAL_ERROR, "登录失败，请重试");
                 }
             }
@@ -463,15 +470,57 @@ public class AuthServiceImpl implements AuthService {
         return response;
     }
     
+    private StudentVO convertToVO(Student student) {
+        StudentVO vo = new StudentVO();
+        vo.setStudentId(student.getStudentId());
+        vo.setNickname(student.getNickname());
+        vo.setAvatar(student.getAvatar());
+        vo.setGrade(student.getGrade());
+        return vo;
+    }
+}
+```
+
+### 3.11 AuthServiceImpl 实现
+
+```java
+@Service
+@Slf4j
+public class AuthServiceImpl implements AuthService {
+    
+    @Autowired
+    private StudentLoginTxService txService;  // 跨 Bean 调用，确保 @Transactional 生效
+    
+    @Autowired
+    private RestTemplate restTemplate;
+    
+    @Autowired
+    private WechatConfig wechatConfig;
+    
+    @Override
+    public LoginResponse login(String code) {
+        // 1. 调用微信 API 换取 openid（事务外，避免长事务占用 DB 连接）
+        String openid = fetchOpenidFromWechat(code);
+        
+        // 2. 跨 Bean 调用事务方法（经过 Spring 代理，@Transactional 生效）
+        return txService.transactionalLogin(openid);
+    }
+    
     @Override
     public StudentVO getCurrentStudent() {
         Long studentId = StudentContext.getStudentId();
+        // 注意：此处需要注入 StudentMapper 用于查询
         Student student = studentMapper.selectById(studentId);
         if (student == null) {
             // JWT 有效但学生不存在，属于数据一致性问题，返回 401 提示重新登录
             throw new BusinessException(ErrorCodes.UNAUTHORIZED, "学生数据异常，请重新登录");
         }
-        return convertToVO(student);
+        StudentVO vo = new StudentVO();
+        vo.setStudentId(student.getStudentId());
+        vo.setNickname(student.getNickname());
+        vo.setAvatar(student.getAvatar());
+        vo.setGrade(student.getGrade());
+        return vo;
     }
     
     /**
@@ -481,7 +530,7 @@ public class AuthServiceImpl implements AuthService {
     private String fetchOpenidFromWechat(String code) {
         String url = String.format(
             "https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
-            appid, secret, code
+            wechatConfig.getAppid(), wechatConfig.getSecret(), code
         );
         
         int maxRetries = 2;
@@ -521,7 +570,8 @@ public class AuthServiceImpl implements AuthService {
                 try {
                     Thread.sleep(retryBackoffMs);
                 } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
+                    // 中断后直接抛出，不再重试
+                    throw new BusinessException(ErrorCodes.INTERNAL_ERROR, "登录被中断");
                 }
             } catch (BusinessException e) {
                 // 业务异常不重试，直接抛出
@@ -535,22 +585,38 @@ public class AuthServiceImpl implements AuthService {
         
         throw new BusinessException(ErrorCodes.INTERNAL_ERROR, "微信登录失败");
     }
-    
-    /**
-     * Entity 转 VO（openid 不下发前端）
-     */
-    private StudentVO convertToVO(Student student) {
-        StudentVO vo = new StudentVO();
-        vo.setStudentId(student.getStudentId());
-        vo.setNickname(student.getNickname());
-        vo.setAvatar(student.getAvatar());
-        vo.setGrade(student.getGrade());
-        return vo;
     }
 }
 ```
 
-### 3.11 AuthController
+### 3.12 微信配置类（含 fail-fast 校验）
+
+> 对应 P2-5：`wechat.secret` 若配置为空字符串，`@Value` 能解析为空串，不会启动失败。通过 `@PostConstruct` 校验非空。
+
+```java
+@Configuration
+@ConfigurationProperties(prefix = "wechat")
+@Data
+public class WechatConfig {
+    @ToString.Exclude  // 防止日志泄露
+    private String appid;
+    
+    @ToString.Exclude  // 防止日志泄露
+    private String secret;
+    
+    @PostConstruct
+    public void validate() {
+        if (appid == null || appid.isBlank()) {
+            throw new IllegalArgumentException("wechat.appid 不能为空，请在配置文件中设置");
+        }
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalArgumentException("wechat.secret 不能为空，请在配置文件中设置");
+        }
+    }
+}
+```
+
+### 3.13 AuthController
 
 ```java
 @RestController
@@ -644,7 +710,7 @@ public class RestTemplateConfig {
 | 约定 #1：统一响应结构 | 所有接口返回 `Result<T>` |
 | 约定 #2：异常处理规范 | 登录失败抛出 `BusinessException` |
 | 约定 #7：tenant_id 注入 | JWT 中包含 `tenant_id`，拦截器注入到 `StudentContext` |
-| 约定 #9：@Transactional rollbackFor | `transactionalLogin()` 方法添加 `@Transactional(rollbackFor = Exception.class)`，微信 API 调用在事务外执行 |
+| 约定 #9：@Transactional rollbackFor | `StudentLoginTxService.transactionalLogin()` 添加 `@Transactional(rollbackFor = Exception.class)`，通过独立 Bean 调用确保代理生效；微信 API 调用在事务外执行 |
 
 ---
 
@@ -673,6 +739,7 @@ ALTER TABLE `student`
 | 文件路径 | 说明 |
 |---------|------|
 | `src/main/java/com/jiang/config/JwtConfig.java` | JWT 配置类 |
+| `src/main/java/com/jiang/config/WechatConfig.java` | 微信配置类（含 fail-fast 校验） |
 | `src/main/java/com/jiang/config/WebMvcConfig.java` | MVC 配置（注册拦截器） |
 | `src/main/java/com/jiang/config/RestTemplateConfig.java` | RestTemplate 配置 |
 | `src/main/java/com/jiang/security/JwtUtil.java` | JWT 工具类 |
@@ -682,6 +749,7 @@ ALTER TABLE `student`
 | `src/main/java/com/jiang/vo/LoginResponse.java` | 登录响应 VO |
 | `src/main/java/com/jiang/vo/StudentVO.java` | 学生信息 VO |
 | `src/main/java/com/jiang/service/AuthService.java` | 认证 Service 接口 |
+| `src/main/java/com/jiang/service/StudentLoginTxService.java` | 登录事务服务（独立 Bean，解决 @Transactional 自调用失效） |
 | `src/main/java/com/jiang/service/impl/AuthServiceImpl.java` | 认证 Service 实现 |
 | `src/main/java/com/jiang/controller/AuthController.java` | 认证 Controller |
 | `src/main/java/com/jiang/common/exception/GlobalExceptionHandler.java` | 新增 UNAUTHORIZED 专用处理器（修改现有文件） |
@@ -698,8 +766,8 @@ ALTER TABLE `student`
 
 | 测试类 | 测试对象 | 测试场景 |
 |--------|---------|----------|
-| `JwtUtilTest` | JWT 工具类 | 签发、解析、校验、刷新判断 |
-| `AuthServiceTest` | AuthService | 登录（首次/非首次）、获取当前学生 |
+| `JwtUtilTest` | JWT 工具类 | 签发、解析、校验、刷新判断、**过期 token 的 parse/validate 行为** |
+| `AuthServiceTest` | AuthService | 登录（首次/非首次）、获取当前学生、**@Transactional 实际生效验证** |
 
 ### 9.2 集成测试
 
@@ -726,6 +794,9 @@ ALTER TABLE `student`
 - [ ] `StudentVO` 不包含 `openid` 字段（隐私保护）
 - [ ] 微信 API 业务失败不重试，网络/超时失败重试（最多 2 次）
 - [ ] JWT 密钥长度不足 32 字节时启动失败（fail-fast）
+- [ ] `wechat.appid` / `wechat.secret` 空值或空串时启动失败（fail-fast）
+- [ ] `@Transactional` 实际生效（通过 `TransactionSynchronizationManager.isActualTransactionActive()` 断言，或集成测试验证回滚）
+- [ ] 过期 token 调用 `parseToken()` 抛出 `ExpiredJwtException`，`validateToken()` 返回 `false`
 - [ ] 单元测试覆盖核心方法
 - [ ] 集成测试覆盖接口层（含 `@Valid` 校验失败返回 400）
 - [ ] 编译通过，无警告
