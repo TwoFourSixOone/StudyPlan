@@ -134,19 +134,21 @@
 
 ---
 
-## Task 7：创建 DTO/VO 类
+## Task 7：创建 DTO/VO 类与公共转换器
 
-**目标**：定义接口入参和出参。
+**目标**：定义接口入参、出参及 Entity↔VO 转换器。
 
 **涉及文件**：
 - `src/main/java/com/jiang/dto/LoginRequest.java`
 - `src/main/java/com/jiang/vo/LoginResponse.java`
 - `src/main/java/com/jiang/vo/StudentVO.java`
+- `src/main/java/com/jiang/converter/StudentConverter.java`
 
 **具体任务**：
 1. `LoginRequest` - 包含 `code` 字段，添加 `@NotBlank` 校验
 2. `LoginResponse` - 包含 `token`、`studentInfo`
 3. `StudentVO` - 包含 `studentId`、`nickname`、`avatar`、`grade`（**不含 openid**，隐私保护）
+4. `StudentConverter.toVO(Student)` - 公共静态方法，供 `StudentLoginTxService` 和 `AuthServiceImpl` 共用
 
 **验收标准**：
 - 字段与设计文档一致
@@ -207,8 +209,7 @@
 **验收标准**：
 - 首次登录自动创建学生
 - 并发首登触发唯一索引冲突时正确回查
-- `@Transactional` 实际生效（通过 `TransactionSynchronizationManager.isActualTransactionActive()` 断言验证）
-- 单元测试覆盖事务逻辑
+- 单元测试覆盖事务逻辑（Mock 环境，不验证 @Transactional 实际生效）
 
 ---
 
@@ -288,19 +289,22 @@
 
 ---
 
-## Task 15：编写 AuthService 单元测试
+## Task 15：编写 AuthService 与 StudentLoginTxService 单元测试
 
-**目标**：验证登录和获取学生信息逻辑。
+**目标**：验证登录和获取学生信息逻辑，以及事务登录逻辑。
 
 **涉及文件**：
 - `src/test/java/com/jiang/service/AuthServiceTest.java`
+- `src/test/java/com/jiang/service/StudentLoginTxServiceTest.java`
 
 **具体任务**：
-1. 测试首次登录（自动创建学生）
-2. 测试非首次登录（返回已有学生）
-3. 测试微信 API 失败重试
-4. 测试获取当前学生信息
-5. Mock 微信 API 和数据库
+1. `AuthServiceTest`：测试首次登录（自动创建学生）
+2. `AuthServiceTest`：测试非首次登录（返回已有学生）
+3. `AuthServiceTest`：测试微信 API 失败重试
+4. `AuthServiceTest`：测试获取当前学生信息
+5. `AuthServiceTest`：Mock 微信 API 和数据库
+6. `StudentLoginTxServiceTest`：测试事务登录（Mock 环境，不验证 @Transactional 实际生效）
+7. `StudentLoginTxServiceTest`：测试并发首登 DuplicateKeyException 回查
 
 **验收标准**：
 - 所有测试通过
@@ -320,7 +324,8 @@
 2. 测试获取学生信息接口
 3. 测试 JWT 校验失败返回 401
 4. 测试 `@Valid` 校验失败（`code` 为空）返回 400
-5. 使用 `@SpringBootTest` 和 `MockMvc`
+5. **测试 `@Transactional` 实际生效**：构造 insert 成功后抛异常场景，验证 DB 无记录（回滚生效）
+6. 使用 `@SpringBootTest` 和 `MockMvc`
 
 **验收标准**：
 - 所有测试通过
@@ -336,15 +341,9 @@ Task 1 (JWT 配置 + 微信配置)
     ↓
 Task 2 (RestTemplate 配置)
     ↓
-Task 3 (JWT 工具类)
-    ↓
-Task 4 (学生上下文)     Task 5 (JWT 拦截器)
-    ↓        ↑
-    └────────┘
-    ↓
-Task 6 (MVC 配置)
-    ↓
-Task 7 (DTO/VO)
+Task 3 (JWT 工具类) ──┬──→ Task 5 (JWT 拦截器) ──→ Task 6 (WebMvcConfig)
+                   └──→ Task 4 (StudentContext) ──↗
+Task 7 (DTO/VO) + Task 11-b (StudentConverter)
     ↓
 Task 8 (AuthService 接口)
     ↓
@@ -356,7 +355,7 @@ Task 12 (GlobalExceptionHandler 修改)
     ↓
 Task 13 (application.yml)
     ↓
-Task 14-16 (单元测试)
+Task 14-16 (单元测试 + 集成测试)
 ```
 
 ---
@@ -397,10 +396,12 @@ Task 14-16 (单元测试)
 - [ ] CORS 配置为 Demo 阶段放宽，上线前需收敛域名
 
 ### 测试验收
-- [ ] 单元测试覆盖 JWT 工具类核心方法
+- [ ] 单元测试覆盖 JWT 工具类核心方法（含过期 token 异常契约）
 - [ ] 单元测试覆盖 AuthService 核心逻辑
+- [ ] 单元测试覆盖 StudentLoginTxService 事务逻辑
 - [ ] 集成测试覆盖 AuthController 接口
 - [ ] 集成测试覆盖 `@Valid` 校验失败返回 400 场景
+- [ ] 集成测试验证 `@Transactional` 实际生效（回滚行为）
 - [ ] 所有测试通过
 
 ### 编译验收
