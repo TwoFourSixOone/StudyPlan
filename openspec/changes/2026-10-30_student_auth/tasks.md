@@ -1,0 +1,330 @@
+# Tasks：学生登录与 JWT 鉴权
+
+> **Change ID**: `2026-10-30_student_auth`  
+> **关联 Design**: design.md
+
+---
+
+## Task 1：创建 JWT 配置类
+
+**目标**：读取 application.yml 中的 JWT 配置。
+
+**涉及文件**：
+- `src/main/java/com/jiang/config/JwtConfig.java`
+
+**具体任务**：
+1. 使用 `@ConfigurationProperties(prefix = "jwt")` 绑定配置
+2. 包含字段：`secret`、`expiration`、`refreshThreshold`
+3. 添加 `@Data` 注解
+
+**验收标准**：
+- 配置类可正确读取 yml 中的值
+
+---
+
+## Task 2：创建 RestTemplate 配置
+
+**目标**：配置 RestTemplate 用于调用微信 API。
+
+**涉及文件**：
+- `src/main/java/com/jiang/config/RestTemplateConfig.java`
+
+**具体任务**：
+1. 创建 `RestTemplate` Bean
+2. 设置连接超时 5 秒，读取超时 10 秒
+
+**验收标准**：
+- RestTemplate 可正常注入
+
+---
+
+## Task 3：实现 JWT 工具类
+
+**目标**：提供 JWT 签发、解析、校验功能。
+
+**涉及文件**：
+- `src/main/java/com/jiang/security/JwtUtil.java`
+
+**具体任务**：
+1. `generateToken(openid, studentId, tenantId)` - 签发 JWT
+2. `parseToken(token)` - 解析 JWT
+3. `validateToken(token)` - 校验 JWT 有效性
+4. `shouldRefresh(token)` - 判断是否需要刷新（过期前 5 分钟）
+5. `getOpenidFromToken(token)` - 提取 openid
+6. `getStudentIdFromToken(token)` - 提取 studentId
+7. `getTenantIdFromToken(token)` - 提取 tenantId
+
+**验收标准**：
+- 单元测试覆盖所有方法
+- JWT 格式正确，包含所需字段
+
+---
+
+## Task 4：实现学生上下文（ThreadLocal）
+
+**目标**：在请求线程中存储当前登录学生信息。
+
+**涉及文件**：
+- `src/main/java/com/jiang/security/StudentContext.java`
+
+**具体任务**：
+1. 使用 ThreadLocal 存储 `studentId`、`openid`、`tenantId`
+2. 提供 `set`、`get`、`clear` 静态方法
+
+**验收标准**：
+- 可在拦截器中设置，在 Service 中获取
+
+---
+
+## Task 5：实现 JWT 拦截器
+
+**目标**：拦截请求，校验 JWT，注入学生信息。
+
+**涉及文件**：
+- `src/main/java/com/jiang/security/JwtInterceptor.java`
+
+**具体任务**：
+1. `preHandle()` - 从 Header 获取 JWT，校验有效性
+2. 提取学生信息存入 `StudentContext`
+3. 判断是否需要刷新，刷新则通过响应头返回新 JWT
+4. `afterCompletion()` - 清除 ThreadLocal
+
+**验收标准**：
+- 未携带 JWT 返回 401
+- JWT 过期返回 401
+- JWT 即将过期（<5 分钟）返回新 JWT
+- 学生信息正确注入 ThreadLocal
+
+---
+
+## Task 6：配置 MVC 拦截器
+
+**目标**：注册 JWT 拦截器，配置拦截路径。
+
+**涉及文件**：
+- `src/main/java/com/jiang/config/WebMvcConfig.java`
+
+**具体任务**：
+1. 实现 `WebMvcConfigurer`
+2. 注册 `JwtInterceptor`
+3. 拦截 `/api/**`，排除 `/api/auth/**`
+
+**验收标准**：
+- 登录接口不需要 JWT
+- 其他接口需要 JWT
+
+---
+
+## Task 7：创建 DTO/VO 类
+
+**目标**：定义接口入参和出参。
+
+**涉及文件**：
+- `src/main/java/com/jiang/dto/LoginRequest.java`
+- `src/main/java/com/jiang/vo/LoginResponse.java`
+- `src/main/java/com/jiang/vo/StudentVO.java`
+
+**具体任务**：
+1. `LoginRequest` - 包含 `code` 字段，添加 `@NotBlank` 校验
+2. `LoginResponse` - 包含 `token`、`studentInfo`
+3. `StudentVO` - 包含 `studentId`、`openid`、`nickname`、`avatar`、`grade`
+
+**验收标准**：
+- 字段与设计文档一致
+- 校验注解生效
+
+---
+
+## Task 8：实现 AuthService 接口
+
+**目标**：定义认证业务逻辑接口。
+
+**涉及文件**：
+- `src/main/java/com/jiang/service/AuthService.java`
+
+**具体任务**：
+1. `login(code)` - 微信登录
+2. `getCurrentStudent()` - 获取当前学生信息
+
+**验收标准**：
+- 接口定义清晰
+
+---
+
+## Task 9：实现 AuthServiceImpl
+
+**目标**：实现认证业务逻辑。
+
+**涉及文件**：
+- `src/main/java/com/jiang/service/impl/AuthServiceImpl.java`
+
+**具体任务**：
+1. `login()` - 调用微信 API 换取 openid，查询/创建学生，签发 JWT
+2. `getCurrentStudent()` - 从 StudentContext 获取 studentId，查询学生
+3. `fetchOpenidFromWechat()` - 调用微信 API，带重试机制（最多 2 次）
+4. 添加 `@Transactional(rollbackFor = Exception.class)` 到 `login()`
+
+**验收标准**：
+- 首次登录自动创建学生
+- 非首次登录返回已有学生信息
+- 微信 API 失败时重试
+- 单元测试覆盖核心逻辑
+
+---
+
+## Task 10：实现 AuthController
+
+**目标**：提供登录和获取学生信息接口。
+
+**涉及文件**：
+- `src/main/java/com/jiang/controller/AuthController.java`
+
+**具体任务**：
+1. `POST /api/auth/login` - 微信登录接口
+2. `GET /api/auth/current` - 获取当前学生信息
+3. 添加 Swagger 注解（`@Tag`、`@Operation`）
+
+**验收标准**：
+- 接口返回统一 `Result<T>` 格式
+- Swagger 文档正确显示
+
+---
+
+## Task 11：更新 application.yml
+
+**目标**：添加微信小程序配置。
+
+**涉及文件**：
+- `src/main/resources/application.yml`（受保护，需人工审批）
+
+**具体任务**：
+1. 添加 `wechat.appid`、`wechat.secret` 配置
+2. 补充 `jwt.refresh-threshold` 配置
+
+**验收标准**：
+- 配置格式正确
+- 敏感信息使用环境变量占位
+
+---
+
+## Task 12：编写 JWT 工具类单元测试
+
+**目标**：验证 JWT 签发、解析、校验功能。
+
+**涉及文件**：
+- `src/test/java/com/jiang/security/JwtUtilTest.java`
+
+**具体任务**：
+1. 测试签发 JWT
+2. 测试解析 JWT
+3. 测试校验有效/无效 JWT
+4. 测试刷新判断逻辑
+5. 测试提取字段
+
+**验收标准**：
+- 所有测试通过
+- 覆盖正常和异常场景
+
+---
+
+## Task 13：编写 AuthService 单元测试
+
+**目标**：验证登录和获取学生信息逻辑。
+
+**涉及文件**：
+- `src/test/java/com/jiang/service/AuthServiceTest.java`
+
+**具体任务**：
+1. 测试首次登录（自动创建学生）
+2. 测试非首次登录（返回已有学生）
+3. 测试微信 API 失败重试
+4. 测试获取当前学生信息
+5. Mock 微信 API 和数据库
+
+**验收标准**：
+- 所有测试通过
+- Mock 策略正确
+
+---
+
+## Task 14：编写 AuthController 集成测试
+
+**目标**：验证接口层功能。
+
+**涉及文件**：
+- `src/test/java/com/jiang/controller/AuthControllerTest.java`
+
+**具体任务**：
+1. 测试登录接口（正常/异常）
+2. 测试获取学生信息接口
+3. 测试 JWT 校验失败返回 401
+4. 使用 `@SpringBootTest` 和 `MockMvc`
+
+**验收标准**：
+- 所有测试通过
+- 接口返回格式正确
+
+---
+
+## 任务依赖关系
+
+```
+Task 1 (JWT 配置)
+    ↓
+Task 2 (RestTemplate 配置)
+    ↓
+Task 3 (JWT 工具类) → Task 4 (学生上下文)
+    ↓                    ↓
+Task 5 (JWT 拦截器) ←---+
+    ↓
+Task 6 (MVC 配置)
+    ↓
+Task 7 (DTO/VO)
+    ↓
+Task 8 (AuthService 接口)
+    ↓
+Task 9 (AuthServiceImpl)
+    ↓
+Task 10 (AuthController)
+    ↓
+Task 11 (application.yml)
+    ↓
+Task 12-14 (单元测试)
+```
+
+---
+
+## 预估工时
+
+| Task | 预估时间 |
+|------|----------|
+| Task 1-2 | 0.5 小时 |
+| Task 3-6 | 2 小时 |
+| Task 7-10 | 2 小时 |
+| Task 11 | 0.5 小时 |
+| Task 12-14 | 2 小时 |
+| **总计** | **7 小时** |
+
+---
+
+## 验收标准汇总
+
+### 功能验收
+- [ ] 微信登录接口可正常调用（Mock 微信 API）
+- [ ] JWT 签发正确，包含 `openid`、`student_id`、`tenant_id`
+- [ ] JWT 拦截器可正确校验令牌
+- [ ] JWT 过期前 5 分钟内返回新 JWT
+- [ ] JWT 过期后返回 401
+- [ ] 首次登录自动创建学生记录
+- [ ] 获取当前学生信息接口返回正确数据
+
+### 测试验收
+- [ ] 单元测试覆盖 JWT 工具类核心方法
+- [ ] 单元测试覆盖 AuthService 核心逻辑
+- [ ] 集成测试覆盖 AuthController 接口
+- [ ] 所有测试通过
+
+### 编译验收
+- [ ] `mvn compile` 成功
+- [ ] `mvn test` 成功
+- [ ] 无编译警告
