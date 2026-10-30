@@ -82,7 +82,7 @@
 - [ ] 微信登录接口可正常调用（Mock 微信 API）
 - [ ] JWT 签发正确，包含 `openid`、`student_id`、`tenant_id`
 - [ ] JWT 拦截器可正确校验令牌，未授权请求返回 401
-- [ ] JWT 过期前 5 分钟内返回新 JWT（通过响应头 `Authorization`）
+- [ ] JWT 过期前 5 分钟内返回新 JWT（通过响应头 `X-Refresh-Token`）
 - [ ] JWT 过期后返回 401，前端可重放请求
 - [ ] 首次登录自动创建学生记录
 - [ ] 获取当前学生信息接口返回正确数据

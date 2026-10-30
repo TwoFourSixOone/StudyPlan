@@ -16,9 +16,13 @@
 1. 使用 `@ConfigurationProperties(prefix = "jwt")` 绑定配置
 2. 包含字段：`secret`、`expiration`、`refreshThreshold`
 3. 添加 `@Data` 注解
+4. `secret` 字段添加 `@ToString.Exclude` 注解（防止日志泄露密钥）
+5. 添加 `@PostConstruct validate()` 方法，启动时校验密钥长度 >= 32 字节
 
 **验收标准**：
 - 配置类可正确读取 yml 中的值
+- 密钥长度不足 32 字节时启动失败
+- `toString()` 不包含 secret 字段
 
 ---
 
@@ -86,14 +90,15 @@
 **具体任务**：
 1. `preHandle()` - 从 Header 获取 JWT，校验有效性
 2. 提取学生信息存入 `StudentContext`
-3. 判断是否需要刷新，刷新则通过响应头返回新 JWT
+3. 判断是否需要刷新（边界：exp - now <= refreshThreshold && exp - now > 0），刷新则通过响应头 `X-Refresh-Token` 返回新 JWT
 4. `afterCompletion()` - 清除 ThreadLocal
 
 **验收标准**：
 - 未携带 JWT 返回 401
 - JWT 过期返回 401
-- JWT 即将过期（<5 分钟）返回新 JWT
+- JWT 即将过期（<5 分钟）通过 `X-Refresh-Token` 响应头返回新 JWT
 - 学生信息正确注入 ThreadLocal
+- 先校验 JWT 再 set ThreadLocal（顺序约束，防止异常时泄露数据）
 
 ---
 
@@ -107,11 +112,14 @@
 **具体任务**：
 1. 实现 `WebMvcConfigurer`
 2. 注册 `JwtInterceptor`
-3. 拦截 `/api/**`，排除 `/api/auth/**`
+3. 拦截 `/api/**`，仅排除 `/api/auth/login`（注意：`/api/auth/current` 必须经过鉴权）
+4. 配置 CORS：`exposedHeaders` 暴露 `X-Refresh-Token`
 
 **验收标准**：
-- 登录接口不需要 JWT
-- 其他接口需要 JWT
+- 登录接口（`/api/auth/login`）不需要 JWT
+- `/api/auth/current` 接口必须经过鉴权
+- 其他 `/api/**` 接口需要 JWT
+- CORS 配置正确暴露 `X-Refresh-Token` 响应头
 
 ---
 
@@ -127,7 +135,7 @@
 **具体任务**：
 1. `LoginRequest` - 包含 `code` 字段，添加 `@NotBlank` 校验
 2. `LoginResponse` - 包含 `token`、`studentInfo`
-3. `StudentVO` - 包含 `studentId`、`openid`、`nickname`、`avatar`、`grade`
+3. `StudentVO` - 包含 `studentId`、`nickname`、`avatar`、`grade`（**不含 openid**，隐私保护）
 
 **验收标准**：
 - 字段与设计文档一致
@@ -159,15 +167,18 @@
 - `src/main/java/com/jiang/service/impl/AuthServiceImpl.java`
 
 **具体任务**：
-1. `login()` - 调用微信 API 换取 openid，查询/创建学生，签发 JWT
-2. `getCurrentStudent()` - 从 StudentContext 获取 studentId，查询学生
-3. `fetchOpenidFromWechat()` - 调用微信 API，带重试机制（最多 2 次）
-4. 添加 `@Transactional(rollbackFor = Exception.class)` 到 `login()`
+1. `login()` - 调用微信 API 换取 openid（**事务外**），再调用 `transactionalLogin()`（**事务内**）
+2. `transactionalLogin()` - 查询/创建学生，签发 JWT。添加 `@Transactional(rollbackFor = Exception.class)`
+3. `getCurrentStudent()` - 从 StudentContext 获取 studentId，查询学生。学生不存在时返回 `UNAUTHORIZED`（非 `STUDENT_NOT_FOUND`），提示重新登录
+4. `fetchOpenidFromWechat()` - 调用微信 API，**仅对网络/超时异常重试**（`ResourceAccessException`），业务失败（`errcode != 0`）直接抛出 `OPENID_INVALID`，重试间加 200ms 退避
+5. 并发首登兑底：`insert` 捕获 `DuplicateKeyException` 后回查已有记录
 
 **验收标准**：
 - 首次登录自动创建学生
 - 非首次登录返回已有学生信息
-- 微信 API 失败时重试
+- 微信 API 网络失败时重试（业务失败不重试）
+- 并发首登触发唯一索引冲突时正确回查
+- 微信 API 调用在事务外执行（避免长事务）
 - 单元测试覆盖核心逻辑
 
 ---
@@ -190,7 +201,26 @@
 
 ---
 
-## Task 11：更新 application.yml
+## Task 11：修改 GlobalExceptionHandler 支持 HTTP 状态码区分
+
+**目标**：当前 `GlobalExceptionHandler` 对所有 `BusinessException` 统一返回 HTTP 200，但鉴权场景需要返回 HTTP 401。需新增 UNAUTHORIZED 专用处理器。
+
+**涉及文件**：
+- `src/main/java/com/jiang/common/exception/GlobalExceptionHandler.java`
+
+**具体任务**：
+1. 新增 `handleUnauthorizedException()` 方法，处理 `BusinessException` 且 `code == UNAUTHORIZED.getCode()`，返回 HTTP 401
+2. 修改原 `handleBusinessException()` 方法，排除 UNAUTHORIZED 场景（避免被通用处理器捕获）
+3. 添加 `@ResponseStatus(HttpStatus.UNAUTHORIZED)` 到新方法
+
+**验收标准**：
+- `BusinessException(UNAUTHORIZED)` 返回 HTTP 401
+- 其他 `BusinessException` 仍返回 HTTP 200
+- 现有单元测试不受影响
+
+---
+
+## Task 12：更新 application.yml
 
 **目标**：添加微信小程序配置。
 
@@ -207,7 +237,7 @@
 
 ---
 
-## Task 12：编写 JWT 工具类单元测试
+## Task 13：编写 JWT 工具类单元测试
 
 **目标**：验证 JWT 签发、解析、校验功能。
 
@@ -227,7 +257,7 @@
 
 ---
 
-## Task 13：编写 AuthService 单元测试
+## Task 14：编写 AuthService 单元测试
 
 **目标**：验证登录和获取学生信息逻辑。
 
@@ -247,7 +277,7 @@
 
 ---
 
-## Task 14：编写 AuthController 集成测试
+## Task 15：编写 AuthController 集成测试
 
 **目标**：验证接口层功能。
 
@@ -258,11 +288,13 @@
 1. 测试登录接口（正常/异常）
 2. 测试获取学生信息接口
 3. 测试 JWT 校验失败返回 401
-4. 使用 `@SpringBootTest` 和 `MockMvc`
+4. 测试 `@Valid` 校验失败（`code` 为空）返回 400
+5. 使用 `@SpringBootTest` 和 `MockMvc`
 
 **验收标准**：
 - 所有测试通过
 - 接口返回格式正确
+- 参数校验失败返回 400
 
 ---
 
@@ -273,9 +305,11 @@ Task 1 (JWT 配置)
     ↓
 Task 2 (RestTemplate 配置)
     ↓
-Task 3 (JWT 工具类) → Task 4 (学生上下文)
-    ↓                    ↓
-Task 5 (JWT 拦截器) ←---+
+Task 3 (JWT 工具类)
+    ↓        ↘
+Task 4      Task 5 (JWT 拦截器)
+    ↓        ↑
+    └────────┘
     ↓
 Task 6 (MVC 配置)
     ↓
@@ -287,9 +321,11 @@ Task 9 (AuthServiceImpl)
     ↓
 Task 10 (AuthController)
     ↓
-Task 11 (application.yml)
+Task 11 (GlobalExceptionHandler 修改)
     ↓
-Task 12-14 (单元测试)
+Task 12 (application.yml)
+    ↓
+Task 13-15 (单元测试)
 ```
 
 ---
@@ -302,8 +338,9 @@ Task 12-14 (单元测试)
 | Task 3-6 | 2 小时 |
 | Task 7-10 | 2 小时 |
 | Task 11 | 0.5 小时 |
-| Task 12-14 | 2 小时 |
-| **总计** | **7 小时** |
+| Task 12 | 0.5 小时 |
+| Task 13-15 | 2 小时 |
+| **总计** | **7.5 小时** |
 
 ---
 
@@ -313,15 +350,21 @@ Task 12-14 (单元测试)
 - [ ] 微信登录接口可正常调用（Mock 微信 API）
 - [ ] JWT 签发正确，包含 `openid`、`student_id`、`tenant_id`
 - [ ] JWT 拦截器可正确校验令牌
-- [ ] JWT 过期前 5 分钟内返回新 JWT
+- [ ] JWT 过期前 5 分钟内通过 `X-Refresh-Token` 响应头返回新 JWT
 - [ ] JWT 过期后返回 401
 - [ ] 首次登录自动创建学生记录
-- [ ] 获取当前学生信息接口返回正确数据
+- [ ] 并发首登触发唯一索引冲突时正确回查，不创建重复记录
+- [ ] 获取当前学生信息接口（`/api/auth/current`）必须经过鉴权
+- [ ] `StudentVO` 不包含 `openid` 字段（隐私保护）
+- [ ] 微信 API 业务失败不重试，网络/超时失败重试（最多 2 次）
+- [ ] JWT 密钥长度不足 32 字节时启动失败（fail-fast）
+- [ ] 微信 API 调用在事务外执行，事务内仅包含 DB 操作
 
 ### 测试验收
 - [ ] 单元测试覆盖 JWT 工具类核心方法
 - [ ] 单元测试覆盖 AuthService 核心逻辑
 - [ ] 集成测试覆盖 AuthController 接口
+- [ ] 集成测试覆盖 `@Valid` 校验失败返回 400 场景
 - [ ] 所有测试通过
 
 ### 编译验收

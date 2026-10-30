@@ -79,7 +79,7 @@ com.jiang
     |                            |-- [JWT 过期前 5 分钟内]
     |                            |   |-- 签发新 JWT
     |<-- 响应 + Header: --------|   |-- 通过响应头返回
-    |   Authorization: new_jwt   |
+    |   X-Refresh-Token: new_jwt |
     |                            |
     |                            |-- [JWT 已过期]
     |<-- 401 Unauthorized -------|   |-- 返回 401
@@ -100,11 +100,27 @@ com.jiang
 @ConfigurationProperties(prefix = "jwt")
 @Data
 public class JwtConfig {
-    private String secret;           // JWT 密钥（从 application.yml 读取）
+    @ToString.Exclude  // 防止日志泄露密钥
+    private String secret;           // JWT 密钥（从 application.yml 读取，必须 >= 32 字节）
     private Long expiration;         // 过期时间（毫秒），默认 7200000（2 小时）
     private Long refreshThreshold;   // 刷新阈值（毫秒），默认 300000（5 分钟）
+    
+    /**
+     * 启动时校验密钥长度
+     */
+    @PostConstruct
+    public void validate() {
+        if (secret == null || secret.getBytes(StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalArgumentException("JWT 密钥长度必须 >= 32 字节（256 位）");
+        }
+    }
 }
 ```
+
+**安全说明**：
+- 签名算法：HS256
+- 密钥构造：`Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8))`
+- application.yml 中不设默认值，使用 `${JWT_SECRET}` 占位符，启动时缺失即失败（fail-fast）
 
 ### 3.2 JWT 工具类
 
@@ -140,8 +156,9 @@ public class JwtUtil {
     
     /**
      * 判断 JWT 是否需要刷新
+     * 边界条件：exp - now <= refreshThreshold && exp - now > 0
      * @param token JWT 字符串
-     * @return true=需要刷新（过期前 5 分钟内）
+     * @return true=需要刷新（过期前 5 分钟内，且尚未过期）
      */
     public boolean shouldRefresh(String token);
     
@@ -212,10 +229,10 @@ public class JwtInterceptor implements HandlerInterceptor {
         StudentContext.setOpenid(openid);
         StudentContext.setTenantId(tenantId);
         
-        // 5. 判断是否需要刷新
+        // 5. 判断是否需要刷新（边界：exp - now <= refreshThreshold && exp - now > 0）
         if (jwtUtil.shouldRefresh(token)) {
             String newToken = jwtUtil.generateToken(openid, studentId, tenantId);
-            response.setHeader("Authorization", "Bearer " + newToken);
+            response.setHeader("X-Refresh-Token", newToken);  // 使用专用响应头
         }
         
         return true;
@@ -227,10 +244,18 @@ public class JwtInterceptor implements HandlerInterceptor {
                                Object handler, 
                                Exception ex) {
         // 清除 ThreadLocal，避免内存泄漏
+        // 注意：preHandle 抛异常时不会调用此方法，但 StudentContext 使用 ThreadLocal.set() 覆盖写入，
+        // 未 set 的字段 get() 返回 null，不会泄露其他请求的数据
         StudentContext.clear();
     }
 }
 ```
+
+**拦截器异常处理说明**：
+- `preHandle` 中先校验 JWT，校验通过后才 `set` ThreadLocal
+- 若校验失败抛异常，ThreadLocal 未被设置，无需清理
+- `afterCompletion` 仅在 `preHandle` 成功返回 `true` 后才会被调用
+- `GlobalExceptionHandler` 不依赖 `StudentContext`，可正常处理拦截器抛出的异常
 
 ### 3.4 学生上下文（ThreadLocal）
 
@@ -284,11 +309,26 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(jwtInterceptor)
-                .addPathPatterns("/api/**")           // 拦截所有 /api/** 接口
-                .excludePathPatterns("/api/auth/**"); // 排除登录接口
+                .addPathPatterns("/api/**")              // 拦截所有 /api/** 接口
+                .excludePathPatterns("/api/auth/login"); // 仅排除登录接口
+    }
+    
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        registry.addMapping("/api/**")
+                .allowedOriginPatterns("*")
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("X-Refresh-Token")  // 暴露刷新令牌响应头
+                .allowCredentials(true)
+                .maxAge(3600);
     }
 }
 ```
+
+**前端契约**：
+- 前端收到 `X-Refresh-Token` 响应头时，无条件覆盖本地存储的 JWT
+- CORS 配置中 `exposedHeaders` 暴露 `X-Refresh-Token`，确保浏览器/小程序可读取
 
 ### 3.6 登录请求 DTO
 
@@ -316,7 +356,7 @@ public class LoginResponse {
 @Data
 public class StudentVO {
     private Long studentId;
-    private String openid;
+    // openid 不下发前端（隐私保护），前端仅需 JWT 即可
     private String nickname;
     private String avatar;
     private String grade;
@@ -365,12 +405,20 @@ public class AuthServiceImpl implements AuthService {
     private String secret;
     
     @Override
-    @Transactional(rollbackFor = Exception.class)
     public LoginResponse login(String code) {
-        // 1. 调用微信 API 换取 openid
+        // 1. 调用微信 API 换取 openid（事务外，避免长事务占用 DB 连接）
         String openid = fetchOpenidFromWechat(code);
         
-        // 2. 查询或创建学生记录
+        // 2. 事务内执行数据库操作
+        return transactionalLogin(openid);
+    }
+    
+    /**
+     * 事务内登录逻辑（仅包含 DB 操作）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public LoginResponse transactionalLogin(String openid) {
+        // 查询或创建学生记录
         Student student = studentMapper.selectOne(
             new LambdaQueryWrapper<Student>()
                 .eq(Student::getOpenid, openid)
@@ -378,23 +426,36 @@ public class AuthServiceImpl implements AuthService {
         );
         
         if (student == null) {
-            // 首次登录，自动创建学生记录
-            student = new Student();
-            student.setOpenid(openid);
-            student.setTenantId("default");
-            student.setCreateTime(LocalDateTime.now());
-            student.setUpdateTime(LocalDateTime.now());
-            studentMapper.insert(student);
+            try {
+                // 首次登录，自动创建学生记录
+                student = new Student();
+                student.setOpenid(openid);
+                student.setTenantId("default");
+                student.setCreateTime(LocalDateTime.now());
+                student.setUpdateTime(LocalDateTime.now());
+                studentMapper.insert(student);
+            } catch (DuplicateKeyException e) {
+                // 并发首登兑底：唯一索引冲突，回查已有记录
+                log.warn("并发首登触发唯一索引冲突，回查学生记录: openid={}", openid);
+                student = studentMapper.selectOne(
+                    new LambdaQueryWrapper<Student>()
+                        .eq(Student::getOpenid, openid)
+                        .eq(Student::getTenantId, "default")
+                );
+                if (student == null) {
+                    throw new BusinessException(ErrorCodes.INTERNAL_ERROR, "登录失败，请重试");
+                }
+            }
         }
         
-        // 3. 签发 JWT
+        // 签发 JWT
         String token = jwtUtil.generateToken(
             openid, 
             student.getStudentId(), 
             "default"
         );
         
-        // 4. 构造响应
+        // 构造响应
         LoginResponse response = new LoginResponse();
         response.setToken(token);
         response.setStudentInfo(convertToVO(student));
@@ -407,13 +468,15 @@ public class AuthServiceImpl implements AuthService {
         Long studentId = StudentContext.getStudentId();
         Student student = studentMapper.selectById(studentId);
         if (student == null) {
-            throw new BusinessException(ErrorCodes.STUDENT_NOT_FOUND);
+            // JWT 有效但学生不存在，属于数据一致性问题，返回 401 提示重新登录
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "学生数据异常，请重新登录");
         }
         return convertToVO(student);
     }
     
     /**
      * 调用微信 API 换取 openid
+     * 重试策略：仅对网络/超时异常重试，业务失败（errcode != 0）直接抛出
      */
     private String fetchOpenidFromWechat(String code) {
         String url = String.format(
@@ -421,24 +484,52 @@ public class AuthServiceImpl implements AuthService {
             appid, secret, code
         );
         
-        // 重试机制（最多 2 次）
         int maxRetries = 2;
+        long retryBackoffMs = 200;  // 重试退避时间
+        
         for (int i = 0; i < maxRetries; i++) {
             try {
                 ResponseEntity<Map> response = restTemplate.getForEntity(url, Map.class);
                 Map body = response.getBody();
                 
+                if (body == null) {
+                    throw new BusinessException(ErrorCodes.OPENID_INVALID, "微信 API 返回为空");
+                }
+                
+                // 微信业务错误（errcode 存在且不为 0）
+                if (body.containsKey("errcode") && !"0".equals(String.valueOf(body.get("errcode")))) {
+                    log.warn("微信 API 业务错误: errcode={}, errmsg={}", body.get("errcode"), body.get("errmsg"));
+                    throw new BusinessException(ErrorCodes.OPENID_INVALID, "微信登录失败: " + body.get("errmsg"));
+                }
+                
+                // 成功返回 openid
                 if (body.containsKey("openid")) {
                     return (String) body.get("openid");
-                } else {
-                    log.warn("微信 API 返回错误: {}", body);
-                    throw new BusinessException(ErrorCodes.OPENID_INVALID);
                 }
-            } catch (Exception e) {
+                
+                // 无 openid 也无 errcode，异常情况
+                throw new BusinessException(ErrorCodes.OPENID_INVALID, "微信 API 响应格式异常");
+                
+            } catch (ResourceAccessException e) {
+                // 网络/超时异常，可重试
+                log.warn("微信 API 网络异常，重试中 ({}/{}): {}", i + 1, maxRetries, e.getMessage());
                 if (i == maxRetries - 1) {
-                    log.error("调用微信 API 失败", e);
+                    log.error("调用微信 API 网络失败，已达最大重试次数", e);
                     throw new BusinessException(ErrorCodes.INTERNAL_ERROR, "微信登录失败，请稍后重试");
                 }
+                // 重试退避
+                try {
+                    Thread.sleep(retryBackoffMs);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            } catch (BusinessException e) {
+                // 业务异常不重试，直接抛出
+                throw e;
+            } catch (Exception e) {
+                // 其他未知异常不重试
+                log.error("调用微信 API 未知异常", e);
+                throw new BusinessException(ErrorCodes.INTERNAL_ERROR, "微信登录失败");
             }
         }
         
@@ -446,12 +537,11 @@ public class AuthServiceImpl implements AuthService {
     }
     
     /**
-     * Entity 转 VO
+     * Entity 转 VO（openid 不下发前端）
      */
     private StudentVO convertToVO(Student student) {
         StudentVO vo = new StudentVO();
         vo.setStudentId(student.getStudentId());
-        vo.setOpenid(student.getOpenid());
         vo.setNickname(student.getNickname());
         vo.setAvatar(student.getAvatar());
         vo.setGrade(student.getGrade());
@@ -496,15 +586,19 @@ public class AuthController {
 ```yaml
 # 微信小程序配置
 wechat:
-  appid: ${WECHAT_APPID:your_appid}
-  secret: ${WECHAT_SECRET:your_secret}
+  appid: ${WECHAT_APPID}
+  secret: ${WECHAT_SECRET}
 
 # JWT 配置（已存在，补充 refreshThreshold）
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-signing-change-in-production}
+  secret: ${JWT_SECRET}  # 不设默认值，启动时缺失即失败（fail-fast）
   expiration: 7200000  # 2小时（毫秒）
   refresh-threshold: 300000  # 5分钟（毫秒）
 ```
+
+**安全说明**：
+- `jwt.secret` 不设默认值，必须在环境变量或配置中心中配置
+- 启动时 `JwtConfig.validate()` 校验密钥长度 >= 32 字节，不满足直接抛异常
 
 ### 4.2 RestTemplate 配置
 
@@ -528,11 +622,18 @@ public class RestTemplateConfig {
 | 异常场景 | 错误码 | HTTP 状态码 | 提示信息 |
 |---------|--------|------------|----------|
 | code 为空 | 400 | 400 | "code 不能为空" |
-| 微信 API 调用失败 | 500 | 500 | "微信登录失败，请稍后重试" |
-| openid 无效 | 1002 | 401 | "openid 无效" |
+| 微信 API 网络失败 | 500 | 500 | "微信登录失败，请稍后重试" |
+| 微信 API 业务错误 | 1002 | 401 | "微信登录失败: {errmsg}" |
 | JWT 缺失 | 401 | 401 | "未登录或登录已过期" |
 | JWT 已过期 | 401 | 401 | "JWT 已过期" |
-| 学生不存在 | 1000 | 404 | "学生不存在" |
+| 学生数据异常 | 401 | 401 | "学生数据异常，请重新登录" |
+
+**异常→Result→HTTP 状态码映射规则**：
+- `BusinessException` → `Result.error(code, message)` + HTTP 200（业务异常）
+- `MethodArgumentNotValidException` → `Result.error(400, message)` + HTTP 400
+- `BusinessException(UNAUTHORIZED)` → `Result.error(401, message)` + HTTP 401
+- `Exception` → `Result.error(500, "系统异常")` + HTTP 500
+- 拦截器抛出的 `BusinessException` 由 `GlobalExceptionHandler` 统一处理，HTTP 状态码通过 `@ResponseStatus` 设置
 
 ---
 
@@ -543,11 +644,31 @@ public class RestTemplateConfig {
 | 约定 #1：统一响应结构 | 所有接口返回 `Result<T>` |
 | 约定 #2：异常处理规范 | 登录失败抛出 `BusinessException` |
 | 约定 #7：tenant_id 注入 | JWT 中包含 `tenant_id`，拦截器注入到 `StudentContext` |
-| 约定 #9：@Transactional rollbackFor | `login()` 方法添加 `@Transactional(rollbackFor = Exception.class)` |
+| 约定 #9：@Transactional rollbackFor | `transactionalLogin()` 方法添加 `@Transactional(rollbackFor = Exception.class)`，微信 API 调用在事务外执行 |
 
 ---
 
-## 7. 文件清单
+## 7. 数据库变更
+
+### 7.1 student 表唯一索引（并发首登兑底）
+
+> 对应 M2 问题修复：并发首次登录可能创建重复学生记录。
+
+```sql
+-- 为 student 表添加唯一索引（若 foundation change 未创建）
+-- 注意：此操作属于受保护目录，需人工审批
+ALTER TABLE `student` 
+    ADD UNIQUE INDEX `uk_openid_tenant` (`openid`, `tenant_id`);
+```
+
+**说明**：
+- 唯一索引保证同一租户下 openid 唯一
+- 并发首登时，第二个请求触发 `DuplicateKeyException`，回查已有记录即可
+- 该索引已在 foundation change 的 DDL 中定义为 `uk_openid(openid, tenant_id)`，此处确认其存在即可
+
+---
+
+## 8. 文件清单
 
 | 文件路径 | 说明 |
 |---------|------|
@@ -563,6 +684,7 @@ public class RestTemplateConfig {
 | `src/main/java/com/jiang/service/AuthService.java` | 认证 Service 接口 |
 | `src/main/java/com/jiang/service/impl/AuthServiceImpl.java` | 认证 Service 实现 |
 | `src/main/java/com/jiang/controller/AuthController.java` | 认证 Controller |
+| `src/main/java/com/jiang/common/exception/GlobalExceptionHandler.java` | 新增 UNAUTHORIZED 专用处理器（修改现有文件） |
 | `src/main/resources/application.yml` | 新增微信配置（受保护，需人工审批） |
 | `src/test/java/com/jiang/security/JwtUtilTest.java` | JWT 工具类单元测试 |
 | `src/test/java/com/jiang/service/AuthServiceTest.java` | AuthService 单元测试 |
@@ -570,36 +692,40 @@ public class RestTemplateConfig {
 
 ---
 
-## 8. 测试策略
+## 9. 测试策略
 
-### 8.1 单元测试
+### 9.1 单元测试
 
 | 测试类 | 测试对象 | 测试场景 |
 |--------|---------|----------|
 | `JwtUtilTest` | JWT 工具类 | 签发、解析、校验、刷新判断 |
 | `AuthServiceTest` | AuthService | 登录（首次/非首次）、获取当前学生 |
 
-### 8.2 集成测试
+### 9.2 集成测试
 
 | 测试类 | 测试对象 | 测试场景 |
 |--------|---------|----------|
 | `AuthControllerTest` | AuthController | 登录接口、获取学生信息接口、JWT 校验失败 |
 
-### 8.3 Mock 策略
+### 9.3 Mock 策略
 
 - **微信 API**：使用 `MockRestServiceServer` Mock 微信接口返回
 - **数据库**：使用 `@MybatisPlusTest` 或 H2 内存数据库
 
 ---
 
-## 9. 验收标准
+## 10. 验收标准
 
 - [ ] JWT 签发正确，包含 `openid`、`student_id`、`tenant_id`
 - [ ] JWT 拦截器可正确校验令牌
-- [ ] JWT 过期前 5 分钟内返回新 JWT
+- [ ] JWT 过期前 5 分钟内通过 `X-Refresh-Token` 响应头返回新 JWT
 - [ ] JWT 过期后返回 401
 - [ ] 首次登录自动创建学生记录
-- [ ] 获取当前学生信息接口返回正确数据
+- [ ] 并发首登触发唯一索引冲突时正确回查，不创建重复记录
+- [ ] 获取当前学生信息接口（`/api/auth/current`）必须经过鉴权
+- [ ] `StudentVO` 不包含 `openid` 字段（隐私保护）
+- [ ] 微信 API 业务失败不重试，网络/超时失败重试（最多 2 次）
+- [ ] JWT 密钥长度不足 32 字节时启动失败（fail-fast）
 - [ ] 单元测试覆盖核心方法
-- [ ] 集成测试覆盖接口层
+- [ ] 集成测试覆盖接口层（含 `@Valid` 校验失败返回 400）
 - [ ] 编译通过，无警告
