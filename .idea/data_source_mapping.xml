@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/src/main/resources/db/V1_1__add_update_time_to_log_tables.sql" value="aa6c5926-36f8-4bc3-b017-04405491af95" />
-    <file url="file://$PROJECT_DIR$/src/main/resources/db/V1__init_schema.sql" value="aa6c5926-36f8-4bc3-b017-04405491af95" />
-  </component>
-</project>
