@@ -43,6 +43,9 @@ public enum ErrorCodes {
     // 目标相关（1030-1039）
     GOAL_NOT_FOUND(1030, "学习目标不存在"),
     GOAL_EXPIRED(1031, "学习目标已过期"),
+    GOAL_ALREADY_ACTIVE(1032, "该科目已有进行中的学习目标"),
+    GOAL_NOT_MODIFIABLE(1033, "目标不可修改（已完成或已过期）"),
+    DATE_INVALID(1034, "日期不合法（结束日期须晚于开始日期，开始日期不得早于今天，结束日期不得缩短）"),
 
     // 计划相关（1040-1049）
     PLAN_NOT_FOUND(1040, "学习计划不存在"),
@@ -62,7 +65,11 @@ public enum ErrorCodes {
 
     // Agent 相关（1080-1089）
     AGENT_CALL_FAILED(1080, "Agent 调用失败"),
-    AGENT_DEGRADED(1081, "Agent 已降级处理");
+    AGENT_DEGRADED(1081, "Agent 已降级处理"),
+
+    // 科目相关（1090-1099）
+    SUBJECT_NOT_FOUND(1090, "科目不存在"),
+    SUBJECT_NO_ACTIVE_KP(1091, "科目下无已启用知识点");
 
     private final Integer code;
     private final String message;

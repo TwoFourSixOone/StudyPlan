@@ -100,3 +100,31 @@ CREATE TABLE IF NOT EXISTS `data_import_error_log` (
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`error_id`)
 );
+
+-- 科目表
+CREATE TABLE IF NOT EXISTS `subject` (
+    `subject_id` BIGINT NOT NULL AUTO_INCREMENT,
+    `name` VARCHAR(50) NOT NULL,
+    `stage` VARCHAR(50) NOT NULL,
+    `description` VARCHAR(500) DEFAULT NULL,
+    `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'default',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`subject_id`)
+);
+
+-- 学习目标表
+CREATE TABLE IF NOT EXISTS `learning_goal` (
+    `goal_id` BIGINT NOT NULL AUTO_INCREMENT,
+    `student_id` BIGINT NOT NULL,
+    `subject_id` BIGINT NOT NULL,
+    `target_score` INT DEFAULT NULL,
+    `direction` VARCHAR(500) DEFAULT NULL,
+    `start_date` DATE NOT NULL,
+    `end_date` DATE NOT NULL,
+    `status` VARCHAR(20) NOT NULL DEFAULT 'active',
+    `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'default',
+    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`goal_id`)
+);
