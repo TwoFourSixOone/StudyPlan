@@ -34,7 +34,7 @@ public class QuestionBank extends BaseEntity {
     private String knowledgePointId;
 
     /**
-     * 题干内容
+     * 题干内容（DB 列类型 TEXT，最大 64KB，当前 prompt 较短无风险）
      */
     private String content;
 
@@ -60,7 +60,7 @@ public class QuestionBank extends BaseEntity {
     private String difficulty;
 
     /**
-     * 题型：numeric / choice
+     * 题型：numeric / choice / short / self
      */
     private String type;
 }

@@ -1,0 +1,28 @@
+{
+  "source": {
+    "title": "测试课程标准",
+    "issuer": "测试机构"
+  },
+  "items": [
+    {
+      "id": "cms-2022:1.NA.T1",
+      "domain": "数与代数",
+      "section": "数与运算",
+      "clause": "(T1)",
+      "text": "测试课标描述1",
+      "page_or_ref": "页码1",
+      "verbatim": true,
+      "text_status": "测试"
+    },
+    {
+      "id": "cms-2022:4.NA.T2",
+      "domain": "数与代数",
+      "section": "数量关系",
+      "clause": "(T2)",
+      "text": "测试课标描述2",
+      "page_or_ref": "页码2",
+      "verbatim": false,
+      "text_status": "测试"
+    }
+  ]
+}

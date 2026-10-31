@@ -1,0 +1,22 @@
+[
+  {
+    "difficulty": "basic",
+    "type": "numeric",
+    "prompt": "1+1等于几？",
+    "answer": "2",
+    "explanation": "1加1等于2",
+    "verify": "1+1",
+    "id": "test_kp001_q1",
+    "topicId": "test_kp001"
+  },
+  {
+    "difficulty": "standard",
+    "type": "choice",
+    "prompt": "哪个是偶数？",
+    "choices": [{"key": "A", "text": "3"}, {"key": "B", "text": "4"}],
+    "answer": "B",
+    "explanation": "4是偶数",
+    "id": "test_kp001_q2",
+    "topicId": "test_kp001"
+  }
+]

@@ -2,6 +2,7 @@ package com.jiang.common.exception;
 
 import com.jiang.common.result.Result;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -29,11 +30,15 @@ public class GlobalExceptionHandler {
 
     /**
      * 处理业务异常
+     * UNAUTHORIZED 返回 HTTP 401，其他 BusinessException 返回 HTTP 200
      */
     @ExceptionHandler(BusinessException.class)
-    @ResponseStatus(HttpStatus.OK)
-    public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
+    public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request,
+                                                 HttpServletResponse response) {
         log.warn("业务异常: URI={}, code={}, message={}", request.getRequestURI(), e.getCode(), e.getMessage());
+        if (ErrorCodes.UNAUTHORIZED.getCode().equals(e.getCode())) {
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+        }
         return Result.error(e.getCode(), e.getMessage());
     }
 

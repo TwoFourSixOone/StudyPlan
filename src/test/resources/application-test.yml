@@ -1,0 +1,28 @@
+# =============================================
+# 测试环境配置（H2 内存数据库，MySQL 兼容模式）
+# =============================================
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:studyplan_test;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_UPPER=false
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+# JWT 测试密钥（仅用于测试，>= 32 字节）
+jwt:
+  secret: test-secret-key-for-jwt-signing-must-be-at-least-32-bytes-long
+
+# 微信测试凭据
+wechat:
+  appid: test_appid
+  secret: test_secret
+
+# MyBatis-Plus 测试配置
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl

@@ -2,6 +2,7 @@ package com.jiang.common.exception;
 
 import com.jiang.common.result.Result;
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,6 +33,9 @@ class GlobalExceptionHandlerTest {
     @Mock
     private HttpServletRequest request;
 
+    @Mock
+    private HttpServletResponse response;
+
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
@@ -44,11 +48,25 @@ class GlobalExceptionHandlerTest {
     void testHandleBusinessException() {
         BusinessException exception = new BusinessException(ErrorCodes.STUDENT_NOT_FOUND);
         
-        Result<Void> result = handler.handleBusinessException(exception, request);
+        Result<Void> result = handler.handleBusinessException(exception, request, response);
         
         assertEquals(ErrorCodes.STUDENT_NOT_FOUND.getCode(), result.getCode());
         assertEquals(ErrorCodes.STUDENT_NOT_FOUND.getMessage(), result.getMessage());
         assertFalse(result.isSuccess());
+        verify(response, never()).setStatus(anyInt());
+    }
+
+    @Test
+    @DisplayName("测试处理 UNAUTHORIZED 业务异常——返回 HTTP 401")
+    void testHandleUnauthorizedBusinessException() {
+        BusinessException exception = new BusinessException(ErrorCodes.UNAUTHORIZED);
+        
+        Result<Void> result = handler.handleBusinessException(exception, request, response);
+        
+        assertEquals(ErrorCodes.UNAUTHORIZED.getCode(), result.getCode());
+        assertEquals(ErrorCodes.UNAUTHORIZED.getMessage(), result.getMessage());
+        assertFalse(result.isSuccess());
+        verify(response).setStatus(HttpServletResponse.SC_UNAUTHORIZED);
     }
 
     @Test
@@ -56,7 +74,7 @@ class GlobalExceptionHandlerTest {
     void testHandleCustomBusinessException() {
         BusinessException exception = new BusinessException(1099, "自定义错误");
         
-        Result<Void> result = handler.handleBusinessException(exception, request);
+        Result<Void> result = handler.handleBusinessException(exception, request, response);
         
         assertEquals(1099, result.getCode());
         assertEquals("自定义错误", result.getMessage());

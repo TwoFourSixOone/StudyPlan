@@ -211,6 +211,7 @@
 - 首次登录自动创建学生
 - 并发首登触发唯一索引冲突时正确回查
 - 单元测试覆盖事务逻辑（Mock 环境，不验证 @Transactional 实际生效）
+- **执行 `SHOW INDEX FROM student WHERE Key_name = 'uk_openid'` 确认唯一索引存在**；若不存在，按 design §7.1 的 ALTER TABLE 补建（受保护目录，需人工审批）。**以 foundation DDL（V1__init_schema.sql）实际索引名为准，若命名不同则同步修正 design/tasks**
 
 ---
 
@@ -299,16 +300,17 @@
 - `src/test/java/com/jiang/service/StudentLoginTxServiceTest.java`
 
 **具体任务**：
-1. `AuthServiceTest`：测试 `login()` 正确调用 `fetchOpenidFromWechat` → 委托 `txService.transactionalLogin()`
+1. `AuthServiceTest`：测试 `login()` 正确委托 `txService.transactionalLogin()`
 2. `AuthServiceTest`：测试 `getCurrentStudent()` 正常分支
 3. `AuthServiceTest`：测试 `getCurrentStudent()` 学生不存在时抛出 `UNAUTHORIZED`（401）
-4. `AuthServiceTest`：测试微信 API 网络失败重试、业务失败不重试
-5. `AuthServiceTest`：Mock `txService`、微信 API
-6. `StudentLoginTxServiceTest`：测试首次登录自动创建学生
-7. `StudentLoginTxServiceTest`：测试非首次登录返回已有学生
-8. `StudentLoginTxServiceTest`：测试并发首登 `DuplicateKeyException` 回查
-9. `StudentLoginTxServiceTest`：测试回查为 null 抛出 `INTERNAL_ERROR`
-10. `StudentLoginTxServiceTest`：Mock `StudentMapper` 和 `JwtUtil`
+4. `AuthServiceTest`：测试微信 API 重试逻辑——通过 `@Mock RestTemplate` 模拟 `getForEntity()` 抛出 `ResourceAccessException`，断言 `getForEntity` 被调用 2 次（重试），最终抛出 `INTERNAL_ERROR`
+5. `AuthServiceTest`：测试微信 API 业务失败不重试——`@Mock RestTemplate` 返回含 `errcode` 的响应，断言 `getForEntity` 仅被调用 1 次
+6. `AuthServiceTest`：Mock `txService`、`RestTemplate`、`WechatConfig`
+7. `StudentLoginTxServiceTest`：测试首次登录自动创建学生
+8. `StudentLoginTxServiceTest`：测试非首次登录返回已有学生
+9. `StudentLoginTxServiceTest`：测试并发首登 `DuplicateKeyException` 回查
+10. `StudentLoginTxServiceTest`：测试回查为 null 抛出 `INTERNAL_ERROR`
+11. `StudentLoginTxServiceTest`：Mock `StudentMapper` 和 `JwtUtil`
 
 **验收标准**：
 - 所有测试通过
@@ -328,7 +330,7 @@
 2. 测试获取学生信息接口
 3. 测试 JWT 校验失败返回 401
 4. 测试 `@Valid` 校验失败（`code` 为空）返回 400
-5. **测试 `@Transactional` 实际生效**：构造 insert 成功后抛异常场景，验证 DB 无记录（回滚生效）
+5. **测试 `@Transactional` 实际生效**：通过 `@MockBean JwtUtil` 使 `generateToken()` 抛出 `RuntimeException`，此时 `transactionalLogin` 已 insert 成功、签发时抛异常 → 事务回滚 → 断言 student 表无该 openid 记录
 6. 使用 `@SpringBootTest` 和 `MockMvc`
 
 **验收标准**：

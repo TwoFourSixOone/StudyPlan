@@ -66,7 +66,7 @@ public class KnowledgePoint extends BaseEntity {
     private String masteryCriteria;
 
     /**
-     * 诊断题目信息
+     * 诊断题目信息（DB 列类型 JSON，存储完整题目对象，序列化后较长）
      */
     @TableField(typeHandler = JacksonTypeHandler.class)
     private String diagnosticQuestion;

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="SqlDialectMappings">
+    <file url="file://$PROJECT_DIR$/src/main/resources/db/V1_1__add_update_time_to_log_tables.sql" dialect="MySQL" />
     <file url="file://$PROJECT_DIR$/src/main/resources/db/V1__init_schema.sql" dialect="MySQL" />
   </component>
 </project>

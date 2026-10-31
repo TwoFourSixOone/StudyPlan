@@ -1,4 +1,4 @@
-# Design：学生登录与 JWT 鉴权
+JWT_SECRET=你的256位以上密钥;WECHAT_APPID=你的微信AppID;WECHAT_SECRET=你的微信Secret# Design：学生登录与 JWT 鉴权
 
 > **Change ID**: `2026-10-30_student_auth`  
 > **关联 Proposal**: proposal.md
@@ -738,14 +738,16 @@ public class RestTemplateConfig {
 ```sql
 -- 为 student 表添加唯一索引（若 foundation change 未创建）
 -- 注意：此操作属于受保护目录，需人工审批
+-- 索引名以 foundation DDL（V1__init_schema.sql）为准，当前为 uk_openid
 ALTER TABLE `student` 
-    ADD UNIQUE INDEX `uk_openid_tenant` (`openid`, `tenant_id`);
+    ADD UNIQUE INDEX `uk_openid` (`openid`, `tenant_id`);
 ```
 
 **说明**：
 - 唯一索引保证同一租户下 openid 唯一
 - 并发首登时，第二个请求触发 `DuplicateKeyException`，回查已有记录即可
-- 该索引已在 foundation change 的 DDL 中定义为 `uk_openid(openid, tenant_id)`，此处确认其存在即可
+- 该索引已在 foundation DDL（`V1__init_schema.sql` L123）中定义为 `uk_openid(openid, tenant_id)`，此处确认其存在即可
+- **编码前须先执行 `SHOW INDEX FROM student WHERE Key_name = 'uk_openid'` 确认实际索引名；若 foundation DDL 命名不同，以实际库为准并同步修正 design/tasks**
 
 ---
 

@@ -1,0 +1,8 @@
+[
+  {
+    "topicId": "test_kp002",
+    "prerequisiteId": "test_kp001",
+    "strength": "hard",
+    "reason": "学习2需要先学习1"
+  }
+]

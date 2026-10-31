@@ -1,0 +1,30 @@
+[
+  {
+    "id": "test_kp001",
+    "name": "测试知识点1",
+    "domain": "数与代数",
+    "grade": 1,
+    "semester": "上",
+    "chapter": "一年级上册 第1单元",
+    "type": "conceptual",
+    "description": "测试描述",
+    "mastery_criteria": ["能识别数字"],
+    "diagnostic_question": {"question": "1+1=?", "answer": "2"},
+    "external": false,
+    "standards": [{"id": "cms-2022:1.NA.01", "confidence": "exact"}]
+  },
+  {
+    "id": "test_kp002",
+    "name": "测试知识点2",
+    "domain": "数与代数",
+    "grade": 1,
+    "semester": "上",
+    "chapter": "一年级上册 第1单元",
+    "type": "procedural",
+    "description": "测试描述2",
+    "mastery_criteria": ["能计算"],
+    "diagnostic_question": {"question": "2+3=?", "answer": "5"},
+    "external": false,
+    "standards": []
+  }
+]

@@ -12,7 +12,7 @@ spring:
 
   # 数据源配置
   datasource:
-    url: jdbc:mysql://localhost:3306/studyplan?useUnicode=true&characterEncoding=utf8mb4&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/studyplan?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:smileday159}
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -43,8 +43,15 @@ mybatis-plus:
 
 # JWT 配置
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-for-jwt-signing-change-in-production}
+  secret: ${JWT_SECRET}
   expiration: 7200000  # 2小时（毫秒）
+  refresh-threshold: 300000  # 5分钟（毫秒）
+
+# 微信小程序配置
+wechat:
+  appid: ${WECHAT_APPID}
+  secret: ${WECHAT_SECRET}
+  api-url: ${WECHAT_API_URL:https://api.weixin.qq.com/sns/jscode2session}
 
 # Knife4j 配置
 knife4j:
