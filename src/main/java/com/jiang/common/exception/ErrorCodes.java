@@ -54,9 +54,18 @@ public enum ErrorCodes {
     // 作业相关（1050-1059）
     HOMEWORK_NOT_FOUND(1050, "每日作业不存在"),
     HOMEWORK_ALREADY_SUBMITTED(1051, "作业已提交"),
+    HOMEWORK_ALREADY_EXISTS(1052, "当日作业已存在，请勿重复生成"),
+    STUDENT_IDENTITY_MISMATCH(1053, "学生身份不匹配"),
+    HOMEWORK_NOT_SUBMITTED(1054, "作业未提交，无法批改"),
+    HOMEWORK_ALREADY_GRADED(1055, "作业已批改，请勿重复批改"),
+    HOMEWORK_CONCURRENT_CONFLICT(1056, "作业状态更新冲突，请重试"),
+    LEARNING_GOAL_NOT_FOUND(1057, "无有效学习目标，请先设定学习目标"),
+    CONTENT_PARSE_ERROR(1058, "作业内容 JSON 解析失败"),
+    CONTENT_SERIALIZE_ERROR(1059, "作业内容 JSON 序列化失败"),
 
     // 掌握度相关（1060-1069）
     MASTERY_STATE_NOT_FOUND(1060, "掌握度状态不存在"),
+    MASTERY_CONCURRENT_CONFLICT(1061, "掌握度更新冲突，请重试"),
 
     // 数据导入相关（1070-1079）
     IMPORT_FILE_NOT_FOUND(1070, "导入文件不存在"),
@@ -66,10 +75,17 @@ public enum ErrorCodes {
     // Agent 相关（1080-1089）
     AGENT_CALL_FAILED(1080, "Agent 调用失败"),
     AGENT_DEGRADED(1081, "Agent 已降级处理"),
+    AGENT_OUTPUT_INVALID(1082, "Agent 输出校验失败"),
 
     // 科目相关（1090-1099）
     SUBJECT_NOT_FOUND(1090, "科目不存在"),
-    SUBJECT_NO_ACTIVE_KP(1091, "科目下无已启用知识点");
+    SUBJECT_NO_ACTIVE_KP(1091, "科目下无已启用知识点"),
+
+    // 错题相关（1100-1109）
+    ERROR_QUESTION_NOT_FOUND(1100, "错题不存在"),
+    ERROR_QUESTION_COMPLETED(1101, "错题已完成，无法推进"),
+    ERROR_QUESTION_INVALID_STATUS(1102, "错题状态无效"),
+    ERROR_QUESTION_CONCURRENT_MODIFIED(1103, "错题并发修改冲突，请重试");
 
     private final Integer code;
     private final String message;

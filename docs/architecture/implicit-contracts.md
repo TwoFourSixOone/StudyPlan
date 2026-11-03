@@ -53,6 +53,27 @@
 - **违反后果**：checked exception 发生时事务不回滚，导致数据不一致（如掌握度已更新但变更日志未写入）
 - **发现时间**：2026-10-29
 
+### 约定 #10：事务边界精确控制
+
+- **约定内容**：Service 方法中包含外部 API 调用（如 Agent LLM 调用、HTTP 请求等）时，**禁止**使用 `@Transactional` 包裹整个方法。应改用 `TransactionTemplate` 编程式事务，仅将数据库写操作放入事务回调内，外部调用在事务外执行。超时时间建议 ≤ 30s。
+- **影响范围**：所有涉及外部 I/O + 数据库写入的 Service 方法（如 `HomeworkServiceImpl.generateDailyHomework`）
+- **违反后果**：长事务占用 DB 连接和行锁，外部调用超时（30s+）导致连接池耗尽或死锁
+- **发现时间**：2026-11-02
+
+### 约定 #11：并发写入保护模式
+
+- **约定内容**：对可能并发插入的表（如 `daily_plan` 按 `goal_id + plan_date + tenant_id` 唯一），必须先建唯一索引，Service 层写入时捕获 `DuplicateKeyException`，回退到查询已有记录后做业务判断（如拒绝/覆盖/复用）。
+- **影响范围**：所有存在并发写入风险的表（当前：`daily_plan.uk_goal_date`、`homework_submission_detail.uk_plan_question`）
+- **违反后果**：并发请求产生重复记录，数据不一致
+- **发现时间**：2026-11-02
+
+### 约定 #12：Agent 调用超时降级
+
+- **约定内容**：所有 Agent/LLM 调用必须设置超时（建议 30s），超时或异常后触发降级策略（如返回默认计划、记录 `agent_degradation_log`）。降级日志写入前必须脱敏（截断至 500 字符 + 移除 API Key、学生标识等敏感信息）。
+- **影响范围**：`QuestionGenAgent`、`HomeworkDegradationHandler` 及后续新增的 Agent 调用
+- **违反后果**：Agent 调用无超时导致请求永久挂起；降级日志泄露敏感信息
+- **发现时间**：2026-11-02
+
 ---
 
 ## 3. 维护规则

@@ -29,6 +29,11 @@ public class HomeworkSubmissionDetail extends BaseEntity {
     private Long submissionId;
 
     /**
+     * 学生 ID（V2 DDL 补充列，用于归属校验）
+     */
+    private Long studentId;
+
+    /**
      * 所属计划 ID
      */
     private Long planId;

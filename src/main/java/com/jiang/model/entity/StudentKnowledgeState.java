@@ -1,7 +1,9 @@
 package com.jiang.model.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.Version;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -58,4 +60,30 @@ public class StudentKnowledgeState extends BaseEntity {
      * 最近评测时间
      */
     private LocalDateTime lastAssessedAt;
+
+    /**
+     * 乐观锁版本号
+     */
+    @Version
+    private Integer version;
+
+    // ===== 以下为非持久化字段，仅用于 JOIN 查询结果映射 =====
+
+    /**
+     * 知识点名称（JOIN knowledge_point 时使用）
+     */
+    @TableField(exist = false)
+    private String kpName;
+
+    /**
+     * 知识点所属科目（JOIN knowledge_point 时使用）
+     */
+    @TableField(exist = false)
+    private String kpSubject;
+
+    /**
+     * 知识点状态（JOIN knowledge_point 时使用）
+     */
+    @TableField(exist = false)
+    private String kpStatus;
 }

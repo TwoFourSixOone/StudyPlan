@@ -17,6 +17,11 @@ public enum PlanStatus {
     PENDING("pending", "待执行"),
 
     /**
+     * 待生成（出题 Agent 正在生成中）
+     */
+    PENDING_GENERATION("pending_generation", "待生成"),
+
+    /**
      * 进行中
      */
     IN_PROGRESS("in_progress", "进行中"),

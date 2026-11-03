@@ -3,6 +3,10 @@ package com.jiang.mapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.jiang.model.entity.MasteryChangeLog;
 import org.apache.ibatis.annotations.Mapper;
+import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
+
+import java.util.List;
 
 /**
  * 掌握度变更日志 Mapper 接口
@@ -12,4 +16,75 @@ import org.apache.ibatis.annotations.Mapper;
  */
 @Mapper
 public interface MasteryChangeLogMapper extends BaseMapper<MasteryChangeLog> {
+
+    /**
+     * 统计变更历史总数（与 selectHistoryByStudentAndKp 配套使用）
+     *
+     * @param studentId        学生 ID
+     * @param tenantId         租户 ID
+     * @param knowledgePointId 知识点 ID
+     * @return 记录总数
+     */
+    @Select("SELECT COUNT(*) FROM mastery_change_log " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "AND knowledge_point_id = #{knowledgePointId}")
+    long countHistoryByStudentAndKp(
+            @Param("studentId") Long studentId,
+            @Param("tenantId") String tenantId,
+            @Param("knowledgePointId") String knowledgePointId);
+
+    /**
+     * 分页查询变更历史（按时间倒序）
+     *
+     * @param studentId        学生 ID
+     * @param tenantId         租户 ID
+     * @param knowledgePointId 知识点 ID
+     * @param offset           偏移量
+     * @param size             每页大小
+     * @return 变更日志列表
+     */
+    @Select("SELECT log_id, student_id, knowledge_point_id, change_type, source_id, " +
+            "delta, mastery_before, mastery_after, tenant_id, create_time, update_time " +
+            "FROM mastery_change_log " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "AND knowledge_point_id = #{knowledgePointId} " +
+            "ORDER BY create_time DESC LIMIT #{offset}, #{size}")
+    List<MasteryChangeLog> selectHistoryByStudentAndKp(
+            @Param("studentId") Long studentId,
+            @Param("tenantId") String tenantId,
+            @Param("knowledgePointId") String knowledgePointId,
+            @Param("offset") int offset,
+            @Param("size") int size);
+
+    /**
+     * 批量查询指定知识点列表的最新一条变更日志
+     * <p>
+     * 用于看板 lastChangeDirection 组装，每个知识点最多返回一条记录（log_id 最大者）。
+     * <p>
+     * 索引命中：idx_student_kp_log (student_id, tenant_id, knowledge_point_id, log_id)
+     * 子查询通过覆盖索引完成 MAX(log_id) 聚合，无需回表。
+     *
+     * @param studentId 学生 ID
+     * @param tenantId  租户 ID
+     * @param kpIds     知识点 ID 列表
+     * @return 最新变更日志列表
+     */
+    @Select("<script>" +
+            "SELECT mcl.log_id, mcl.student_id, mcl.knowledge_point_id, mcl.change_type, " +
+            "mcl.source_id, mcl.delta, mcl.mastery_before, mcl.mastery_after, " +
+            "mcl.tenant_id, mcl.create_time, mcl.update_time " +
+            "FROM mastery_change_log mcl " +
+            "INNER JOIN (" +
+            "  SELECT knowledge_point_id, MAX(log_id) AS max_log_id " +
+            "  FROM mastery_change_log " +
+            "  WHERE student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "  AND knowledge_point_id IN " +
+            "  <foreach item='kpId' collection='kpIds' open='(' separator=',' close=')'>#{kpId}</foreach> " +
+            "  GROUP BY knowledge_point_id" +
+            ") latest ON mcl.log_id = latest.max_log_id" +
+            "</script>")
+    List<MasteryChangeLog> selectLatestByKpIds(
+            @Param("studentId") Long studentId,
+            @Param("tenantId") String tenantId,
+            @Param("kpIds") List<String> kpIds);
 }
