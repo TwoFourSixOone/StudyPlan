@@ -63,7 +63,7 @@
 ### 约定 #11：并发写入保护模式
 
 - **约定内容**：对可能并发插入的表（如 `daily_plan` 按 `goal_id + plan_date + tenant_id` 唯一），必须先建唯一索引，Service 层写入时捕获 `DuplicateKeyException`，回退到查询已有记录后做业务判断（如拒绝/覆盖/复用）。
-- **影响范围**：所有存在并发写入风险的表（当前：`daily_plan.uk_goal_date`、`homework_submission_detail.uk_plan_question`）
+- **影响范围**：所有存在并发写入风险的表（当前：`daily_plan.uk_goal_date`、`homework_submission_detail.uk_plan_question`、`generated_question.uk_kp_content_hash`）
 - **违反后果**：并发请求产生重复记录，数据不一致
 - **发现时间**：2026-11-02
 
@@ -73,6 +73,20 @@
 - **影响范围**：`QuestionGenAgent`、`HomeworkDegradationHandler` 及后续新增的 Agent 调用
 - **违反后果**：Agent 调用无超时导致请求永久挂起；降级日志泄露敏感信息
 - **发现时间**：2026-11-02
+
+### 约定 #13：UNIQUE 索引列禁止 DEFAULT NULL
+
+- **约定内容**：参与 UNIQUE 索引的列必须定义为 `NOT NULL`，并提供合理的默认值（如空串 `''`）。MySQL 中 UNIQUE 索引对多个 NULL 值不做唯一性约束，若列允许 NULL 则唯一索引对该行失效。
+- **影响范围**：所有新增或修改的唯一索引列（当前：`generated_question.uk_kp_content_hash` 的 `content_hash` 列）
+- **违反后果**：唯一索引防重失效，可能导致重复数据写入
+- **发现时间**：2026-11-03
+
+### 约定 #14：Agent 层技术异常与业务异常分层
+
+- **约定内容**：Agent 调用产生的技术异常（如 `AgentTimeoutException`、`AgentOutputInvalidException`）与业务异常（`BusinessException` + `ErrorCodes`）分层处理。技术异常由 Service 层捕获后按降级策略处理（如重试、降级为规则校验），不直接向上层透传；若重试耗尽仍失败，则转为 `BusinessException` 报告。
+- **影响范围**：所有涉及 Agent 调用的 Service（`SimilarQuestionServiceImpl`、`HomeworkServiceImpl`）
+- **违反后果**：技术异常与业务异常混淆，降级策略无法正确触发
+- **发现时间**：2026-11-03
 
 ---
 

@@ -10,6 +10,7 @@ import com.jiang.dto.DailyPlanQuestionRef;
 import com.jiang.dto.KnowledgePointWithMastery;
 import com.jiang.dto.SubmitAnswerRequest;
 import com.jiang.mapper.DailyPlanMapper;
+import com.jiang.mapper.ErrorQuestionMapper;
 import com.jiang.mapper.GeneratedQuestionMapper;
 import com.jiang.mapper.HomeworkSubmissionDetailMapper;
 import com.jiang.mapper.KnowledgePointMapper;
@@ -94,6 +95,10 @@ class HomeworkServiceTest {
     @Mock
     private ErrorQuestionService errorQuestionService;
     @Mock
+    private SimilarQuestionService similarQuestionService;
+    @Mock
+    private ErrorQuestionMapper errorQuestionMapper;
+    @Mock
     private PlatformTransactionManager transactionManager;
 
     @InjectMocks
@@ -169,6 +174,8 @@ class HomeworkServiceTest {
         when(questionGenAgent.generate(anyList(), eq(15))).thenReturn(agentResult);
         when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
                 .thenReturn(Collections.emptyMap());
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(Collections.emptyList());
         when(contentParser.serialize(refs)).thenReturn("[{\"questionId\":1}]");
 
         // 使用 doAnswer 捕获 insert 的 plan 来设置自动生成的 planId
@@ -207,6 +214,8 @@ class HomeworkServiceTest {
                 .thenThrow(new BusinessException(ErrorCodes.AGENT_CALL_FAILED, "LLM error"));
         when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
                 .thenReturn(Collections.emptyMap());
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(Collections.emptyList());
 
         // 降级成功
         List<DailyPlanQuestionRef> defaultRefs = List.of(new DailyPlanQuestionRef(5L, "bank", "review"));
@@ -222,8 +231,8 @@ class HomeworkServiceTest {
     }
 
     @Test
-    @DisplayName("生成作业：Agent + 降级均失败（新计划）→ 抛 AGENT_DEGRADED，不写入 cancelled")
-    void should_throwDegraded_when_agentAndDegradationBothFail_newPlan() {
+    @DisplayName("生成作业：Review Agent + 降级均失败（新计划）→ 优雅降级，仅含空 review")
+    void should_gracefulDegradation_when_reviewAgentAndDegradationBothFail_newPlan() {
         stubActiveGoal();
         stubSubject();
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
@@ -237,17 +246,30 @@ class HomeworkServiceTest {
                 .thenThrow(new BusinessException(ErrorCodes.AGENT_CALL_FAILED));
         when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
                 .thenReturn(Collections.emptyMap());
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(Collections.emptyList());
 
         // 降级也失败
         when(degradationHandler.generateDefaultPlan(anyList(), eq(TENANT_ID)))
                 .thenThrow(new BusinessException(ErrorCodes.AGENT_DEGRADED, "无可用题目"));
 
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
-        assertEquals(ErrorCodes.AGENT_DEGRADED.getCode(), ex.getCode());
+        // 优雅降级后仍需的 stub（plan 创建 + content 序列化）
+        when(contentParser.serialize(anyList())).thenReturn("[]");
+        doAnswer(invocation -> {
+            DailyPlan p = invocation.getArgument(0);
+            p.setPlanId(PLAN_ID);
+            return 1;
+        }).when(dailyPlanMapper).insert(any(DailyPlan.class));
+        when(dailyPlanMapper.updateContentAndStatus(eq(PLAN_ID), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(1);
 
-        // 新计划（existingPlan=null）时，降级失败不会调用 updateStatusWithCheck（计划未落库）
-        verify(dailyPlanMapper, never()).updateStatusWithCheck(anyLong(), anyString(), anyString(), anyString());
+        // Change 8: review 为 P2（非关键），降级失败不阻塞整个作业生成
+        assertDoesNotThrow(() -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
+
+        // 降级处理器仍被调用
+        verify(degradationHandler).generateDefaultPlan(anyList(), eq(TENANT_ID));
+        // 计划正常落库
+        verify(dailyPlanMapper).insert(any(DailyPlan.class));
     }
 
     // ==================== getHomeworkByDate ====================

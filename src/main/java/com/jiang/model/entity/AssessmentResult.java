@@ -37,6 +37,11 @@ public class AssessmentResult extends BaseEntity {
     private Long studentId;
 
     /**
+     * 科目 ID（关联 subject.subject_id）
+     */
+    private Long subjectId;
+
+    /**
      * 涉及的知识点 ID 列表
      */
     @TableField(typeHandler = JacksonTypeHandler.class)
@@ -51,6 +56,11 @@ public class AssessmentResult extends BaseEntity {
      * 总分（百分制，通常为 100）
      */
     private BigDecimal totalScore;
+
+    /**
+     * 状态：pending / graded
+     */
+    private String status;
 
     /**
      * 详细结果（含各知识点正确率）

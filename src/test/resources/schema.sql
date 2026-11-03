@@ -219,10 +219,12 @@ CREATE TABLE IF NOT EXISTS `generated_question` (
     `content` TEXT DEFAULT NULL,
     `difficulty` VARCHAR(20) DEFAULT NULL,
     `similarity_checked` TINYINT DEFAULT 0,
+    `content_hash` VARCHAR(64) NOT NULL DEFAULT '',
     `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'default',
     `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (`generated_question_id`)
+    PRIMARY KEY (`generated_question_id`),
+    UNIQUE INDEX `uk_kp_content_hash` (`knowledge_point_id`, `content_hash`, `tenant_id`)
 );
 
 -- 错题队列表（艾宾浩斯周期调度）

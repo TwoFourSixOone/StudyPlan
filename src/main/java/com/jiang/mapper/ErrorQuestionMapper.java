@@ -2,6 +2,7 @@ package com.jiang.mapper;
 
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.jiang.model.entity.ErrorQuestion;
+import com.jiang.model.entity.QuestionBank;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
@@ -184,4 +185,39 @@ public interface ErrorQuestionMapper extends BaseMapper<ErrorQuestion> {
                                 @Param("currentStage") int currentStage,
                                 @Param("newStage") int newStage,
                                 @Param("completedDate") LocalDate completedDate);
+
+    /**
+     * 获取到期错题对应的原题内容（JOIN question_bank）
+     * 用于构造举一反三 Agent 的输入
+     * IMP-5 修正：源题选择策略——取最早到期的 1 道错题对应的原题，
+     *   作为该"代表错题"。不要求覆盖所有错题，
+     *   因为举一反三的目标是"巩固知识点"而非"覆盖所有错题"。
+     * Change: 2026-11-03_similar_question_generation
+     */
+    @Select("SELECT qb.question_id, qb.content, qb.answer, qb.analysis, " +
+            "qb.difficulty, qb.type, qb.knowledge_point_id " +
+            "FROM error_question eq " +
+            "JOIN question_bank qb ON eq.question_id = qb.question_id " +
+            "  AND qb.tenant_id = eq.tenant_id " +
+            "WHERE eq.student_id = #{studentId} AND eq.tenant_id = #{tenantId} " +
+            "AND eq.knowledge_point_id = #{kpId} " +
+            "AND eq.status = 'active' AND eq.next_due_date <= #{targetDate} " +
+            "ORDER BY eq.next_due_date ASC, eq.error_question_id ASC " +
+            "LIMIT 1")
+    QuestionBank selectSourceQuestionForSimilar(@Param("studentId") Long studentId,
+                                                @Param("tenantId") String tenantId,
+                                                @Param("kpId") String kpId,
+                                                @Param("targetDate") LocalDate targetDate);
+
+    /**
+     * 统计每个知识点的活跃错题数量（用于配额计算 kpErrorCountMap）
+     * Change: 2026-11-03_similar_question_generation
+     *
+     * @return List of Map，每个 Map 包含 knowledge_point_id 和 error_count
+     */
+    @Select("SELECT knowledge_point_id, COUNT(*) AS error_count FROM error_question " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} AND status = 'active' " +
+            "GROUP BY knowledge_point_id")
+    List<Map<String, Object>> selectActiveErrorCountGroupByKp(@Param("studentId") Long studentId,
+                                                               @Param("tenantId") String tenantId);
 }

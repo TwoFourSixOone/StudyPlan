@@ -58,4 +58,10 @@ public class GeneratedQuestion extends BaseEntity {
      * 是否通过相似度校验：0=未通过, 1=已通过
      */
     private Integer similarityChecked;
+
+    /**
+     * 题干内容哈希（SimHash，用于快速相似度比较）
+     * Change: 2026-11-03_similar_question_generation
+     */
+    private String contentHash;
 }

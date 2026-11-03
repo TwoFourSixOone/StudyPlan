@@ -8,10 +8,13 @@ import com.jiang.agent.QuestionGenAgent;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.util.DailyPlanContentParser;
+import com.jiang.common.util.HomeworkQuotaCalculator;
+import com.jiang.common.util.SimilarityDetector;
 import com.jiang.dto.DailyPlanQuestionRef;
 import com.jiang.dto.KnowledgePointWithMastery;
 import com.jiang.dto.SubmitAnswerRequest;
 import com.jiang.mapper.DailyPlanMapper;
+import com.jiang.mapper.ErrorQuestionMapper;
 import com.jiang.mapper.GeneratedQuestionMapper;
 import com.jiang.mapper.HomeworkSubmissionDetailMapper;
 import com.jiang.mapper.KnowledgePointMapper;
@@ -34,6 +37,7 @@ import com.jiang.service.ErrorQuestionService;
 import com.jiang.service.GoalService;
 import com.jiang.service.HomeworkService;
 import com.jiang.service.MasteryService;
+import com.jiang.service.SimilarQuestionService;
 import com.jiang.vo.GradeResultVO;
 import com.jiang.vo.GoalVO;
 import com.jiang.vo.HomeworkVO;
@@ -125,6 +129,12 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Autowired
     private ErrorQuestionService errorQuestionService;
 
+    @Autowired
+    private SimilarQuestionService similarQuestionService;
+
+    @Autowired
+    private ErrorQuestionMapper errorQuestionMapper;
+
     @PostConstruct
     public void init() {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
@@ -193,68 +203,154 @@ public class HomeworkServiceImpl implements HomeworkService {
             }
         }
 
-        // BLOCK-A: 计算剩余配额，将已占用的 questionId 列表传给 Agent
-        int remainingQuota = 15 - errorRefs.size();
-        if (remainingQuota < 0) remainingQuota = 0;
+        // ===== 5. 配额计算（Change 8: HomeworkQuotaCalculator）=====
+        // 构建 kpMasteryMap（kpId → masteryScore）
+        Map<String, BigDecimal> kpMasteryMap = kpList.stream()
+                .collect(Collectors.toMap(
+                        KnowledgePointWithMastery::getKnowledgePointId,
+                        kp -> kp.getMasteryScore() != null ? kp.getMasteryScore() : BigDecimal.ZERO,
+                        (a, b) -> a));
 
-        // 7. IMP-5: 重试循环位于 Service 外层（最多 2 次）— 在事务外执行，避免长事务
-        List<DailyPlanQuestionRef> refs = null;
-        List<GeneratedQuestion> generatedQuestions = null;
-        Exception lastAgentException = null;
+        // 构建 kpErrorCountMap（kpId → 活跃错题总数，用于配额计算）
+        Set<String> errorKpIds = dueErrorMap.keySet();
+        int dueErrorCount = errorRefs.size();
+        List<Map<String, Object>> activeErrorCounts = errorQuestionMapper.selectActiveErrorCountGroupByKp(studentId, tenantId);
+        Map<String, Integer> kpErrorCountMap = activeErrorCounts.stream()
+                .collect(Collectors.toMap(
+                        m -> (String) m.get("knowledge_point_id"),
+                        m -> ((Number) m.get("error_count")).intValue(),
+                        (a, b) -> a));
 
-        for (int attempt = 0; attempt < MAX_AGENT_RETRIES; attempt++) {
-            try {
-                QuestionGenAgent.QuestionGenResult result = questionGenAgent.generate(kpList, remainingQuota);
-                refs = result.getRefs();
-                generatedQuestions = result.getGeneratedQuestions();
-                break;
-            } catch (Exception e) {
-                log.warn("Agent 出题失败 (attempt {}/{}): {}", attempt + 1, MAX_AGENT_RETRIES, e.getMessage());
-                lastAgentException = e;
-            }
+        HomeworkQuotaCalculator.QuotaAllocation quota;
+        try {
+            quota = HomeworkQuotaCalculator.calculate(dueErrorCount, errorKpIds, kpMasteryMap, kpErrorCountMap);
+        } catch (IllegalArgumentException e) {
+            log.error("配额计算入参非法: {}", e.getMessage());
+            throw new BusinessException(ErrorCodes.BAD_REQUEST,
+                    "配额计算失败: " + e.getMessage());
         }
+        log.info("配额计算结果: errorQuota={}, similarQuota={}, reviewQuota={}, extremeMode={}, degradedMode={}",
+                quota.getErrorQuota(), quota.getSimilarQuota(), quota.getReviewQuota(),
+                quota.isExtremeMode(), quota.isDegradedMode());
 
-        // 8. 重试耗尽 → 降级
-        if (refs == null) {
-            log.info("Agent 重试耗尽，触发降级策略");
-            degradationHandler.logDegradation(
-                    "subjectId=" + subjectId + ", date=" + planDate,
-                    lastAgentException != null ? lastAgentException.getClass().getSimpleName()
-                            + ": " + lastAgentException.getMessage() : "unknown",
-                    tenantId);
+        // ===== 6. 组装错题引用（taskType=redo）— 已在步骤 4 完成 =====
 
-            try {
-                refs = degradationHandler.generateDefaultPlan(kpList, tenantId);
-                generatedQuestions = List.of();
-            } catch (Exception e) {
-                // IMP-F: 降级也失败 → cancelled（需事务）
-                log.error("降级处理也失败: {}", e.getMessage());
-                transactionTemplate.executeWithoutResult(status -> {
-                    if (existingPlan != null) {
-                        dailyPlanMapper.updateStatusWithCheck(existingPlan.getPlanId(),
-                                PlanStatus.CANCELLED.getCode(), existingPlan.getStatus(), tenantId);
+        // ===== 7. 举一反三新题生成（按配额为每个有错题知识点生成）=====
+        // T-07: 构建活跃知识点 ID 集合，用于过滤停用知识点
+        Set<String> activeKpIds = activeKps.stream()
+                .map(KnowledgePoint::getKnowledgePointId)
+                .collect(Collectors.toSet());
+
+        List<DailyPlanQuestionRef> similarRefs = new ArrayList<>();
+        List<GeneratedQuestion> allGeneratedQuestions = new ArrayList<>();
+
+        if (!quota.isExtremeMode()) {
+            for (Map.Entry<String, Integer> entry : quota.getSimilarQuotaPerKp().entrySet()) {
+                String kpId = entry.getKey();
+                int targetCount = entry.getValue();
+                if (targetCount <= 0) continue;
+
+                // T-07: 知识点停用检查——disabled 知识点跳过举一反三
+                if (!activeKpIds.contains(kpId)) {
+                    log.info("知识点 {} 已停用，跳过举一反三生成", kpId);
+                    continue;
+                }
+
+                // 查询代表错题（最早到期的 1 道）
+                QuestionBank sourceQuestion = errorQuestionMapper.selectSourceQuestionForSimilar(
+                        studentId, tenantId, kpId, planDate);
+                if (sourceQuestion == null) {
+                    log.warn("知识点 {} 无可用源题，跳过举一反三", kpId);
+                    continue;
+                }
+
+                // 查询已有新题内容（IMP-15: LIMIT 100）
+                List<String> existingContents = generatedQuestionMapper.selectCheckedContentsByKp(kpId, tenantId);
+
+                try {
+                    List<GeneratedQuestion> similarQuestions = similarQuestionService.generateWithValidation(
+                            studentId, tenantId, kpId,
+                            kpMasteryMap.getOrDefault(kpId, BigDecimal.ZERO),
+                            sourceQuestion, targetCount,
+                            sourceQuestion.getContent(), existingContents);
+
+                    for (GeneratedQuestion gq : similarQuestions) {
+                        similarRefs.add(new DailyPlanQuestionRef(0L, "generated", "similar"));
+                        allGeneratedQuestions.add(gq);
                     }
-                });
-                throw new BusinessException(ErrorCodes.AGENT_DEGRADED,
-                        "出题 Agent 及降级处理均失败: " + e.getMessage());
+                } catch (Exception e) {
+                    log.error("知识点 {} 举一反三生成失败: {}", kpId, e.getMessage());
+                    // 不阻塞其他知识点
+                }
             }
         }
 
-        // 9. T-06: 合并错题引用 + Agent/降级 新题引用
-        List<DailyPlanQuestionRef> allRefs = new ArrayList<>(errorRefs);
-        if (refs != null) {
-            allRefs.addAll(refs);
-        }
-        refs = allRefs;
+        // ===== 8. 知识回顾新题生成（使用配额计算结果 reviewQuota）=====
+        // 过滤出无错题的知识点，按掌握度从低到高排序
+        List<KnowledgePointWithMastery> reviewKpList = kpList.stream()
+                .filter(kp -> !errorKpIds.contains(kp.getKnowledgePointId()))
+                .sorted(Comparator.comparing(
+                        kp -> kp.getMasteryScore() != null ? kp.getMasteryScore() : BigDecimal.ZERO))
+                .collect(Collectors.toList());
 
-        // 10. 事务内执行写操作：创建/更新计划 + 落题 + 状态机更新
-        final List<DailyPlanQuestionRef> finalRefs = refs;
-        final List<GeneratedQuestion> finalGeneratedQuestions = generatedQuestions;
+        List<DailyPlanQuestionRef> reviewRefs = null;
+        List<GeneratedQuestion> reviewGeneratedQuestions = null;
+        int reviewQuota = quota.getReviewQuota();
+
+        if (!reviewKpList.isEmpty() && reviewQuota > 0) {
+            Exception lastAgentException = null;
+            for (int attempt = 0; attempt < MAX_AGENT_RETRIES; attempt++) {
+                try {
+                    QuestionGenAgent.QuestionGenResult result = questionGenAgent.generate(reviewKpList, reviewQuota);
+                    reviewRefs = result.getRefs();
+                    reviewGeneratedQuestions = result.getGeneratedQuestions();
+                    break;
+                } catch (Exception e) {
+                    log.warn("知识回顾 Agent 出题失败 (attempt {}/{}): {}", attempt + 1, MAX_AGENT_RETRIES, e.getMessage());
+                    lastAgentException = e;
+                }
+            }
+
+            if (reviewRefs == null) {
+                log.info("知识回顾 Agent 重试耗尽，触发降级策略");
+                degradationHandler.logDegradation(
+                        "subjectId=" + subjectId + ", date=" + planDate + ", type=review",
+                        lastAgentException != null ? lastAgentException.getClass().getSimpleName()
+                                + ": " + lastAgentException.getMessage() : "unknown",
+                        tenantId);
+                try {
+                    reviewRefs = degradationHandler.generateDefaultPlan(reviewKpList, tenantId);
+                    reviewGeneratedQuestions = List.of();
+                } catch (Exception e) {
+                    log.error("知识回顾降级也失败: {}", e.getMessage());
+                    reviewRefs = List.of();
+                    reviewGeneratedQuestions = List.of();
+                }
+            }
+        } else {
+            reviewRefs = List.of();
+            reviewGeneratedQuestions = List.of();
+        }
+
+        // ===== 9. 合并所有引用（错题 + 举一反三 + 知识回顾）=====
+        List<DailyPlanQuestionRef> allRefs = new ArrayList<>(errorRefs);
+        allRefs.addAll(similarRefs);
+        if (reviewRefs != null) {
+            allRefs.addAll(reviewRefs);
+        }
+
+        List<GeneratedQuestion> allNewQuestions = new ArrayList<>(allGeneratedQuestions);
+        if (reviewGeneratedQuestions != null) {
+            allNewQuestions.addAll(reviewGeneratedQuestions);
+        }
+
+        // ===== 10. 事务内执行写操作：创建/更新计划 + 落题 + 状态机更新 =====
+        final List<DailyPlanQuestionRef> finalRefs = allRefs;
+        final List<GeneratedQuestion> finalGeneratedQuestions = allNewQuestions;
 
         transactionTemplate.executeWithoutResult(status -> {
             DailyPlan plan = existingPlan;
             if (plan == null) {
-                // 新建计划
                 plan = new DailyPlan();
                 plan.setGoalId(goalId);
                 plan.setPlanDate(planDate);
@@ -265,7 +361,6 @@ public class HomeworkServiceImpl implements HomeworkService {
                 try {
                     dailyPlanMapper.insert(plan);
                 } catch (DuplicateKeyException e) {
-                    // 并发插入：唯一索引冲突，回退到查询已有记录
                     plan = dailyPlanMapper.selectByGoalIdAndDate(goalId, tenantId, planDate);
                     if (plan == null) {
                         throw new BusinessException(ErrorCodes.HOMEWORK_CONCURRENT_CONFLICT,
@@ -553,23 +648,46 @@ public class HomeworkServiceImpl implements HomeworkService {
                                         List<DailyPlanQuestionRef> refs,
                                         List<GeneratedQuestion> generatedQuestions,
                                         String tenantId) {
-        // 1. 生成题 → 写入 generated_question 表
+        // 1. 生成题 → 写入 generated_question 表（Change 8: 捕获 DuplicateKeyException）
+        List<GeneratedQuestion> persistedQuestions = new ArrayList<>();
         if (generatedQuestions != null && !generatedQuestions.isEmpty()) {
             for (GeneratedQuestion gq : generatedQuestions) {
                 gq.setDailyPlanId(plan.getPlanId());
                 gq.setTenantId(tenantId);
                 gq.setCreateTime(LocalDateTime.now());
                 gq.setUpdateTime(LocalDateTime.now());
-                generatedQuestionMapper.insert(gq);
+                // 防御性兜底：content_hash 为 NOT NULL 列，确保唯一索引对所有来源的生成题生效
+                // （举一反三新题由 SimilarQuestionService 显式写入 SimHash；知识回顾等其他来源默认为空串）
+                if (gq.getContentHash() == null) {
+                    gq.setContentHash("");
+                }
+                try {
+                    generatedQuestionMapper.insert(gq);
+                    persistedQuestions.add(gq);
+                } catch (DuplicateKeyException e) {
+                    // IMP-4: uk_kp_content_hash 唯一索引冲突 → 内容重复，跳过该题
+                    log.warn("生成题内容重复，跳过: kpId={}, contentHash={}",
+                            gq.getKnowledgePointId(), gq.getContentHash());
+                }
             }
 
-            // 回填生成题 ID 到 refs
-            int genIdx = 0;
-            for (DailyPlanQuestionRef ref : refs) {
-                if ("generated".equals(ref.getQuestionSource()) && genIdx < generatedQuestions.size()) {
-                    ref.setQuestionId(generatedQuestions.get(genIdx).getGeneratedQuestionId());
-                    genIdx++;
+            // H-3 修复：使用引用相等（==）对比原始列表与持久化结果，避免 DuplicateKeyException 跳题时 ID 回填错位
+            // 原理：persistedQuestions 仅包含 insert 成功的对象引用；
+            //   遍历 generatedQuestions（原始顺序），遇到 persisted 中的引用时消费下一个 generated ref
+            java.util.Iterator<GeneratedQuestion> persistedIter = persistedQuestions.iterator();
+            GeneratedQuestion currentPersisted = persistedIter.hasNext() ? persistedIter.next() : null;
+            for (GeneratedQuestion original : generatedQuestions) {
+                if (original == currentPersisted) {
+                    // 该题持久化成功，回填对应的 ref
+                    for (DailyPlanQuestionRef ref : refs) {
+                        if ("generated".equals(ref.getQuestionSource()) && ref.getQuestionId() == 0L) {
+                            ref.setQuestionId(original.getGeneratedQuestionId());
+                            break;
+                        }
+                    }
+                    currentPersisted = persistedIter.hasNext() ? persistedIter.next() : null;
                 }
+                // 该题持久化失败（original != currentPersisted），对应 ref 保持 questionId=0，继续下一题
             }
         }
 

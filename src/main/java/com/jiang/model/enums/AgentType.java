@@ -22,7 +22,10 @@ public enum AgentType {
     PLANNING("planning", "计划 Agent"),
 
     /** 调整 Agent */
-    ADJUSTMENT("adjustment", "调整 Agent");
+    ADJUSTMENT("adjustment", "调整 Agent"),
+
+    /** 检查 Agent（Change 8: 举一反三新题校验） */
+    QUESTION_CHECK("question_check", "检查 Agent");
 
     private final String code;
     private final String description;

@@ -85,7 +85,19 @@ public enum ErrorCodes {
     ERROR_QUESTION_NOT_FOUND(1100, "错题不存在"),
     ERROR_QUESTION_COMPLETED(1101, "错题已完成，无法推进"),
     ERROR_QUESTION_INVALID_STATUS(1102, "错题状态无效"),
-    ERROR_QUESTION_CONCURRENT_MODIFIED(1103, "错题并发修改冲突，请重试");
+    ERROR_QUESTION_CONCURRENT_MODIFIED(1103, "错题并发修改冲突，请重试"),
+
+    // 举一反三相关（1110-1119）
+    SIMILAR_QUESTION_GEN_FAILED(1110, "举一反三新题生成失败"),
+    SIMILAR_QUESTION_CHECK_FAILED(1111, "举一反三新题校验失败"),
+    SIMILAR_QUESTION_TOO_SIMILAR(1112, "举一反三新题与原题相似度过高"),
+    SIMILAR_AGENT_OUTPUT_INVALID(1113, "检查 Agent 输出格式异常"),
+
+    // 专项评测相关（1120-1129）
+    ASSESSMENT_NOT_FOUND(1120, "评测不存在"),
+    ASSESSMENT_INVALID_STATUS(1121, "评测状态非法"),
+    ASSESSMENT_ALREADY_GRADED(1122, "评测已批改，请勿重复提交"),
+    ASSESSMENT_CONCURRENT_MODIFIED(1123, "评测状态更新冲突，请重试");
 
     private final Integer code;
     private final String message;

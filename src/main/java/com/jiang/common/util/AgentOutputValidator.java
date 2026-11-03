@@ -132,6 +132,45 @@ public class AgentOutputValidator {
     }
 
     /**
+     * 校验检查 Agent 输出是否符合 Schema（Change 8: 举一反三新题校验）
+     * 期望格式：{"passed": true/false, "reason": "..."}
+     *
+     * @param agentOutput Agent 返回的 JSON 字符串
+     * @return 校验结果
+     */
+    public ValidationResult validateCheckResult(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+
+        if (!jsonNode.isObject()) {
+            return ValidationResult.fail("输出必须是 JSON 对象");
+        }
+
+        List<String> errors = new ArrayList<>();
+
+        // passed 字段必须存在且为布尔值
+        if (!jsonNode.has("passed")) {
+            errors.add("缺少必填字段 passed");
+        } else if (!jsonNode.get("passed").isBoolean()) {
+            errors.add("passed 必须为布尔值");
+        }
+
+        // reason 字段可选，但若存在必须为字符串
+        if (jsonNode.has("reason") && !jsonNode.get("reason").isTextual()) {
+            errors.add("reason 必须为字符串");
+        }
+
+        if (errors.isEmpty()) {
+            return ValidationResult.success();
+        }
+        return ValidationResult.fail(String.join("; ", errors));
+    }
+
+    /**
      * 校验结果
      */
     public static class ValidationResult {

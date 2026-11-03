@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 题库 Mapper 接口
@@ -37,4 +38,21 @@ public interface QuestionBankMapper extends BaseMapper<QuestionBank> {
             "ELSE 0.5 END) " +
             "FROM question_bank WHERE knowledge_point_id = #{kpId} AND tenant_id = #{tenantId}")
     BigDecimal selectAvgDifficultyByKp(@Param("kpId") String kpId, @Param("tenantId") String tenantId);
+
+    /**
+     * 查询指定知识点的有效题目（用于出题）
+     * 索引命中：idx_kp_difficulty (knowledge_point_id, tenant_id, difficulty)
+     * 返回完整字段（含 answer，仅 Service 内部批改使用，不对外泄露）
+     *
+     * @param kpId     知识点 ID
+     * @param tenantId 租户 ID
+     * @return 题目列表（按 difficulty ASC, question_id ASC 排序）
+     */
+    @Select("SELECT question_id, knowledge_point_id, content, choices, answer, " +
+            "analysis, difficulty, type, tenant_id, create_time, update_time " +
+            "FROM question_bank " +
+            "WHERE knowledge_point_id = #{kpId} AND tenant_id = #{tenantId} " +
+            "ORDER BY difficulty ASC, question_id ASC")
+    List<QuestionBank> selectActiveByKp(@Param("kpId") String kpId,
+                                         @Param("tenantId") String tenantId);
 }
