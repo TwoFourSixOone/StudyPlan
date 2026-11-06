@@ -112,43 +112,44 @@ class GoalControllerTest {
                 .andExpect(status().isBadRequest());
     }
 
-    // ==================== 查看活跃目标 ====================
+    // ==================== 查看活跃目标列表 ====================
 
     @Test
-    void should_returnActiveGoal_when_exists() throws Exception {
+    void should_returnActiveGoals_when_exists() throws Exception {
         stubJwtAuth();
-        when(goalService.getActiveGoal(isNull())).thenReturn(buildGoalVO());
+        when(goalService.getActiveGoals(isNull())).thenReturn(java.util.List.of(buildGoalVO()));
 
         mockMvc.perform(get("/api/student/goal/active")
                         .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data.goalId").value(1))
-                .andExpect(jsonPath("$.data.status").value("active"));
+                .andExpect(jsonPath("$.data[0].goalId").value(1))
+                .andExpect(jsonPath("$.data[0].status").value("active"));
     }
 
     @Test
-    void should_returnActiveGoalBySubject_when_subjectIdProvided() throws Exception {
+    void should_returnActiveGoalsBySubject_when_subjectIdProvided() throws Exception {
         stubJwtAuth();
-        when(goalService.getActiveGoal(eq(10L))).thenReturn(buildGoalVO());
+        when(goalService.getActiveGoals(eq(10L))).thenReturn(java.util.List.of(buildGoalVO()));
 
         mockMvc.perform(get("/api/student/goal/active")
                         .header("Authorization", AUTH_HEADER)
                         .param("subjectId", "10"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.subjectId").value(10));
+                .andExpect(jsonPath("$.data[0].subjectId").value(10));
     }
 
     @Test
-    void should_returnNull_when_noActiveGoal() throws Exception {
+    void should_returnEmptyList_when_noActiveGoal() throws Exception {
         stubJwtAuth();
-        when(goalService.getActiveGoal(isNull())).thenReturn(null);
+        when(goalService.getActiveGoals(isNull())).thenReturn(java.util.Collections.emptyList());
 
         mockMvc.perform(get("/api/student/goal/active")
                         .header("Authorization", AUTH_HEADER))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
-                .andExpect(jsonPath("$.data").doesNotExist());
+                .andExpect(jsonPath("$.data").isArray())
+                .andExpect(jsonPath("$.data").isEmpty());
     }
 
     // ==================== 查看目标列表 ====================

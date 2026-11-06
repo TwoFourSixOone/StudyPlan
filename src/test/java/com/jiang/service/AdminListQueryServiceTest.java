@@ -80,7 +80,7 @@ class AdminListQueryServiceTest {
                 .thenReturn(List.of(Map.of("knowledge_point_id", "kp_001", "name", "二次函数")));
 
         PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
-                null, null, null, null, 1, 20);
+                null, null, null, null, null, null, 1, 20);
 
         assertNotNull(result);
         assertEquals(1, result.getRecords().size());
@@ -102,7 +102,7 @@ class AdminListQueryServiceTest {
 
         // 不应抛异常
         assertDoesNotThrow(() -> adminListQueryService.getQuestionList(
-                null, null, null, "100%_难", 1, 20));
+                null, null, null, "100%_难", null, null, 1, 20));
     }
 
     @Test
@@ -117,7 +117,7 @@ class AdminListQueryServiceTest {
                 .thenReturn(page);
 
         PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
-                null, null, null, null, 1, 500);
+                null, null, null, null, null, null, 1, 500);
 
         // 验证 size 被限制为 100
         assertEquals(100, result.getSize());
@@ -145,7 +145,7 @@ class AdminListQueryServiceTest {
                         Map.of("knowledge_point_id", "kp_002", "name", "知识点B")));
 
         PageResult<DependencyListVO> result = adminListQueryService.getDependencyList(
-                null, null, null, 1, 20);
+                null, null, null, null, null, 1, 20);
 
         assertNotNull(result);
         assertEquals(1, result.getRecords().size());
@@ -243,7 +243,7 @@ class AdminListQueryServiceTest {
                 .thenReturn(page);
 
         PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
-                null, null, null, null, 1, 20);
+                null, null, null, null, null, null, 1, 20);
 
         assertNotNull(result);
         assertTrue(result.getRecords().isEmpty());

@@ -138,7 +138,7 @@ class HomeworkServiceTest {
     @Test
     @DisplayName("生成作业：无 active goal → 抛 LEARNING_GOAL_NOT_FOUND")
     void should_throwLearningGoalNotFound_when_noActiveGoal() {
-        when(goalService.getActiveGoal(SUBJECT_ID)).thenReturn(null);
+        when(goalService.getActiveGoals(SUBJECT_ID)).thenReturn(java.util.Collections.emptyList());
 
         assertThrows(BusinessException.class,
                 () -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
@@ -380,7 +380,7 @@ class HomeworkServiceTest {
     @Test
     @DisplayName("批改作业：无 active goal → 抛 LEARNING_GOAL_NOT_FOUND")
     void should_throwGoalNotFound_when_noActiveGoalForGrade() {
-        when(goalService.getActiveGoal(SUBJECT_ID)).thenReturn(null);
+        when(goalService.getActiveGoals(SUBJECT_ID)).thenReturn(java.util.Collections.emptyList());
 
         assertThrows(BusinessException.class,
                 () -> homeworkService.gradeHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
@@ -483,7 +483,7 @@ class HomeworkServiceTest {
                 .subjectName(SUBJECT_NAME).status("active")
                 .startDate(LocalDate.now()).endDate(LocalDate.now().plusMonths(3))
                 .build();
-        when(goalService.getActiveGoal(SUBJECT_ID)).thenReturn(goal);
+        when(goalService.getActiveGoals(SUBJECT_ID)).thenReturn(java.util.List.of(goal));
     }
 
     private void stubSubject() {

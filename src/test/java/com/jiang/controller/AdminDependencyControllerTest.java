@@ -64,7 +64,7 @@ class AdminDependencyControllerTest {
         vo.setCreateTime(LocalDateTime.now());
 
         PageResult<DependencyListVO> pageResult = PageResult.of(1L, 1, 20, Arrays.asList(vo));
-        when(adminListQueryService.getDependencyList(any(), any(), any(), eq(1), eq(20)))
+        when(adminListQueryService.getDependencyList(any(), any(), any(), any(), any(), eq(1), eq(20)))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/api/admin/dependencies")
@@ -78,7 +78,7 @@ class AdminDependencyControllerTest {
     void should_returnEmptyList_when_noData() throws Exception {
         stubJwtAuth();
         PageResult<DependencyListVO> pageResult = PageResult.of(0L, 1, 20, Collections.emptyList());
-        when(adminListQueryService.getDependencyList(any(), any(), any(), eq(1), eq(20)))
+        when(adminListQueryService.getDependencyList(any(), any(), any(), any(), any(), eq(1), eq(20)))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/api/admin/dependencies")

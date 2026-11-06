@@ -196,53 +196,57 @@ class GoalServiceTest {
         assertEquals(ErrorCodes.DATE_INVALID.getCode(), ex.getCode());
     }
 
-    // ==================== 查看活跃目标 ====================
+    // ==================== 查看活跃目标列表 ====================
 
     @Test
-    void should_returnActiveGoal_when_goalExistsAndNotExpired() {
+    void should_returnActiveGoals_when_goalExistsAndNotExpired() {
         LearningGoal goal = buildActiveGoal(TEST_GOAL_ID);
         Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
-        when(learningGoalMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(goal);
-        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+        when(learningGoalMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(java.util.List.of(goal));
+        when(subjectMapper.selectBatchIds(anyCollection())).thenReturn(java.util.List.of(subject));
 
-        GoalVO result = goalService.getActiveGoal(null);
+        java.util.List<GoalVO> result = goalService.getActiveGoals(null);
 
         assertNotNull(result);
-        assertEquals(TEST_GOAL_ID, result.getGoalId());
-        assertEquals(GoalStatus.ACTIVE.getCode(), result.getStatus());
+        assertFalse(result.isEmpty());
+        assertEquals(TEST_GOAL_ID, result.get(0).getGoalId());
+        assertEquals(GoalStatus.ACTIVE.getCode(), result.get(0).getStatus());
     }
 
     @Test
-    void should_returnActiveGoal_when_subjectIdProvided() {
+    void should_returnActiveGoals_when_subjectIdProvided() {
         LearningGoal goal = buildActiveGoal(TEST_GOAL_ID);
         goal.setSubjectId(TEST_SUBJECT_ID);
         Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
-        when(learningGoalMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(goal);
-        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+        when(learningGoalMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(java.util.List.of(goal));
+        when(subjectMapper.selectBatchIds(anyCollection())).thenReturn(java.util.List.of(subject));
 
-        GoalVO result = goalService.getActiveGoal(TEST_SUBJECT_ID);
+        java.util.List<GoalVO> result = goalService.getActiveGoals(TEST_SUBJECT_ID);
 
         assertNotNull(result);
-        assertEquals(TEST_SUBJECT_ID, result.getSubjectId());
+        assertFalse(result.isEmpty());
+        assertEquals(TEST_SUBJECT_ID, result.get(0).getSubjectId());
     }
 
     @Test
-    void should_returnNull_when_noActiveGoalExists() {
-        when(learningGoalMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+    void should_returnEmptyList_when_noActiveGoalExists() {
+        when(learningGoalMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(java.util.Collections.emptyList());
 
-        GoalVO result = goalService.getActiveGoal(null);
+        java.util.List<GoalVO> result = goalService.getActiveGoals(null);
 
-        assertNull(result);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 
     @Test
-    void should_returnNull_when_goalExpiredButNotMarked() {
+    void should_returnEmptyList_when_goalExpiredButNotMarked() {
         // 目标 status=active 但 endDate < today，不应返回
-        when(learningGoalMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(null);
+        when(learningGoalMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(java.util.Collections.emptyList());
 
-        GoalVO result = goalService.getActiveGoal(null);
+        java.util.List<GoalVO> result = goalService.getActiveGoals(null);
 
-        assertNull(result);
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
     }
 
     // ==================== 查看目标列表 ====================
