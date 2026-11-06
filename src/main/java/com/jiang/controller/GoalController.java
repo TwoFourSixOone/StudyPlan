@@ -19,6 +19,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 /**
  * 学生端学习目标 Controller
  *
@@ -40,10 +42,10 @@ public class GoalController {
     }
 
     @GetMapping("/active")
-    @Operation(summary = "查看当前活跃目标")
-    public Result<GoalVO> getActiveGoal(
+    @Operation(summary = "查看当前活跃目标列表")
+    public Result<List<GoalVO>> getActiveGoals(
             @RequestParam(required = false) Long subjectId) {
-        return Result.success(goalService.getActiveGoal(subjectId));
+        return Result.success(goalService.getActiveGoals(subjectId));
     }
 
     @GetMapping

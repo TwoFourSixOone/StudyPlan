@@ -162,7 +162,7 @@ class HomeworkServiceTest {
         stubActiveGoal();
         stubSubject();
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
-        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME))
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
                 .thenReturn(List.of(buildStudentState("kp_001", new BigDecimal("0.5"))));
         when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(List.of(buildKnowledgePoint("kp_001")));
@@ -204,7 +204,7 @@ class HomeworkServiceTest {
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
         doAnswer(inv -> { inv.<DailyPlan>getArgument(0).setPlanId(PLAN_ID); return 1; })
                 .when(dailyPlanMapper).insert(any(DailyPlan.class));
-        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME))
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
                 .thenReturn(List.of(buildStudentState("kp_001", new BigDecimal("0.3"))));
         when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(List.of(buildKnowledgePoint("kp_001")));
@@ -236,7 +236,7 @@ class HomeworkServiceTest {
         stubActiveGoal();
         stubSubject();
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
-        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME))
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
                 .thenReturn(List.of(buildStudentState("kp_001", new BigDecimal("0.3"))));
         when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
                 .thenReturn(List.of(buildKnowledgePoint("kp_001")));

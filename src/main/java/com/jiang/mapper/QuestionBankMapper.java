@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Select;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 题库 Mapper 接口
@@ -55,4 +56,19 @@ public interface QuestionBankMapper extends BaseMapper<QuestionBank> {
             "ORDER BY difficulty ASC, question_id ASC")
     List<QuestionBank> selectActiveByKp(@Param("kpId") String kpId,
                                          @Param("tenantId") String tenantId);
+
+    /**
+     * 修复 IMP-12：批量查询知识点关联题目数量，避免 N+1
+     * 返回 Map<knowledgePointId, count>
+     */
+    @Select("<script>" +
+            "SELECT knowledge_point_id, COUNT(*) as cnt FROM question_bank " +
+            "WHERE tenant_id = #{tenantId} AND knowledge_point_id IN " +
+            "<foreach collection='kpIds' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            " GROUP BY knowledge_point_id" +
+            "</script>")
+    List<Map<String, Object>> countByKnowledgePointIds(@Param("kpIds") List<String> kpIds,
+                                                        @Param("tenantId") String tenantId);
 }

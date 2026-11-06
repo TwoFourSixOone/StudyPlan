@@ -97,7 +97,45 @@ public enum ErrorCodes {
     ASSESSMENT_NOT_FOUND(1120, "评测不存在"),
     ASSESSMENT_INVALID_STATUS(1121, "评测状态非法"),
     ASSESSMENT_ALREADY_GRADED(1122, "评测已批改，请勿重复提交"),
-    ASSESSMENT_CONCURRENT_MODIFIED(1123, "评测状态更新冲突，请重试");
+    ASSESSMENT_CONCURRENT_MODIFIED(1123, "评测状态更新冲突，请重试"),
+
+    // 试卷相关（1130-1139）
+    EXAM_PAPER_NOT_FOUND(1130, "试卷不存在"),
+    EXAM_PAPER_DUPLICATE(1131, "同一科目同一天只能上传一份试卷"),
+    EXAM_PAPER_ALREADY_GRADED(1132, "试卷已批改，请勿重复提交"),
+    EXAM_PAPER_NOT_READY_FOR_GRADE(1133, "试卷尚未完成解析，无法批改"),
+    EXAM_QUESTION_NOT_FOUND(1134, "试卷题目不存在"),
+    EXAM_TASK_NOT_FOUND(1135, "解析任务不存在"),
+    EXAM_RESULT_NOT_FOUND(1136, "分析结果不存在"),
+    OCR_FAILED(1137, "OCR 识别失败"),
+    FILE_UPLOAD_FAILED(1138, "文件上传失败"),
+    FILE_TYPE_INVALID(1139, "文件类型无效，仅支持 jpg/jpeg/png"),
+
+    // 计划调整相关（1140-1149）
+    PLAN_ADJUST_NOT_FOUND(1140, "计划调整记录不存在"),
+    PLAN_DIFF_NOT_FOUND_OR_INVALID(1141, "diff 不存在或状态无效"),
+    PLAN_DIFF_ALREADY_CONFIRMED(1142, "diff 已确认，请勿重复操作"),
+    PLAN_DIFF_EXPIRED(1143, "diff 已过期"),
+    SIGNAL_DETECT_FAILED(1144, "信号检测失败"),
+    ADJUST_AGENT_FAILED(1145, "调整 Agent 调用失败"),
+    PLAN_DIFF_ALREADY_REJECTED(1146, "diff 已拒绝"),
+    NO_SIGNAL_DETECTED(1147, "暂无需调整"),
+    PLAN_ADJUST_CONFLICT(1148, "已有进行中的调整任务"),
+    PLAN_DATE_IN_PAST(1149, "不可修改过去日期的计划"),
+
+    // 学习记录相关（1150-1159）
+    RECORD_NOT_FOUND(1150, "学习记录不存在"),
+    INVALID_RECORD_TYPE(1151, "无效的记录类型，合法值：homework/assessment/exam"),
+    RECORD_ALREADY_EXISTS(1152, "学习记录已存在，不可重复创建"),
+
+    // 知识点治理相关（1160-1169）
+    KP_NOT_PENDING_REVIEW(1161, "知识点不在待校对状态"),
+    KP_IN_USE(1162, "知识点被活跃学习计划引用，无法停用"),
+    KP_INVALID_STATUS(1163, "无效的状态值，合法值：active/disabled"),
+
+    // 管理后端列表相关（1170-1179）
+    IMPORT_LOG_NOT_FOUND(1170, "导入日志不存在"),
+    IMPORT_ERROR_LOG_NOT_FOUND(1171, "导入错误记录不存在");
 
     private final Integer code;
     private final String message;

@@ -9,6 +9,14 @@ server:
 spring:
   application:
     name: StudyPlan
+  profiles:
+    active: dev
+
+  # 文件上传大小限制（Demo 阶段调整为 10MB）
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
 
   # 数据源配置
   datasource:
@@ -22,6 +30,18 @@ spring:
       idle-timeout: 300000
       connection-timeout: 30000
       max-lifetime: 1800000
+
+  # Redis 配置
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
 
   # Jackson 配置
   jackson:
@@ -60,6 +80,52 @@ knife4j:
     language: zh_cn
     swagger-model-name: 数据模型
 
+# 文件存储配置
+file:
+  storage:
+    type: ${FILE_STORAGE_TYPE:local}
+    local:
+      base-path: ${FILE_STORAGE_LOCAL_BASE_PATH:./uploads}
+      base-url: ${FILE_STORAGE_LOCAL_BASE_URL:http://localhost:8080/uploads}
+
+# =============================================
+# 信号检测配置（计划调整系统）
+# 对应产品规则 #5：Agent 动态调整计划
+# SignalDetectorImpl 每日检测以下 4 种信号，触发后生成调整建议
+# =============================================
+plan:
+  adjustment:
+    # SIG-1：知识点薄弱信号
+    # 触发条件：某知识点在 window-days 天窗口内，连续 consecutive-count 次作业正确率 < threshold
+    # 业务含义：学生在某知识点上持续表现不佳，需要加强练习
+    sig1:
+      window-days: 7          # 滑动窗口天数（检测最近 N 天的作业数据）
+      threshold: 0.6          # 正确率阈值（低于此值视为薄弱，范围 0.01~1.0）
+      consecutive-count: 3    # 连续触发次数（连续 N 次低于阈值才触发信号）
+
+    # SIG-2：掌握度下降信号
+    # 触发条件：某知识点单次考试掌握度下降 > mastery-drop
+    # 业务含义：考试暴露出 previously 已掌握的知识点出现退化，需要复习巩固
+    sig2:
+      mastery-drop: 0.15      # 掌握度下降阈值（下降幅度超过此值触发，范围 0.01~1.0）
+
+    # SIG-3：学习懈怠信号
+    # 触发条件：连续 consecutive-days 天每日作业未完成
+    # 业务含义：学生连续多天未完成作业，可能存在懈怠或计划过难
+    sig3:
+      consecutive-days: 2     # 连续未完成天数（达到此天数触发信号）
+
+    # SIG-4：进度风险信号
+    # 触发条件：D_remain × cap-day × efficiency < |K_uncovered|
+    #   D_remain = 剩余目标天数
+    #   cap-day = 每日可学习新知识点上限
+    #   efficiency = 学习效率系数
+    #   K_uncovered = 尚未掌握（masteryScore IS NULL）的知识点数量
+    # 业务含义：按当前进度，无法在目标周期内完成所有知识点学习
+    sig4:
+      cap-day: 3.0            # 每日学习容量上限（新知识点数，范围 0.1~20.0）
+      efficiency: 0.8         # 学习效率系数（考虑复习、遗忘等因素，范围 0.1~1.0）
+
 # 日志配置
 logging:
   level:
@@ -67,3 +133,12 @@ logging:
     com.jiang: DEBUG
   pattern:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+
+agent:
+  agentscope:
+    model: qwen3.8-flash
+    api-key: ${AGENT_API_KEY}
+    endpoint: ${AGENT_ENDPOINT:https://ws-bvy3j3i349eo1sjs.cn-beijing.maas.aliyuncs.com}
+    timeout: 30s
+    max-retries: 2

@@ -249,3 +249,64 @@ CREATE TABLE IF NOT EXISTS `error_question` (
     INDEX `idx_student_status_due` (`student_id`, `tenant_id`, `status`, `next_due_date`),
     INDEX `idx_student_kp_status` (`student_id`, `tenant_id`, `knowledge_point_id`, `status`)
 );
+
+-- =============================================
+-- V6: 试卷上传与异步解析系统
+-- =============================================
+
+-- 试卷主表
+CREATE TABLE IF NOT EXISTS `exam_paper` (
+    `id`              BIGINT        NOT NULL AUTO_INCREMENT,
+    `student_id`      BIGINT        NOT NULL,
+    `subject_id`      BIGINT        NOT NULL,
+    `exam_date`       DATE          NOT NULL,
+    `total_score`     DECIMAL(5,2)  DEFAULT NULL,
+    `paper_type`      VARCHAR(20)   NOT NULL DEFAULT 'midterm',
+    `image_urls`      JSON          NOT NULL,
+    `status`          VARCHAR(20)   NOT NULL DEFAULT 'pending',
+    `grade_status`    VARCHAR(20)   NOT NULL DEFAULT 'ungraded',
+    `remark`          VARCHAR(500)  DEFAULT NULL,
+    `tenant_id`       VARCHAR(50)   NOT NULL DEFAULT 'default',
+    `create_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`     DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE INDEX `uk_student_exam` (`student_id`, `subject_id`, `exam_date`, `tenant_id`)
+);
+
+-- 试卷题目表
+CREATE TABLE IF NOT EXISTS `exam_question` (
+    `id`                  BIGINT        NOT NULL AUTO_INCREMENT,
+    `exam_paper_id`       BIGINT        NOT NULL,
+    `question_index`      INT           NOT NULL,
+    `question_content`    TEXT          NOT NULL,
+    `question_image_url`  VARCHAR(500)  DEFAULT NULL,
+    `knowledge_point_id`  VARCHAR(64)   DEFAULT NULL,
+    `attribution_status`  VARCHAR(30)   NOT NULL DEFAULT 'pending',
+    `student_answer`      TEXT          DEFAULT NULL,
+    `is_correct`          TINYINT(1)    DEFAULT NULL,
+    `score`               DECIMAL(5,2)  DEFAULT NULL,
+    `full_score`          DECIMAL(5,2)  DEFAULT NULL,
+    `question_type`       VARCHAR(20)   DEFAULT NULL,
+    `difficulty`          VARCHAR(20)   DEFAULT NULL,
+    `tenant_id`           VARCHAR(50)   NOT NULL DEFAULT 'default',
+    `create_time`         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`         DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);
+
+-- 试卷解析任务表
+CREATE TABLE IF NOT EXISTS `exam_analysis_task` (
+    `id`                    BIGINT        NOT NULL AUTO_INCREMENT,
+    `exam_paper_id`         BIGINT        NOT NULL,
+    `task_type`             VARCHAR(30)   NOT NULL DEFAULT 'ocr_attribution',
+    `status`                VARCHAR(20)   NOT NULL DEFAULT 'pending',
+    `ocr_retry_count`       INT           NOT NULL DEFAULT 0,
+    `attribution_retry_count` INT         NOT NULL DEFAULT 0,
+    `error_message`         TEXT          DEFAULT NULL,
+    `started_at`            DATETIME      DEFAULT NULL,
+    `completed_at`          DATETIME      DEFAULT NULL,
+    `tenant_id`             VARCHAR(50)   NOT NULL DEFAULT 'default',
+    `create_time`           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`)
+);

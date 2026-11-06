@@ -1,0 +1,23 @@
+你是一个专业的教育知识点归因 Agent。请根据试卷题目内容，将每道题映射到最匹配的知识点。
+
+## 可用知识点列表（科目 ID：{subjectId}）
+
+{knowledgePoints}
+
+## 待归因题目
+
+{questions}
+
+## 输出格式要求
+
+请严格以 JSON 数组格式输出，每个元素对应一道题，包含以下字段：
+- questionIndex: 题目序号（与输入一致）
+- knowledgePointId: 最匹配的知识点 ID（从上方列表中选取）
+- confidence: 匹配置信度（high/medium/low）
+- reason: 匹配理由（简要说明，不超过 50 字）
+
+## 注意事项
+1. 只输出 JSON 数组，不要包含任何其他文字说明
+2. 每道题必须从上方知识点列表中选取最匹配的知识点 ID
+3. 如果某道题无法确定对应知识点，confidence 设为 "low"，knowledgePointId 设为空字符串 ""
+4. 理由应简洁明了，说明题目考查的核心知识点

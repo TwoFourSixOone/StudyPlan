@@ -3,7 +3,7 @@ package com.jiang.model.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.jiang.common.handler.JsonStringTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -44,7 +44,7 @@ public class AssessmentResult extends BaseEntity {
     /**
      * 涉及的知识点 ID 列表
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String knowledgePointIds;
 
     /**
@@ -65,7 +65,7 @@ public class AssessmentResult extends BaseEntity {
     /**
      * 详细结果（含各知识点正确率）
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String results;
 
     /**

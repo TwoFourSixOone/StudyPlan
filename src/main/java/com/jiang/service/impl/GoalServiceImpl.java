@@ -24,8 +24,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -59,24 +61,25 @@ public class GoalServiceImpl implements GoalService {
             throw new BusinessException(ErrorCodes.SUBJECT_NOT_FOUND);
         }
 
-        // 2. 校验科目有已启用知识点（KnowledgePoint.subject 存的是科目名称，非 ID）
-        long activeKpCount = knowledgePointMapper.selectCount(
-            new LambdaQueryWrapper<KnowledgePoint>()
-                .eq(KnowledgePoint::getSubject, subject.getName())
-                .eq(KnowledgePoint::getStatus, "active")
-                .eq(KnowledgePoint::getTenantId, tenantId)
+        // 2. 校验科目有可用知识点（KnowledgePoint.subject 存的是科目名称，非 ID）
+        // Demo 阶段放宽状态过滤：包含 pending_review + active（排除 disabled）
+        long availableKpCount = knowledgePointMapper.selectCount(
+                new LambdaQueryWrapper<KnowledgePoint>()
+                        .eq(KnowledgePoint::getSubject, subject.getName())
+                        .ne(KnowledgePoint::getStatus, "disabled")
+                        .eq(KnowledgePoint::getTenantId, tenantId)
         );
-        if (activeKpCount == 0) {
+        if (availableKpCount == 0) {
             throw new BusinessException(ErrorCodes.SUBJECT_NO_ACTIVE_KP);
         }
 
         // 3. 校验无重复活跃目标（同学生 + 同科目 + status=active）
         long activeGoalCount = learningGoalMapper.selectCount(
-            new LambdaQueryWrapper<LearningGoal>()
-                .eq(LearningGoal::getStudentId, studentId)
-                .eq(LearningGoal::getSubjectId, request.getSubjectId())
-                .eq(LearningGoal::getStatus, GoalStatus.ACTIVE.getCode())
-                .eq(LearningGoal::getTenantId, tenantId)
+                new LambdaQueryWrapper<LearningGoal>()
+                        .eq(LearningGoal::getStudentId, studentId)
+                        .eq(LearningGoal::getSubjectId, request.getSubjectId())
+                        .eq(LearningGoal::getStatus, GoalStatus.ACTIVE.getCode())
+                        .eq(LearningGoal::getTenantId, tenantId)
         );
         if (activeGoalCount > 0) {
             throw new BusinessException(ErrorCodes.GOAL_ALREADY_ACTIVE);
@@ -151,32 +154,42 @@ public class GoalServiceImpl implements GoalService {
     }
 
     @Override
-    public GoalVO getActiveGoal(Long subjectId) {
+    public List<GoalVO> getActiveGoals(Long subjectId) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
 
+        log.info("[getActiveGoals] studentId={}, tenantId={}, subjectId={}", studentId, tenantId, subjectId);
+
         LambdaQueryWrapper<LearningGoal> wrapper = new LambdaQueryWrapper<LearningGoal>()
-            .eq(LearningGoal::getStudentId, studentId)
-            .eq(LearningGoal::getStatus, GoalStatus.ACTIVE.getCode())
-            .ge(LearningGoal::getEndDate, LocalDate.now())
-            .eq(LearningGoal::getTenantId, tenantId);
+                .eq(LearningGoal::getStudentId, studentId)
+                .eq(subjectId != null, LearningGoal::getSubjectId, subjectId)
+                .eq(LearningGoal::getStatus, GoalStatus.ACTIVE.getCode())
+                .ge(LearningGoal::getEndDate, LocalDate.now())
+                .eq(LearningGoal::getTenantId, tenantId);
 
-        // R1：subjectId 仅作过滤条件，不校验存在性或 tenant 归属
-        if (subjectId != null) {
-            wrapper.eq(LearningGoal::getSubjectId, subjectId);
+        wrapper.orderByDesc(LearningGoal::getCreateTime);
+
+
+        List<LearningGoal> goals = learningGoalMapper.selectList(wrapper);
+
+        log.info("[getActiveGoals] 查询结果数量: {}", goals.size());
+
+        if (goals.isEmpty()) {
+            return Collections.emptyList();
         }
 
-        wrapper.orderByDesc(LearningGoal::getCreateTime)
-               .last("LIMIT 1");
+        // 批量查询科目信息，避免 N+1
+        Set<Long> subjectIds = goals.stream()
+                .map(LearningGoal::getSubjectId)
+                .collect(Collectors.toSet());
+        Map<Long, Subject> subjectMap = subjectIds.isEmpty() ? Collections.emptyMap() :
+                subjectMapper.selectBatchIds(subjectIds).stream()
+                        .collect(Collectors.toMap(Subject::getSubjectId, s -> s));
 
-        LearningGoal goal = learningGoalMapper.selectOne(wrapper);
-
-        if (goal == null) {
-            return null;
-        }
-
-        Subject subject = subjectMapper.selectById(goal.getSubjectId());
-        return toGoalVO(goal, subject != null ? subject.getName() : null);
+        return goals.stream()
+                .map(goal -> toGoalVO(goal, subjectMap.get(goal.getSubjectId()) != null ?
+                        subjectMap.get(goal.getSubjectId()).getName() : null))
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -186,18 +199,18 @@ public class GoalServiceImpl implements GoalService {
 
         Page<LearningGoal> pageParam = new Page<>(page, size);
         Page<LearningGoal> result = learningGoalMapper.selectPage(pageParam,
-            new LambdaQueryWrapper<LearningGoal>()
-                .eq(LearningGoal::getStudentId, studentId)
-                .eq(LearningGoal::getTenantId, tenantId)
-                .orderByDesc(LearningGoal::getStartDate)
+                new LambdaQueryWrapper<LearningGoal>()
+                        .eq(LearningGoal::getStudentId, studentId)
+                        .eq(LearningGoal::getTenantId, tenantId)
+                        .orderByDesc(LearningGoal::getStartDate)
         );
 
         List<GoalVO> voList = result.getRecords().stream()
-            .map(goal -> {
-                Subject subject = subjectMapper.selectById(goal.getSubjectId());
-                return toGoalVO(goal, subject != null ? subject.getName() : null);
-            })
-            .collect(Collectors.toList());
+                .map(goal -> {
+                    Subject subject = subjectMapper.selectById(goal.getSubjectId());
+                    return toGoalVO(goal, subject != null ? subject.getName() : null);
+                })
+                .collect(Collectors.toList());
 
         return PageResult.of(result.getTotal(), page, size, voList);
     }
@@ -223,7 +236,7 @@ public class GoalServiceImpl implements GoalService {
         String tenantId = StudentContext.getTenantId();
 
         LambdaQueryWrapper<LearningGoal> wrapper = new LambdaQueryWrapper<LearningGoal>()
-            .eq(LearningGoal::getTenantId, tenantId);
+                .eq(LearningGoal::getTenantId, tenantId);
 
         if (studentId != null) {
             wrapper.eq(LearningGoal::getStudentId, studentId);
@@ -246,11 +259,11 @@ public class GoalServiceImpl implements GoalService {
         Page<LearningGoal> result = learningGoalMapper.selectPage(pageParam, wrapper);
 
         List<GoalVO> voList = result.getRecords().stream()
-            .map(goal -> {
-                Subject subject = subjectMapper.selectById(goal.getSubjectId());
-                return toGoalVO(goal, subject != null ? subject.getName() : null);
-            })
-            .collect(Collectors.toList());
+                .map(goal -> {
+                    Subject subject = subjectMapper.selectById(goal.getSubjectId());
+                    return toGoalVO(goal, subject != null ? subject.getName() : null);
+                })
+                .collect(Collectors.toList());
 
         return PageResult.of(result.getTotal(), page, size, voList);
     }
@@ -292,17 +305,17 @@ public class GoalServiceImpl implements GoalService {
      */
     private GoalVO toGoalVO(LearningGoal goal, String subjectName) {
         return GoalVO.builder()
-            .goalId(goal.getGoalId())
-            .studentId(goal.getStudentId())
-            .subjectId(goal.getSubjectId())
-            .subjectName(subjectName)
-            .direction(goal.getDirection())
-            .targetScore(goal.getTargetScore())
-            .startDate(goal.getStartDate())
-            .endDate(goal.getEndDate())
-            .status(goal.getStatus())
-            .createdAt(goal.getCreateTime())
-            .updatedAt(goal.getUpdateTime())
-            .build();
+                .goalId(goal.getGoalId())
+                .studentId(goal.getStudentId())
+                .subjectId(goal.getSubjectId())
+                .subjectName(subjectName)
+                .direction(goal.getDirection())
+                .targetScore(goal.getTargetScore())
+                .startDate(goal.getStartDate())
+                .endDate(goal.getEndDate())
+                .status(goal.getStatus())
+                .createdAt(goal.getCreateTime())
+                .updatedAt(goal.getUpdateTime())
+                .build();
     }
 }

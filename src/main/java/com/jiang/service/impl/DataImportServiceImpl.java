@@ -19,6 +19,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.io.InputStream;
 import java.time.LocalDateTime;
@@ -67,6 +68,9 @@ public class DataImportServiceImpl implements DataImportService {
     @Autowired
     private DataImportErrorLogMapper errorLogMapper;
 
+    @Autowired
+    private SubjectMapper subjectMapper;
+
     // 文件路径映射
     private static final Map<String, String> FILE_PATH_MAP = Map.of(
             "topic", "json/topics.json",
@@ -79,16 +83,16 @@ public class DataImportServiceImpl implements DataImportService {
     private static final int STANDARD_BATCH_SIZE = 500;
 
     @Override
-    public ImportResultDTO importData(String dataType) {
+    public ImportResultDTO importData(MultipartFile file, String dataType) {
         // 并发控制：Demo 阶段方法级 synchronized（使用专用锁对象）
         synchronized (importLock) {
-            return doImport(dataType);
+            return doImport(file, dataType);
         }
     }
 
     // ========================= 导入核心 =========================
 
-    private ImportResultDTO doImport(String dataType) {
+    private ImportResultDTO doImport(MultipartFile file, String dataType) {
         if (dataType == null) {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "不支持的数据类型: null");
         }
@@ -97,13 +101,13 @@ public class DataImportServiceImpl implements DataImportService {
             throw new BusinessException(ErrorCodes.BAD_REQUEST, "不支持的数据类型: " + dataType);
         }
 
-        // 1. 读取 JSON 文件
-        JsonNode jsonRoot = readJsonFile(filePath);
+        // 1. 从上传文件读取 JSON 内容
+        JsonNode jsonRoot = readJsonFromMultipartFile(file);
 
         // 2. 创建导入日志（初始计数=0，纳入独立事务）
         DataImportLog importLog = new DataImportLog();
         importLog.setDataType(dataType);
-        importLog.setFileSource(filePath);
+        importLog.setFileSource(file.getOriginalFilename()); // 使用上传文件名
         importLog.setSuccessCount(0);
         importLog.setFailCount(0);
         importLog.setSkipCount(0);
@@ -192,9 +196,10 @@ public class DataImportServiceImpl implements DataImportService {
                 } catch (DataIntegrityViolationException e) {
                     failCount++;
                     String recordId = getNodeId(node, dataType);
-                    // 脱敏：不直接暴露 SQL 异常信息，使用固定描述
-                    String msg = "数据完整性约束违反（可能为外键缺失或字段超长）";
-                    log.warn("导入记录数据完整性异常: dataType={}, recordId={}", dataType, recordId, e);
+                    // 记录实际异常信息以便定位问题（截断到 500 字符适配 error_reason 字段）
+                    String rootCause = extractRootCause(e);
+                    String msg = "数据完整性约束违反: " + rootCause;
+                    log.error("导入记录数据完整性异常: dataType={}, recordId={}, cause={}", dataType, recordId, rootCause, e);
                     addError(errors, importLog.getImportId(), recordId, msg);
                     if (errorSamples.size() < 5) errorSamples.add(formatSample(recordId, msg));
                 } catch (Exception e) {
@@ -240,6 +245,21 @@ public class DataImportServiceImpl implements DataImportService {
 
     // ========================= JSON 读取 =========================
 
+    /**
+     * 从上传的 MultipartFile 中读取 JSON 内容
+     */
+    private JsonNode readJsonFromMultipartFile(MultipartFile file) {
+        try (InputStream is = file.getInputStream()) {
+            return objectMapper.readTree(is);
+        } catch (Exception e) {
+            log.error("读取上传 JSON 文件失败: {}", file.getOriginalFilename(), e);
+            throw new BusinessException(ErrorCodes.IMPORT_FILE_NOT_FOUND, "上传文件读取失败: " + file.getOriginalFilename());
+        }
+    }
+
+    /**
+     * 从 classpath 读取 JSON 文件（保留用于向后兼容或特殊场景）
+     */
     private JsonNode readJsonFile(String filePath) {
         try {
             ClassPathResource resource = new ClassPathResource(filePath);
@@ -379,7 +399,48 @@ public class DataImportServiceImpl implements DataImportService {
 
     private void insertTopic(JsonNode node) {
         KnowledgePoint kp = mapToKnowledgePoint(node);
+        // 安全降级：如果学科仍为 null，从知识点 ID 前缀推导
+        if (kp.getSubject() == null) {
+            String fallback = deriveSubject(kp.getKnowledgePointId());
+            if (fallback != null) {
+                log.warn("知识点学科降级推导: id={} -> subject={} (from kp prefix)",
+                        kp.getKnowledgePointId(), fallback);
+                kp.setSubject(fallback);
+            } else {
+                log.error("知识点学科推导彻底失败! id={}, 将使用默认值 '未知'",
+                        kp.getKnowledgePointId());
+                kp.setSubject("未知");
+            }
+        }
         knowledgePointMapper.insert(kp);
+        // 自动创建科目记录（如果不存在）
+        if (kp.getSubject() != null) {
+            ensureSubjectExists(kp.getSubject(), "default");
+        }
+    }
+
+    /**
+     * 确保科目记录存在。如果 subject 表中没有该科目，则自动创建。
+     * Demo 阶段学段默认为 "小学"（知识点数据来源以小学为主）。
+     */
+    private void ensureSubjectExists(String subjectName, String tenantId) {
+        try {
+            Long count = subjectMapper.selectCount(
+                new LambdaQueryWrapper<Subject>()
+                    .eq(Subject::getName, subjectName)
+                    .eq(Subject::getTenantId, tenantId)
+            );
+            if (count != null && count == 0) {
+                Subject subject = new Subject();
+                subject.setName(subjectName);
+                subject.setStage("小学");
+                subject.setTenantId(tenantId);
+                subjectMapper.insert(subject);
+                log.info("自动创建科目记录: name={}, stage={}", subjectName, "小学");
+            }
+        } catch (Exception e) {
+            log.warn("自动创建科目记录失败(可能并发创建): {}", subjectName, e);
+        }
     }
 
     private void insertQuestion(JsonNode node) {
@@ -397,7 +458,21 @@ public class DataImportServiceImpl implements DataImportService {
     private KnowledgePoint mapToKnowledgePoint(JsonNode node) {
         KnowledgePoint kp = new KnowledgePoint();
         kp.setKnowledgePointId(getTextOrNull(node, "id"));
-        kp.setSubject("数学");
+        // 优先从 standards 推导学科，失败则从 topic 的 subject 字段获取
+        String subject = deriveSubjectFromStandards(node.get("standards"));
+        String subjectSource = "standards";
+        if (subject == null) {
+            subject = convertSubjectFromEnglish(getTextOrNull(node, "subject"));
+            subjectSource = "topic.subject";
+        }
+        if (subject == null) {
+            log.error("知识点学科推导失败! id={}, standards={}, topic.subject={}",
+                    kp.getKnowledgePointId(),
+                    node.get("standards"),
+                    getTextOrNull(node, "subject"));
+        }
+        log.debug("知识点映射: id={}, subject={} (来源: {})", kp.getKnowledgePointId(), subject, subjectSource);
+        kp.setSubject(subject);
         kp.setName(getTextOrNull(node, "name"));
         kp.setLevel(2); // Demo 阶段统一 level=2
         kp.setParentId(null); // Demo 阶段不推导层级
@@ -436,7 +511,7 @@ public class DataImportServiceImpl implements DataImportService {
     private CurriculumStandard mapToCurriculumStandard(JsonNode node) {
         CurriculumStandard cs = new CurriculumStandard();
         cs.setCode(getTextOrNull(node, "id"));
-        cs.setSubject("数学");
+        cs.setSubject(deriveSubject(getTextOrNull(node, "id")));
         cs.setStage(deriveStage(getTextOrNull(node, "id")));
         cs.setDescription(getTextOrNull(node, "text"));
         return cs;
@@ -463,12 +538,18 @@ public class DataImportServiceImpl implements DataImportService {
             } catch (DuplicateKeyException e) {
                 skip++;
                 log.warn("课程标准 code 冲突，跳过: {}", cs.getCode());
+            } catch (DataIntegrityViolationException e) {
+                fail++;
+                String recordId = cs.getCode() != null ? cs.getCode() : "unknown";
+                String msg = "课程标准插入失败: " + recordId + " - 数据完整性约束违反: " + e.getMessage();
+                log.error("课程标准数据完整性异常: code={}, subject={}, stage={}", cs.getCode(), cs.getSubject(), cs.getStage(), e);
+                addError(errors, importId, recordId, msg);
+                if (errorSamples.size() < 5) errorSamples.add(formatSample(recordId, msg));
             } catch (Exception e) {
                 fail++;
                 String recordId = cs.getCode() != null ? cs.getCode() : "unknown";
-                // 脱敏：不直接暴露异常信息
-                String msg = "课程标准插入失败: " + recordId;
-                log.error("课程标准插入异常: code={}", cs.getCode(), e);
+                String msg = "课程标准插入失败: " + recordId + " - " + e.getMessage();
+                log.error("课程标准插入异常: code={}, subject={}, stage={}", cs.getCode(), cs.getSubject(), cs.getStage(), e);
                 addError(errors, importId, recordId, msg);
                 if (errorSamples.size() < 5) errorSamples.add(formatSample(recordId, msg));
             }
@@ -481,13 +562,15 @@ public class DataImportServiceImpl implements DataImportService {
     /**
      * 从 id 前缀推导学段
      * <p>
-     * ID 格式统一为 "{prefix}:{stage}.*"，其中 stage 数字决定学段：
-     * - 1~3 → "小学"（义务教育第一至第三学段，1-6 年级）
-     * - 4   → "初中"（义务教育第四学段，7-9 年级）
-     * - 含 "H." 或 "hs-" → "高中"（普通高中）
+     * ID 格式分两类：
+     * 1. 含学段编号："{prefix}:{stage}.*"，stage 数字决定学段：
+     *    - 1~3 → "小学"（义务教育第一至第三学段，1-6 年级）
+     *    - 4   → "初中"（义务教育第四学段，7-9 年级）
+     *    - 5   → "高中"
+     * 2. 不含学段编号（字母前缀）：如 chs-2022:CA.01（历史）、cks-2022:SQ.01（化学）等，
+     *    这些学科仅在初中开设，根据学科前缀推断默认学段为 "初中"。
      * <p>
-     * 支持的前缀：cms-2022（数学）、ces-2022（英语）、cps-2022（物理）、
-     * cms-2017 / ces-2017 / cps-hs-2017（高中）
+     * 高中特殊标识：id 中含 "H."（如 cms-2017:H.GA.04）或 "hs-"（如 cps-hs-2017:B1.1.1）
      */
     private String deriveStage(String id) {
         if (id == null) return null;
@@ -495,10 +578,11 @@ public class DataImportServiceImpl implements DataImportService {
         if (id.contains(":H.") || id.contains("hs-")) {
             return "高中";
         }
-        // 义务教育：提取冒号后的学段编号
+        // 提取冒号后的部分
         int colonIdx = id.indexOf(':');
         if (colonIdx >= 0 && colonIdx + 1 < id.length()) {
             char stageChar = id.charAt(colonIdx + 1);
+            // 义务教育：学段编号 1~5
             if (stageChar >= '1' && stageChar <= '3') {
                 return "小学";
             }
@@ -509,7 +593,126 @@ public class DataImportServiceImpl implements DataImportService {
                 return "高中";
             }
         }
+        // 无学段编号的学科：根据学科前缀推断默认学段
+        // 历史(chs)、化学(cks)、生物(cbs)、地理(cgs) 仅在初中开设
+        String prefix = extractSubjectPrefix(id);
+        if (Set.of("chs", "cks", "cbs", "cgs").contains(prefix)) {
+            return "初中";
+        }
         return null;
+    }
+
+    /**
+     * 从 ID 中提取学科前缀（去掉版本号和冒号后的部分）
+     * 如 "chs-2022:CA.01" → "chs"，"cps-hs-2017:B1.1.1" → "cps"
+     */
+    private String extractSubjectPrefix(String id) {
+        if (id == null) return null;
+        int colonIdx = id.indexOf(':');
+        String beforeColon = colonIdx > 0 ? id.substring(0, colonIdx) : id;
+        int dashIdx = beforeColon.lastIndexOf('-');
+        if (dashIdx > 0) {
+            beforeColon = beforeColon.substring(0, dashIdx);
+        }
+        if (beforeColon.endsWith("-hs")) {
+            beforeColon = beforeColon.substring(0, beforeColon.length() - 3);
+        }
+        return beforeColon;
+    }
+
+    // ========================= subject 推导 =========================
+
+    /**
+     * 从课程标准 ID 前缀推导学科
+     * <p>
+     * 前缀映射（根据 cn-math-taxonomy 最新数据）：
+     * 课程标准 ID 格式：{prefix}-{year}:{stage}.{domain}.{number}
+     * <p>
+     * 课标前缀 → 学科：
+     * - cms- → 数学（cms-2022 义务教育、cms-2017 高中）
+     * - ces- → 英语（ces-2022 义务教育、ces-2017 高中）
+     * - cps- → 物理（cps-2022 义务教育、cps-hs-2017 高中）
+     * - ccs- → 语文（ccs-2022 义务教育）
+     * - chs- → 历史（chs-2022 义务教育）
+     * - cks- → 化学（cks-2022 义务教育）
+     * - cbs- → 生物（cbs-2022 义务教育）
+     * - css- → 科学（css-2022 义务教育）
+     * - cds- → 道德与法治（cds-2022 义务教育）
+     * - cgs- → 地理（cgs-2022 义务教育）
+     * <p>
+     * 知识点 ID 前缀 → 学科（用于 standards JSON 中的引用）：
+     * - cnm- → 数学, cne- → 英语, cnp- → 物理
+     * - cnc- → 语文, cnh- → 历史, cnk- → 化学
+     * - cnb- → 生物, cns- → 科学, cnd- → 道德与法治, cng- → 地理
+     * <p>
+     * 注意：高中物理 ID 格式为 cps-hs-2017:X.Y.Z，去掉版本号后为 cps-hs，
+     * 需要额外去掉 -hs 后缀才能匹配到 cps → 物理。
+     */
+    private String deriveSubject(String standardId) {
+        String prefix = extractSubjectPrefix(standardId);
+        if (prefix == null) return null;
+        return switch (prefix) {
+            // 课程标准前缀
+            case "cms" -> "数学";
+            case "ces" -> "英语";
+            case "cps" -> "物理";
+            case "ccs" -> "语文";
+            case "chs" -> "历史";
+            case "cks" -> "化学";
+            case "cbs" -> "生物";
+            case "css" -> "科学";
+            case "cds" -> "道德与法治";
+            case "cgs" -> "地理";
+            // 知识点 ID 前缀（standards JSON 中可能引用）
+            case "cnm" -> "数学";
+            case "cne" -> "英语";
+            case "cnp" -> "物理";
+            case "cnc" -> "语文";
+            case "cnh" -> "历史";
+            case "cnk" -> "化学";
+            case "cnb" -> "生物";
+            case "cns" -> "科学";
+            case "cnd" -> "道德与法治";
+            case "cng" -> "地理";
+            default -> null;
+        };
+    }
+
+    /**
+     * 从知识点的 standards JSON 推导学科
+     * standards 格式：[{"id": "cms-2022:1.NA.01", "confidence": "exact"}]
+     * 取第一个标准的学科
+     */
+    private String deriveSubjectFromStandards(JsonNode standardsNode) {
+        if (standardsNode == null || !standardsNode.isArray() || standardsNode.isEmpty()) {
+            return null;
+        }
+        JsonNode first = standardsNode.get(0);
+        if (first == null) return null;
+        String id = getTextOrNull(first, "id");
+        return deriveSubject(id);
+    }
+
+    /**
+     * 将英文学科名转换为中文
+     * 数据源中的 subject 字段为英文（如 "chinese", "math"），需要转换为中文
+     */
+    private String convertSubjectFromEnglish(String subject) {
+        if (subject == null || subject.isBlank()) return null;
+        return switch (subject.toLowerCase()) {
+            case "chinese" -> "语文";
+            case "math", "mathematics" -> "数学";
+            case "english" -> "英语";
+            case "physics" -> "物理";
+            case "chemistry" -> "化学";
+            case "biology" -> "生物";
+            case "history" -> "历史";
+            case "geography" -> "地理";
+            case "science" -> "科学";
+            case "morality", "moral_education", "civics" -> "道德与法治";
+            case "politics" -> "道德与法治"; // 旧数据可能使用 politics
+            default -> subject; // 如果已经是中文或其他值，直接返回
+        };
     }
 
     // ========================= 查询方法 =========================
@@ -591,6 +794,25 @@ public class DataImportServiceImpl implements DataImportService {
     private String truncate(String s, int maxLen) {
         if (s == null) return null;
         return s.length() > maxLen ? s.substring(0, maxLen) + "..." : s;
+    }
+
+    /**
+     * 提取异常的根本原因信息（遍历 cause 链，取最深层非空 message）
+     */
+    private String extractRootCause(Throwable e) {
+        Throwable cause = e;
+        String msg = e.getMessage();
+        while (cause.getCause() != null && cause.getCause() != cause) {
+            cause = cause.getCause();
+            if (cause.getMessage() != null) {
+                msg = cause.getMessage();
+            }
+        }
+        if (msg == null) {
+            msg = e.getClass().getSimpleName();
+        }
+        // 截断到 450 字符，留空间给前缀
+        return msg.length() > 450 ? msg.substring(0, 450) + "..." : msg;
     }
 
     private void addError(List<DataImportErrorLog> errors, Long importId, String recordId, String reason) {

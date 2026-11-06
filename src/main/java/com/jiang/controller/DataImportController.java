@@ -2,22 +2,20 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
-import com.jiang.dto.ImportRequest;
 import com.jiang.dto.ImportResultDTO;
 import com.jiang.model.entity.DataImportErrorLog;
 import com.jiang.service.DataImportService;
 import com.jiang.vo.ImportLogVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 数据导入 Controller
@@ -37,9 +35,11 @@ public class DataImportController {
     private DataImportService dataImportService;
 
     @PostMapping
-    @Operation(summary = "执行数据导入", description = "触发指定类型的 JSON 数据导入，返回导入统计结果")
-    public Result<ImportResultDTO> importData(@RequestBody @Valid ImportRequest request) {
-        ImportResultDTO result = dataImportService.importData(request.getDataType());
+    @Operation(summary = "执行数据导入", description = "上传 JSON 文件并执行导入，返回导入统计结果")
+    public Result<ImportResultDTO> importData(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("dataType") String dataType) {
+        ImportResultDTO result = dataImportService.importData(file, dataType);
         return Result.success(result);
     }
 

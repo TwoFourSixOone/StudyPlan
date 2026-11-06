@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.jiang.model.entity.AssessmentResult;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.math.BigDecimal;
@@ -44,4 +45,13 @@ public interface AssessmentResultMapper extends BaseMapper<AssessmentResult> {
                        @Param("totalScore") BigDecimal totalScore,
                        @Param("results") String results,
                        @Param("assessedAt") LocalDateTime assessedAt);
+
+    /**
+     * 按 ID 和学生 ID 查询评测结果（学习记录详情）
+     */
+    @Select("SELECT * FROM assessment_result " +
+            "WHERE assessment_id = #{id} AND student_id = #{studentId} AND tenant_id = #{tenantId}")
+    AssessmentResult selectByIdAndStudentId(@Param("id") Long id,
+                                             @Param("studentId") Long studentId,
+                                             @Param("tenantId") String tenantId);
 }

@@ -19,13 +19,19 @@ RUN mvn -s /app/settings.xml -f /app/pom.xml clean package -DskipTests
 # 选择运行时基础镜像（使用 Debian 基础以支持完整 CA 证书链）
 FROM eclipse-temurin:17-jre
 
-# 安装 ca-certificates 和 Java 证书工具，确保系统证书同步到 Java 信任库
+# 安装 ca-certificates、Java 证书工具和 Redis
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        ca-certificates \
        ca-certificates-java \
+       redis-server \
     && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# 配置 Redis：绑定所有网卡、关闭保护模式（容器内安全）、后台运行
+RUN sed -i 's/^bind .*/bind 0.0.0.0/' /etc/redis/redis.conf \
+    && sed -i 's/^protected-mode yes/protected-mode no/' /etc/redis/redis.conf \
+    && sed -i 's/^daemonize yes/daemonize no/' /etc/redis/redis.conf
 
 # 设置 JVM 使用系统级证书库（包含平台可能注入的代理 CA）
 ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
@@ -39,11 +45,14 @@ WORKDIR /app
 # 将构建产物jar包拷贝到运行时目录中
 COPY --from=build /app/target/*.jar .
 
+# 拷贝启动脚本
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # 暴露端口
 # 此处端口必须与「服务设置」-「流水线」以及「手动上传代码包」部署时填写的端口一致，否则会部署失败。
 EXPOSE 80
+EXPOSE 6379
 
-# 执行启动命令.
-# 写多行独立的CMD命令是错误写法！只有最后一行CMD命令会被执行，之前的都会被忽略，导致业务报错。
-# 请参考[Docker官方文档之CMD命令](https://docs.docker.com/engine/reference/builder/#cmd)
-CMD ["java", "-jar", "/app/StudyPlan-1.0-SNAPSHOT.jar"]
+# 执行启动命令
+CMD ["/app/start.sh"]

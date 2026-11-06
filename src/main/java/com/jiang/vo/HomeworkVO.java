@@ -19,6 +19,9 @@ import java.util.List;
 @AllArgsConstructor
 public class HomeworkVO {
 
+    /** 所属计划 ID（前端提交答案时需要） */
+    private Long planId;
+
     /** 题目 ID（question_bank.question_id 或 generated_question.generated_question_id） */
     private Long questionId;
 
@@ -51,4 +54,10 @@ public class HomeworkVO {
 
     /** 是否正确 */
     private Boolean isCorrect;
+
+    /** 标准答案（批改后返回） */
+    private String correctAnswer;
+
+    /** 题目解析（AI 生成，批改后返回） */
+    private String analysis;
 }

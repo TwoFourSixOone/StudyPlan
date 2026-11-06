@@ -8,6 +8,7 @@ import org.apache.ibatis.annotations.Select;
 import org.apache.ibatis.annotations.Update;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 每日计划 Mapper 接口
@@ -29,6 +30,21 @@ public interface DailyPlanMapper extends BaseMapper<DailyPlan> {
     DailyPlan selectByGoalIdAndDate(@Param("goalId") Long goalId,
                                     @Param("tenantId") String tenantId,
                                     @Param("planDate") LocalDate planDate);
+
+    /**
+     * 查询指定科目在指定日期的作业计划（不依赖活跃目标，支持查看历史作业）
+     * 通过 JOIN learning_goal 表关联 subject_id
+     */
+    @Select("SELECT dp.plan_id, dp.goal_id, dp.plan_date, dp.content, dp.status, " +
+            "dp.tenant_id, dp.create_time, dp.update_time " +
+            "FROM daily_plan dp " +
+            "JOIN learning_goal lg ON dp.goal_id = lg.goal_id " +
+            "WHERE lg.subject_id = #{subjectId} AND dp.tenant_id = #{tenantId} " +
+            "AND dp.plan_date = #{planDate} " +
+            "ORDER BY dp.create_time DESC LIMIT 1")
+    DailyPlan selectBySubjectAndDate(@Param("subjectId") Long subjectId,
+                                      @Param("tenantId") String tenantId,
+                                      @Param("planDate") LocalDate planDate);
 
     /**
      * 更新作业状态（状态机校验：WHERE status = #{expectedStatus}）
@@ -54,4 +70,21 @@ public interface DailyPlanMapper extends BaseMapper<DailyPlan> {
                                @Param("newStatus") String newStatus,
                                @Param("expectedStatus") String expectedStatus,
                                @Param("tenantId") String tenantId);
+
+    /**
+     * 查询最近 30 天内未完成作业的日期列表（SIG-3 信号检测）
+     * 修复 Sev-6：返回日期列表，由 Service 层计算最大连续天数
+     *
+     * @param goalId   目标 ID
+     * @param tenantId 租户 ID
+     * @return 未完成的日期列表（按日期升序）
+     */
+    @Select("SELECT plan_date FROM daily_plan " +
+            "WHERE goal_id = #{goalId} " +
+            "AND tenant_id = #{tenantId} " +
+            "AND status = 'incomplete' " +
+            "AND plan_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) " +
+            "ORDER BY plan_date ASC")
+    List<LocalDate> selectIncompleteDays(@Param("goalId") Long goalId,
+                                          @Param("tenantId") String tenantId);
 }

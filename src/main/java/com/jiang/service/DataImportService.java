@@ -4,6 +4,7 @@ import com.jiang.common.result.PageResult;
 import com.jiang.dto.ImportResultDTO;
 import com.jiang.model.entity.DataImportErrorLog;
 import com.jiang.vo.ImportLogVO;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 数据导入 Service 接口
@@ -16,10 +17,11 @@ public interface DataImportService {
     /**
      * 执行数据导入
      *
+     * @param file     上传的 JSON 文件
      * @param dataType 数据类型：topic / question / dependency / standard
      * @return 导入结果（成功数、失败数、跳过数、错误摘要）
      */
-    ImportResultDTO importData(String dataType);
+    ImportResultDTO importData(MultipartFile file, String dataType);
 
     /**
      * 查询导入日志列表（分页）

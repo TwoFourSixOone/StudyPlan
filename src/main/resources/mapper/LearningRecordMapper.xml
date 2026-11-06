@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.jiang.mapper.LearningRecordMapper">
+
+    <!-- BLOCK-C：UNION ALL 三类记录统一分页 -->
+    <select id="selectUnionAllRecords" resultType="com.jiang.vo.LearningRecordListVO">
+        SELECT * FROM (
+            <!-- 作业记录：通过 daily_plan → learning_goal 获取 subject_id -->
+            <!-- NOTE-2 修复：使用 LEFT JOIN 防御性编程，避免孤儿记录丢失 -->
+            SELECT
+                s.submission_id AS recordId,
+                'homework'      AS recordType,
+                s.create_time   AS createTime,
+                g.subject_id    AS subjectId,
+                '每日作业'       AS title,
+                NULL            AS score
+            FROM homework_submission_detail s
+            LEFT JOIN daily_plan p ON s.plan_id = p.plan_id AND p.tenant_id = #{tenantId}
+            LEFT JOIN learning_goal g ON p.goal_id = g.goal_id AND g.tenant_id = #{tenantId}
+            WHERE s.student_id = #{studentId}
+              AND s.tenant_id = #{tenantId}
+              <if test="startDate != null">AND s.submitted_at &gt;= #{startDate}</if>
+              <if test="endDate != null">AND s.submitted_at &lt;= #{endDate}</if>
+
+            UNION ALL
+
+            <!-- 评测记录：直接有 subject_id -->
+            SELECT
+                a.assessment_id AS recordId,
+                'assessment'    AS recordType,
+                a.create_time   AS createTime,
+                a.subject_id    AS subjectId,
+                '专项评测'       AS title,
+                a.score         AS score
+            FROM assessment_result a
+            WHERE a.student_id = #{studentId}
+              AND a.tenant_id = #{tenantId}
+              AND a.status = 'graded'
+              <if test="startDate != null">AND a.assessed_at &gt;= #{startDate}</if>
+              <if test="endDate != null">AND a.assessed_at &lt;= #{endDate}</if>
+
+            UNION ALL
+
+            <!-- 考试记录：直接有 subject_id -->
+            SELECT
+                e.analysis_id   AS recordId,
+                'exam'          AS recordType,
+                e.create_time   AS createTime,
+                e.subject_id    AS subjectId,
+                e.exam_name     AS title,
+                e.user_score    AS score
+            FROM exam_analysis_result e
+            WHERE e.student_id = #{studentId}
+              AND e.tenant_id = #{tenantId}
+              AND e.status = 'completed'
+              <if test="startDate != null">AND e.analyzed_at &gt;= #{startDate}</if>
+              <if test="endDate != null">AND e.analyzed_at &lt;= #{endDate}</if>
+        ) AS merged
+        ORDER BY createTime DESC
+        LIMIT #{offset}, #{size}
+    </select>
+
+    <select id="countUnionAllRecords" resultType="long">
+        SELECT COUNT(*) FROM (
+            SELECT 1 FROM homework_submission_detail s
+            LEFT JOIN daily_plan p ON s.plan_id = p.plan_id AND p.tenant_id = #{tenantId}
+            LEFT JOIN learning_goal g ON p.goal_id = g.goal_id AND g.tenant_id = #{tenantId}
+            WHERE s.student_id = #{studentId} AND s.tenant_id = #{tenantId}
+              <if test="startDate != null">AND s.submitted_at &gt;= #{startDate}</if>
+              <if test="endDate != null">AND s.submitted_at &lt;= #{endDate}</if>
+
+            UNION ALL
+
+            SELECT 1 FROM assessment_result a
+            WHERE a.student_id = #{studentId} AND a.tenant_id = #{tenantId} AND a.status = 'graded'
+              <if test="startDate != null">AND a.assessed_at &gt;= #{startDate}</if>
+              <if test="endDate != null">AND a.assessed_at &lt;= #{endDate}</if>
+
+            UNION ALL
+
+            SELECT 1 FROM exam_analysis_result e
+            WHERE e.student_id = #{studentId} AND e.tenant_id = #{tenantId} AND e.status = 'completed'
+              <if test="startDate != null">AND e.analyzed_at &gt;= #{startDate}</if>
+              <if test="endDate != null">AND e.analyzed_at &lt;= #{endDate}</if>
+        ) AS merged
+    </select>
+
+</mapper>

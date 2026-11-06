@@ -13,6 +13,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,16 +41,21 @@ public class SubjectServiceImpl implements SubjectService {
     public List<SubjectVO> getAvailableSubjects() {
         String tenantId = StudentContext.getTenantId();
 
-        // 单次聚合查询：按 subject（科目名称）分组统计已启用知识点数量
+        // 单次聚合查询：按 subject（科目名称）分组统计非停用知识点数量
         // 注意：KnowledgePoint.subject 是 String 类型（存科目名称），非 subjectId
         // W-02：selectMaps 中使用 AS 别名，已通过 H2 集成测试验证（164 tests pass）
+        // Demo 阶段放宽状态过滤：包含 pending_review + active（排除 disabled）
         List<Map<String, Object>> counts = knowledgePointMapper.selectMaps(
             new QueryWrapper<KnowledgePoint>()
                 .select("subject AS subjectName", "COUNT(*) AS cnt")
-                .eq("status", "active")
+                .ne("status", "disabled")
                 .eq("tenant_id", tenantId)
                 .groupBy("subject")
         );
+
+        if (counts.isEmpty()) {
+            return Collections.emptyList();
+        }
 
         // 构建 subjectName → count 映射
         Map<String, Integer> countMap = counts.stream()
@@ -57,10 +64,29 @@ public class SubjectServiceImpl implements SubjectService {
                 m -> ((Number) m.get("cnt")).intValue()
             ));
 
-        // 查询所有科目，过滤出有已启用知识点的科目
+        // 查询 subject 表
         List<Subject> subjects = subjectMapper.selectList(
             new LambdaQueryWrapper<Subject>().eq(Subject::getTenantId, tenantId)
         );
+
+        // 自引导：如果 subject 表为空但 knowledge_point 有数据，自动创建科目记录
+        if (subjects.isEmpty() && !countMap.isEmpty()) {
+            log.info("[自引导] subject 表为空，从 knowledge_point 自动创建科目记录");
+            for (String subjectName : countMap.keySet()) {
+                Subject s = new Subject();
+                s.setName(subjectName);
+                s.setStage("小学");
+                s.setTenantId(tenantId);
+                try {
+                    subjectMapper.insert(s);
+                } catch (Exception e) {
+                    log.warn("自动创建科目失败(可能并发): {}", subjectName, e);
+                }
+            }
+            subjects = subjectMapper.selectList(
+                new LambdaQueryWrapper<Subject>().eq(Subject::getTenantId, tenantId)
+            );
+        }
 
         return subjects.stream()
             .filter(s -> countMap.containsKey(s.getName()))

@@ -3,7 +3,7 @@ package com.jiang.model.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.jiang.common.handler.JsonStringTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -56,18 +56,18 @@ public class KnowledgePoint extends BaseEntity {
     /**
      * 关联的课程标准 ID 数组（冗余存储，供 Agent 读取）
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String standards;
 
     /**
      * 掌握度评判标准
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String masteryCriteria;
 
     /**
      * 诊断题目信息（DB 列类型 JSON，存储完整题目对象，序列化后较长）
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String diagnosticQuestion;
 }

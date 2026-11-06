@@ -1706,8 +1706,8 @@
   {
     "topicId": "cnm_p205",
     "prerequisiteId": "cnm_p204",
-    "strength": "hard",
-    "reason": "学习「百分数的应用」需要先掌握「利率」。"
+    "strength": "soft",
+    "reason": "学习「求一个数比另一个数多百分之几（增长率）」时，利率是同类的百分数应用，可以作参考，但不是必须先会。"
   },
   {
     "topicId": "cnm_p206",
@@ -25432,5 +25432,2321 @@
     "prerequisiteId": "cne_p154",
     "strength": "soft",
     "reason": "四下已练读规则。"
+  },
+  {
+    "topicId": "cnh_j002",
+    "prerequisiteId": "cnh_j001",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「远古时期的人类活动」，再学「原始农业与史前社会」。"
+  },
+  {
+    "topicId": "cnh_j003",
+    "prerequisiteId": "cnh_j002",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「原始农业与史前社会」，再学「中华文明的起源」。"
+  },
+  {
+    "topicId": "cnh_j004",
+    "prerequisiteId": "cnh_j003",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「中华文明的起源」，再学「夏商西周王朝的更替」。"
+  },
+  {
+    "topicId": "cnh_j005",
+    "prerequisiteId": "cnh_j004",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「夏商西周王朝的更替」，再学「动荡变化中的春秋时期」。"
+  },
+  {
+    "topicId": "cnh_j006",
+    "prerequisiteId": "cnh_j005",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「动荡变化中的春秋时期」，再学「战国时期的社会变革」。"
+  },
+  {
+    "topicId": "cnh_j007",
+    "prerequisiteId": "cnh_j006",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「战国时期的社会变革」，再学「百家争鸣」。"
+  },
+  {
+    "topicId": "cnh_j008",
+    "prerequisiteId": "cnh_j007",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「百家争鸣」，再学「夏商周时期的科技与文化」。"
+  },
+  {
+    "topicId": "cnh_j009",
+    "prerequisiteId": "cnh_j008",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「夏商周时期的科技与文化」，再学「秦统一中国」。"
+  },
+  {
+    "topicId": "cnh_j010",
+    "prerequisiteId": "cnh_j009",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「秦统一中国」，再学「秦末农民大起义」。"
+  },
+  {
+    "topicId": "cnh_j013",
+    "prerequisiteId": "cnh_j012",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「大一统王朝的巩固」，再学「东汉的兴衰」。"
+  },
+  {
+    "topicId": "cnh_j014",
+    "prerequisiteId": "cnh_j013",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「东汉的兴衰」，再学「丝绸之路的开通与经营西域」。"
+  },
+  {
+    "topicId": "cnh_j015",
+    "prerequisiteId": "cnh_j014",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「丝绸之路的开通与经营西域」，再学「秦汉时期的科技与文化」。"
+  },
+  {
+    "topicId": "cnh_j016",
+    "prerequisiteId": "cnh_j015",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「秦汉时期的科技与文化」，再学「三国鼎立」。"
+  },
+  {
+    "topicId": "cnh_j017",
+    "prerequisiteId": "cnh_j016",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「三国鼎立」，再学「西晋的短暂统一和北方各族的内迁」。"
+  },
+  {
+    "topicId": "cnh_j018",
+    "prerequisiteId": "cnh_j017",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「西晋的短暂统一和北方各族的内迁」，再学「东晋南朝政治和江南地区开发」。"
+  },
+  {
+    "topicId": "cnh_j019",
+    "prerequisiteId": "cnh_j018",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「东晋南朝政治和江南地区开发」，再学「北朝政治和北方民族大交融」。"
+  },
+  {
+    "topicId": "cnh_j020",
+    "prerequisiteId": "cnh_j019",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「北朝政治和北方民族大交融」，再学「三国两晋南北朝时期的科技与文化」。"
+  },
+  {
+    "topicId": "cnh_j021",
+    "prerequisiteId": "cnh_j020",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「三国两晋南北朝时期的科技与文化」，再学「从考古发现看中华文明的起源与形成」。"
+  },
+  {
+    "topicId": "cnh_j022",
+    "prerequisiteId": "cnh_j021",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「从考古发现看中华文明的起源与形成」，再学「隋朝统一与灭亡」。"
+  },
+  {
+    "topicId": "cnh_j023",
+    "prerequisiteId": "cnh_j022",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「隋朝统一与灭亡」，再学「唐朝建立与“贞观之治”」。"
+  },
+  {
+    "topicId": "cnh_j026",
+    "prerequisiteId": "cnh_j025",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「安史之乱与唐朝衰亡」，再学「隋唐时期的民族交往与交融」。"
+  },
+  {
+    "topicId": "cnh_j027",
+    "prerequisiteId": "cnh_j026",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「隋唐时期的民族交往与交融」，再学「隋唐时期的中外文化交流」。"
+  },
+  {
+    "topicId": "cnh_j028",
+    "prerequisiteId": "cnh_j027",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「隋唐时期的中外文化交流」，再学「隋唐时期的科技与文化」。"
+  },
+  {
+    "topicId": "cnh_j029",
+    "prerequisiteId": "cnh_j028",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「隋唐时期的科技与文化」，再学「北宋的政治」。"
+  },
+  {
+    "topicId": "cnh_j030",
+    "prerequisiteId": "cnh_j029",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「北宋的政治」，再学「辽、西夏与北宋并立」。"
+  },
+  {
+    "topicId": "cnh_j031",
+    "prerequisiteId": "cnh_j030",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「辽、西夏与北宋并立」，再学「金与南宋对峙」。"
+  },
+  {
+    "topicId": "cnh_j032",
+    "prerequisiteId": "cnh_j031",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「金与南宋对峙」，再学「元朝的建立与统一」。"
+  },
+  {
+    "topicId": "cnh_j033",
+    "prerequisiteId": "cnh_j032",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「元朝的建立与统一」，再学「辽宋夏金元时期经济的繁荣」。"
+  },
+  {
+    "topicId": "cnh_j034",
+    "prerequisiteId": "cnh_j033",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「辽宋夏金元时期经济的繁荣」，再学「辽宋夏金元时期的对外交流」。"
+  },
+  {
+    "topicId": "cnh_j035",
+    "prerequisiteId": "cnh_j034",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「辽宋夏金元时期的对外交流」，再学「辽宋夏金元时期的科技与文化」。"
+  },
+  {
+    "topicId": "cnh_j036",
+    "prerequisiteId": "cnh_j035",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「辽宋夏金元时期的科技与文化」，再学「明朝的统治」。"
+  },
+  {
+    "topicId": "cnh_j037",
+    "prerequisiteId": "cnh_j036",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「明朝的统治」，再学「明朝的对外关系」。"
+  },
+  {
+    "topicId": "cnh_j038",
+    "prerequisiteId": "cnh_j037",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「明朝的对外关系」，再学「明朝的灭亡和清朝的建立」。"
+  },
+  {
+    "topicId": "cnh_j039",
+    "prerequisiteId": "cnh_j038",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「明朝的灭亡和清朝的建立」，再学「清朝的边疆治理」。"
+  },
+  {
+    "topicId": "cnh_j040",
+    "prerequisiteId": "cnh_j039",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「清朝的边疆治理」，再学「清朝君主专制的强化」。"
+  },
+  {
+    "topicId": "cnh_j041",
+    "prerequisiteId": "cnh_j040",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「清朝君主专制的强化」，再学「明清时期社会经济的发展」。"
+  },
+  {
+    "topicId": "cnh_j042",
+    "prerequisiteId": "cnh_j041",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「明清时期社会经济的发展」，再学「明清时期的科技与文化」。"
+  },
+  {
+    "topicId": "cnh_j043",
+    "prerequisiteId": "cnh_j042",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「明清时期的科技与文化」，再学「我国传统节日的起源与传承」。"
+  },
+  {
+    "topicId": "cnh_j044",
+    "prerequisiteId": "cnh_j043",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「我国传统节日的起源与传承」，再学「鸦片战争」。"
+  },
+  {
+    "topicId": "cnh_j046",
+    "prerequisiteId": "cnh_j045",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「第二次鸦片战争」，再学「太平天国运动」。"
+  },
+  {
+    "topicId": "cnh_j047",
+    "prerequisiteId": "cnh_j046",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「太平天国运动」，再学「洋务运动和边疆危机」。"
+  },
+  {
+    "topicId": "cnh_j048",
+    "prerequisiteId": "cnh_j047",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「洋务运动和边疆危机」，再学「甲午中日战争与列强瓜分中国狂潮」。"
+  },
+  {
+    "topicId": "cnh_j049",
+    "prerequisiteId": "cnh_j048",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「甲午中日战争与列强瓜分中国狂潮」，再学「戊戌变法」。"
+  },
+  {
+    "topicId": "cnh_j050",
+    "prerequisiteId": "cnh_j049",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「戊戌变法」，再学「义和团运动和八国联军侵华」。"
+  },
+  {
+    "topicId": "cnh_j051",
+    "prerequisiteId": "cnh_j050",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「义和团运动和八国联军侵华」，再学「中国同盟会」。"
+  },
+  {
+    "topicId": "cnh_j053",
+    "prerequisiteId": "cnh_j052",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「辛亥革命」，再学「帝制复辟与军阀割据」。"
+  },
+  {
+    "topicId": "cnh_j054",
+    "prerequisiteId": "cnh_j053",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「帝制复辟与军阀割据」，再学「五四运动」。"
+  },
+  {
+    "topicId": "cnh_j056",
+    "prerequisiteId": "cnh_j055",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「中国共产党诞生」，再学「国共合作与北伐战争」。"
+  },
+  {
+    "topicId": "cnh_j057",
+    "prerequisiteId": "cnh_j056",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「国共合作与北伐战争」，再学「毛泽东开辟井冈山道路」。"
+  },
+  {
+    "topicId": "cnh_j059",
+    "prerequisiteId": "cnh_j058",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「中国工农红军长征与遵义会议」，再学「从九一八事变到西安事变」。"
+  },
+  {
+    "topicId": "cnh_j061",
+    "prerequisiteId": "cnh_j060",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「七七事变与全民族抗战」，再学「全民族抗战中的正面战场和敌后战场」。"
+  },
+  {
+    "topicId": "cnh_j062",
+    "prerequisiteId": "cnh_j061",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「全民族抗战中的正面战场和敌后战场」，再学「抗日战争的胜利」。"
+  },
+  {
+    "topicId": "cnh_j063",
+    "prerequisiteId": "cnh_j062",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「抗日战争的胜利」，再学「国民党挑起内战」。"
+  },
+  {
+    "topicId": "cnh_j065",
+    "prerequisiteId": "cnh_j064",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「人民解放战争的胜利」，再学「探寻红色文化的历史基因」。"
+  },
+  {
+    "topicId": "cnh_j066",
+    "prerequisiteId": "cnh_j065",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「探寻红色文化的历史基因」，再学「中华人民共和国成立」。"
+  },
+  {
+    "topicId": "cnh_j067",
+    "prerequisiteId": "cnh_j066",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「中华人民共和国成立」，再学「巩固人民民主政权」。"
+  },
+  {
+    "topicId": "cnh_j068",
+    "prerequisiteId": "cnh_j067",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「巩固人民民主政权」，再学「社会主义制度建立」。"
+  },
+  {
+    "topicId": "cnh_j069",
+    "prerequisiteId": "cnh_j068",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「社会主义制度建立」，再学「独立自主的和平外交」。"
+  },
+  {
+    "topicId": "cnh_j070",
+    "prerequisiteId": "cnh_j069",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「独立自主的和平外交」，再学「艰辛探索与曲折发展」。"
+  },
+  {
+    "topicId": "cnh_j071",
+    "prerequisiteId": "cnh_j070",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「艰辛探索与曲折发展」，再学「社会主义建设的巨大成就和先锋模范」。"
+  },
+  {
+    "topicId": "cnh_j072",
+    "prerequisiteId": "cnh_j071",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「社会主义建设的巨大成就和先锋模范」，再学「国防现代化起步和外交工作新突破」。"
+  },
+  {
+    "topicId": "cnh_j073",
+    "prerequisiteId": "cnh_j072",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「国防现代化起步和外交工作新突破」，再学「伟大的历史转折」。"
+  },
+  {
+    "topicId": "cnh_j075",
+    "prerequisiteId": "cnh_j074",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「改革开放的起步」，再学「改革开放和社会主义现代化建设的全面展开」。"
+  },
+  {
+    "topicId": "cnh_j076",
+    "prerequisiteId": "cnh_j075",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「改革开放和社会主义现代化建设的全面展开」，再学「社会主义初级阶段基本路线」。"
+  },
+  {
+    "topicId": "cnh_j077",
+    "prerequisiteId": "cnh_j076",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「社会主义初级阶段基本路线」，再学「加快改革开放和社会主义现代化建设步伐」。"
+  },
+  {
+    "topicId": "cnh_j078",
+    "prerequisiteId": "cnh_j077",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「加快改革开放和社会主义现代化建设步伐」，再学「中国特色社会主义事业取得新成就」。"
+  },
+  {
+    "topicId": "cnh_j079",
+    "prerequisiteId": "cnh_j078",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「中国特色社会主义事业取得新成就」，再学「国防和外交工作新局面」。"
+  },
+  {
+    "topicId": "cnh_j080",
+    "prerequisiteId": "cnh_j079",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「国防和外交工作新局面」，再学「开始全面建设小康社会」。"
+  },
+  {
+    "topicId": "cnh_j081",
+    "prerequisiteId": "cnh_j080",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「开始全面建设小康社会」，再学「夺取全面建设小康社会新胜利」。"
+  },
+  {
+    "topicId": "cnh_j082",
+    "prerequisiteId": "cnh_j081",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「夺取全面建设小康社会新胜利」，再学「推进国防军队建设和外交工作」。"
+  },
+  {
+    "topicId": "cnh_j083",
+    "prerequisiteId": "cnh_j082",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「推进国防军队建设和外交工作」，再学「擘画中国梦宏伟蓝图」。"
+  },
+  {
+    "topicId": "cnh_j084",
+    "prerequisiteId": "cnh_j083",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「擘画中国梦宏伟蓝图」，再学「决胜全面建成小康社会」。"
+  },
+  {
+    "topicId": "cnh_j085",
+    "prerequisiteId": "cnh_j084",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「决胜全面建成小康社会」，再学「维护国家安全和推进祖国统一」。"
+  },
+  {
+    "topicId": "cnh_j086",
+    "prerequisiteId": "cnh_j085",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「维护国家安全和推进祖国统一」，再学「构建人类命运共同体与中国特色大国外交」。"
+  },
+  {
+    "topicId": "cnh_j087",
+    "prerequisiteId": "cnh_j086",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「构建人类命运共同体与中国特色大国外交」，再学「实现第一个百年奋斗目标」。"
+  },
+  {
+    "topicId": "cnh_j088",
+    "prerequisiteId": "cnh_j087",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「实现第一个百年奋斗目标」，再学「开启全面建设社会主义现代化国家新征程」。"
+  },
+  {
+    "topicId": "cnh_j089",
+    "prerequisiteId": "cnh_j088",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「开启全面建设社会主义现代化国家新征程」，再学「新时代社会生活的巨大变化」。"
+  },
+  {
+    "topicId": "cnh_j090",
+    "prerequisiteId": "cnh_j089",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「新时代社会生活的巨大变化」，再学「从原始社会到奴隶社会」。"
+  },
+  {
+    "topicId": "cnh_j091",
+    "prerequisiteId": "cnh_j090",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「从原始社会到奴隶社会」，再学「古代两河流域」。"
+  },
+  {
+    "topicId": "cnh_j092",
+    "prerequisiteId": "cnh_j091",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「古代两河流域」，再学「古代埃及」。"
+  },
+  {
+    "topicId": "cnh_j093",
+    "prerequisiteId": "cnh_j092",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「古代埃及」，再学「古代印度」。"
+  },
+  {
+    "topicId": "cnh_j094",
+    "prerequisiteId": "cnh_j093",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「古代印度」，再学「古代希腊」。"
+  },
+  {
+    "topicId": "cnh_j095",
+    "prerequisiteId": "cnh_j094",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「古代希腊」，再学「古代罗马」。"
+  },
+  {
+    "topicId": "cnh_j096",
+    "prerequisiteId": "cnh_j095",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「古代罗马」，再学「法兰克王国和西欧封建制度」。"
+  },
+  {
+    "topicId": "cnh_j097",
+    "prerequisiteId": "cnh_j096",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「法兰克王国和西欧封建制度」，再学「西欧的城市和大学」。"
+  },
+  {
+    "topicId": "cnh_j098",
+    "prerequisiteId": "cnh_j097",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「西欧的城市和大学」，再学「拜占庭帝国」。"
+  },
+  {
+    "topicId": "cnh_j099",
+    "prerequisiteId": "cnh_j098",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「拜占庭帝国」，再学「封建时代的日本」。"
+  },
+  {
+    "topicId": "cnh_j100",
+    "prerequisiteId": "cnh_j099",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「封建时代的日本」，再学「阿拉伯帝国」。"
+  },
+  {
+    "topicId": "cnh_j101",
+    "prerequisiteId": "cnh_j100",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「阿拉伯帝国」，再学「中古时期的非洲和美洲」。"
+  },
+  {
+    "topicId": "cnh_j102",
+    "prerequisiteId": "cnh_j101",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「中古时期的非洲和美洲」，再学「西欧经济社会发展与文艺复兴运动」。"
+  },
+  {
+    "topicId": "cnh_j103",
+    "prerequisiteId": "cnh_j102",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「西欧经济社会发展与文艺复兴运动」，再学「探寻新航路」。"
+  },
+  {
+    "topicId": "cnh_j104",
+    "prerequisiteId": "cnh_j103",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「探寻新航路」，再学「早期殖民掠夺」。"
+  },
+  {
+    "topicId": "cnh_j105",
+    "prerequisiteId": "cnh_j104",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「早期殖民掠夺」，再学「英国资产阶级革命」。"
+  },
+  {
+    "topicId": "cnh_j106",
+    "prerequisiteId": "cnh_j105",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「英国资产阶级革命」，再学「美国的独立」。"
+  },
+  {
+    "topicId": "cnh_j107",
+    "prerequisiteId": "cnh_j106",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「美国的独立」，再学「法国大革命和拿破仑帝国」。"
+  },
+  {
+    "topicId": "cnh_j108",
+    "prerequisiteId": "cnh_j107",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「法国大革命和拿破仑帝国」，再学「第一次工业革命」。"
+  },
+  {
+    "topicId": "cnh_j111",
+    "prerequisiteId": "cnh_j110",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「第一国际和巴黎公社」，再学「唱响“国际歌”」。"
+  },
+  {
+    "topicId": "cnh_j112",
+    "prerequisiteId": "cnh_j111",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「唱响“国际歌”」，再学「殖民地人民的反抗斗争」。"
+  },
+  {
+    "topicId": "cnh_j113",
+    "prerequisiteId": "cnh_j112",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「殖民地人民的反抗斗争」，再学「俄国的改革」。"
+  },
+  {
+    "topicId": "cnh_j114",
+    "prerequisiteId": "cnh_j113",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「俄国的改革」，再学「美国内战」。"
+  },
+  {
+    "topicId": "cnh_j115",
+    "prerequisiteId": "cnh_j114",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「美国内战」，再学「日本明治维新」。"
+  },
+  {
+    "topicId": "cnh_j116",
+    "prerequisiteId": "cnh_j115",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「日本明治维新」，再学「第二次工业革命」。"
+  },
+  {
+    "topicId": "cnh_j117",
+    "prerequisiteId": "cnh_j116",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「第二次工业革命」，再学「工业化国家的社会变化」。"
+  },
+  {
+    "topicId": "cnh_j118",
+    "prerequisiteId": "cnh_j117",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「工业化国家的社会变化」，再学「近代科学与文化」。"
+  },
+  {
+    "topicId": "cnh_j119",
+    "prerequisiteId": "cnh_j118",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「近代科学与文化」，再学「第一次世界大战」。"
+  },
+  {
+    "topicId": "cnh_j121",
+    "prerequisiteId": "cnh_j120",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「列宁与十月革命」，再学「《凡尔赛条约》和《九国公约》」。"
+  },
+  {
+    "topicId": "cnh_j122",
+    "prerequisiteId": "cnh_j121",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「《凡尔赛条约》和《九国公约》」，再学「苏联的社会主义建设」。"
+  },
+  {
+    "topicId": "cnh_j123",
+    "prerequisiteId": "cnh_j122",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「苏联的社会主义建设」，再学「亚非拉民族民主运动的高涨」。"
+  },
+  {
+    "topicId": "cnh_j124",
+    "prerequisiteId": "cnh_j123",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「亚非拉民族民主运动的高涨」，再学「罗斯福新政」。"
+  },
+  {
+    "topicId": "cnh_j125",
+    "prerequisiteId": "cnh_j124",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「罗斯福新政」，再学「法西斯国家的侵略扩张」。"
+  },
+  {
+    "topicId": "cnh_j128",
+    "prerequisiteId": "cnh_j127",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「冷战」，再学「二战后资本主义的新变化」。"
+  },
+  {
+    "topicId": "cnh_j129",
+    "prerequisiteId": "cnh_j128",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「二战后资本主义的新变化」，再学「社会主义的发展与挫折」。"
+  },
+  {
+    "topicId": "cnh_j130",
+    "prerequisiteId": "cnh_j129",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「社会主义的发展与挫折」，再学「亚非拉国家的新发展」。"
+  },
+  {
+    "topicId": "cnh_j131",
+    "prerequisiteId": "cnh_j130",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「亚非拉国家的新发展」，再学「联合国与世界贸易组织」。"
+  },
+  {
+    "topicId": "cnh_j132",
+    "prerequisiteId": "cnh_j131",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「联合国与世界贸易组织」，再学「冷战后的世界格局」。"
+  },
+  {
+    "topicId": "cnh_j133",
+    "prerequisiteId": "cnh_j132",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「冷战后的世界格局」，再学「不断发展的现代社会」。"
+  },
+  {
+    "topicId": "cnh_j134",
+    "prerequisiteId": "cnh_j133",
+    "strength": "soft",
+    "reason": "按统编版历史的教学顺序，先学「不断发展的现代社会」，再学「时事溯源」。"
+  },
+  {
+    "topicId": "cnh_j009",
+    "prerequisiteId": "cnh_j006",
+    "strength": "hard",
+    "reason": "秦统一中国，建立在战国时期秦国变法图强的基础上。"
+  },
+  {
+    "topicId": "cnh_j011",
+    "prerequisiteId": "cnh_j010",
+    "strength": "hard",
+    "reason": "西汉的建立，直接承接秦末农民大起义和秦朝灭亡。"
+  },
+  {
+    "topicId": "cnh_j012",
+    "prerequisiteId": "cnh_j011",
+    "strength": "hard",
+    "reason": "汉武帝巩固大一统，建立在西汉已经建立并出现文景之治的基础上。"
+  },
+  {
+    "topicId": "cnh_j014",
+    "prerequisiteId": "cnh_j012",
+    "strength": "hard",
+    "reason": "丝绸之路的开通，以汉武帝时期通西域、巩固统一为前提。"
+  },
+  {
+    "topicId": "cnh_j024",
+    "prerequisiteId": "cnh_j023",
+    "strength": "hard",
+    "reason": "开元盛世承接唐朝建立和贞观之治后的发展。"
+  },
+  {
+    "topicId": "cnh_j025",
+    "prerequisiteId": "cnh_j024",
+    "strength": "hard",
+    "reason": "安史之乱打断的是开元盛世以来的唐朝统治。"
+  },
+  {
+    "topicId": "cnh_j044",
+    "prerequisiteId": "cnh_j040",
+    "strength": "hard",
+    "reason": "鸦片战争前夜的清朝，已经处在君主专制强化之后的封建社会晚期。"
+  },
+  {
+    "topicId": "cnh_j045",
+    "prerequisiteId": "cnh_j044",
+    "strength": "hard",
+    "reason": "第二次鸦片战争是鸦片战争之后列强侵华的继续。"
+  },
+  {
+    "topicId": "cnh_j052",
+    "prerequisiteId": "cnh_j051",
+    "strength": "hard",
+    "reason": "辛亥革命由中国同盟会等革命党人推动。"
+  },
+  {
+    "topicId": "cnh_j055",
+    "prerequisiteId": "cnh_j054",
+    "strength": "hard",
+    "reason": "中国共产党诞生于五四运动之后，工人阶级队伍和马克思主义传播都已出现。"
+  },
+  {
+    "topicId": "cnh_j057",
+    "prerequisiteId": "cnh_j055",
+    "strength": "hard",
+    "reason": "井冈山道路是中国共产党成立后探索中国革命道路的结果。"
+  },
+  {
+    "topicId": "cnh_j058",
+    "prerequisiteId": "cnh_j057",
+    "strength": "hard",
+    "reason": "长征从农村革命根据地出发，遵义会议解决的是长征途中的路线问题。"
+  },
+  {
+    "topicId": "cnh_j060",
+    "prerequisiteId": "cnh_j059",
+    "strength": "hard",
+    "reason": "七七事变和全民族抗战，承接九一八事变以来的局部抗战和西安事变后的抗日局面。"
+  },
+  {
+    "topicId": "cnh_j062",
+    "prerequisiteId": "cnh_j060",
+    "strength": "hard",
+    "reason": "抗日战争的胜利，建立在七七事变后全民族抗战的基础上。"
+  },
+  {
+    "topicId": "cnh_j064",
+    "prerequisiteId": "cnh_j063",
+    "strength": "hard",
+    "reason": "人民解放战争的胜利，承接国民党发动全面内战之后的作战。"
+  },
+  {
+    "topicId": "cnh_j066",
+    "prerequisiteId": "cnh_j064",
+    "strength": "hard",
+    "reason": "中华人民共和国成立，承接人民解放战争的胜利。"
+  },
+  {
+    "topicId": "cnh_j068",
+    "prerequisiteId": "cnh_j066",
+    "strength": "hard",
+    "reason": "社会主义制度的建立，以中华人民共和国已经成立为前提。"
+  },
+  {
+    "topicId": "cnh_j074",
+    "prerequisiteId": "cnh_j073",
+    "strength": "hard",
+    "reason": "改革开放的起步，由十一届三中全会这个历史转折打开。"
+  },
+  {
+    "topicId": "cnh_j109",
+    "prerequisiteId": "cnh_j108",
+    "strength": "hard",
+    "reason": "马克思主义诞生的社会条件，包括第一次工业革命后资本主义的发展和工人运动。"
+  },
+  {
+    "topicId": "cnh_j110",
+    "prerequisiteId": "cnh_j109",
+    "strength": "hard",
+    "reason": "第一国际和巴黎公社，是马克思主义诞生之后国际工人运动的发展。"
+  },
+  {
+    "topicId": "cnh_j119",
+    "prerequisiteId": "cnh_j116",
+    "strength": "hard",
+    "reason": "第一次世界大战发生在第二次工业革命之后帝国主义争夺的背景中。"
+  },
+  {
+    "topicId": "cnh_j120",
+    "prerequisiteId": "cnh_j119",
+    "strength": "hard",
+    "reason": "十月革命发生在第一次世界大战期间的俄国。"
+  },
+  {
+    "topicId": "cnh_j126",
+    "prerequisiteId": "cnh_j125",
+    "strength": "hard",
+    "reason": "第二次世界大战由法西斯国家的侵略扩张直接引起。"
+  },
+  {
+    "topicId": "cnh_j127",
+    "prerequisiteId": "cnh_j126",
+    "strength": "hard",
+    "reason": "冷战是第二次世界大战结束后出现的美苏对峙。"
+  },
+  {
+    "topicId": "cng_j004",
+    "prerequisiteId": "cng_j003",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「地球的运动」，再学「地图的阅读」。"
+  },
+  {
+    "topicId": "cng_j006",
+    "prerequisiteId": "cng_j005",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「地形图的判读」，再学「地图的选择和应用」。"
+  },
+  {
+    "topicId": "cng_j007",
+    "prerequisiteId": "cng_j006",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「地图的选择和应用」，再学「大洲和大洋」。"
+  },
+  {
+    "topicId": "cng_j009",
+    "prerequisiteId": "cng_j008",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「世界的地形」，再学「海陆的变迁」。"
+  },
+  {
+    "topicId": "cng_j010",
+    "prerequisiteId": "cng_j009",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「海陆的变迁」，再学「多变的天气」。"
+  },
+  {
+    "topicId": "cng_j011",
+    "prerequisiteId": "cng_j010",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「多变的天气」，再学「气温的变化与分布」。"
+  },
+  {
+    "topicId": "cng_j012",
+    "prerequisiteId": "cng_j011",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「气温的变化与分布」，再学「降水的变化与分布」。"
+  },
+  {
+    "topicId": "cng_j014",
+    "prerequisiteId": "cng_j013",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「世界的气候」，再学「人口与人种」。"
+  },
+  {
+    "topicId": "cng_j015",
+    "prerequisiteId": "cng_j014",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「人口与人种」，再学「城镇与乡村」。"
+  },
+  {
+    "topicId": "cng_j016",
+    "prerequisiteId": "cng_j015",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「城镇与乡村」，再学「多样的文化」。"
+  },
+  {
+    "topicId": "cng_j017",
+    "prerequisiteId": "cng_j016",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「多样的文化」，再学「发展与合作」。"
+  },
+  {
+    "topicId": "cng_j018",
+    "prerequisiteId": "cng_j017",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「发展与合作」，再学「亚洲的自然环境」。"
+  },
+  {
+    "topicId": "cng_j020",
+    "prerequisiteId": "cng_j019",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「亚洲的人文环境」，再学「日本」。"
+  },
+  {
+    "topicId": "cng_j021",
+    "prerequisiteId": "cng_j020",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「日本」，再学「东南亚」。"
+  },
+  {
+    "topicId": "cng_j022",
+    "prerequisiteId": "cng_j021",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「东南亚」，再学「印度」。"
+  },
+  {
+    "topicId": "cng_j023",
+    "prerequisiteId": "cng_j022",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「印度」，再学「俄罗斯」。"
+  },
+  {
+    "topicId": "cng_j024",
+    "prerequisiteId": "cng_j023",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「俄罗斯」，再学「西亚」。"
+  },
+  {
+    "topicId": "cng_j025",
+    "prerequisiteId": "cng_j024",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「西亚」，再学「欧洲西部」。"
+  },
+  {
+    "topicId": "cng_j026",
+    "prerequisiteId": "cng_j025",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「欧洲西部」，再学「撒哈拉以南非洲」。"
+  },
+  {
+    "topicId": "cng_j027",
+    "prerequisiteId": "cng_j026",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「撒哈拉以南非洲」，再学「澳大利亚」。"
+  },
+  {
+    "topicId": "cng_j028",
+    "prerequisiteId": "cng_j027",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「澳大利亚」，再学「美国」。"
+  },
+  {
+    "topicId": "cng_j029",
+    "prerequisiteId": "cng_j028",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「美国」，再学「巴西」。"
+  },
+  {
+    "topicId": "cng_j030",
+    "prerequisiteId": "cng_j029",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「巴西」，再学「极地地区」。"
+  },
+  {
+    "topicId": "cng_j031",
+    "prerequisiteId": "cng_j030",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「极地地区」，再学「疆域」。"
+  },
+  {
+    "topicId": "cng_j032",
+    "prerequisiteId": "cng_j031",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「疆域」，再学「人口」。"
+  },
+  {
+    "topicId": "cng_j033",
+    "prerequisiteId": "cng_j032",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「人口」，再学「民族」。"
+  },
+  {
+    "topicId": "cng_j034",
+    "prerequisiteId": "cng_j033",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「民族」，再学「地形」。"
+  },
+  {
+    "topicId": "cng_j035",
+    "prerequisiteId": "cng_j034",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「地形」，再学「气候」。"
+  },
+  {
+    "topicId": "cng_j036",
+    "prerequisiteId": "cng_j035",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「气候」，再学「河流与湖泊」。"
+  },
+  {
+    "topicId": "cng_j037",
+    "prerequisiteId": "cng_j036",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「河流与湖泊」，再学「土地资源」。"
+  },
+  {
+    "topicId": "cng_j038",
+    "prerequisiteId": "cng_j037",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「土地资源」，再学「水资源」。"
+  },
+  {
+    "topicId": "cng_j039",
+    "prerequisiteId": "cng_j038",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「水资源」，再学「矿产资源」。"
+  },
+  {
+    "topicId": "cng_j040",
+    "prerequisiteId": "cng_j039",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「矿产资源」，再学「海洋资源」。"
+  },
+  {
+    "topicId": "cng_j041",
+    "prerequisiteId": "cng_j040",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「海洋资源」，再学「农业」。"
+  },
+  {
+    "topicId": "cng_j042",
+    "prerequisiteId": "cng_j041",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「农业」，再学「工业」。"
+  },
+  {
+    "topicId": "cng_j043",
+    "prerequisiteId": "cng_j042",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「工业」，再学「交通运输」。"
+  },
+  {
+    "topicId": "cng_j044",
+    "prerequisiteId": "cng_j043",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「交通运输」，再学「自然灾害与防灾减灾」。"
+  },
+  {
+    "topicId": "cng_j045",
+    "prerequisiteId": "cng_j044",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「自然灾害与防灾减灾」，再学「环境保护与发展」。"
+  },
+  {
+    "topicId": "cng_j046",
+    "prerequisiteId": "cng_j045",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「环境保护与发展」，再学「中国的地理差异」。"
+  },
+  {
+    "topicId": "cng_j048",
+    "prerequisiteId": "cng_j047",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「北方地区的自然特征与农业」，再学「东北三省」。"
+  },
+  {
+    "topicId": "cng_j049",
+    "prerequisiteId": "cng_j048",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「东北三省」，再学「黄土高原」。"
+  },
+  {
+    "topicId": "cng_j050",
+    "prerequisiteId": "cng_j049",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「黄土高原」，再学「北京」。"
+  },
+  {
+    "topicId": "cng_j051",
+    "prerequisiteId": "cng_j050",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「北京」，再学「南方地区的自然特征与农业」。"
+  },
+  {
+    "topicId": "cng_j052",
+    "prerequisiteId": "cng_j051",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「南方地区的自然特征与农业」，再学「长江三角洲地区」。"
+  },
+  {
+    "topicId": "cng_j053",
+    "prerequisiteId": "cng_j052",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「长江三角洲地区」，再学「香港和澳门」。"
+  },
+  {
+    "topicId": "cng_j054",
+    "prerequisiteId": "cng_j053",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「香港和澳门」，再学「台湾省」。"
+  },
+  {
+    "topicId": "cng_j055",
+    "prerequisiteId": "cng_j054",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「台湾省」，再学「西北地区的自然特征与农业」。"
+  },
+  {
+    "topicId": "cng_j056",
+    "prerequisiteId": "cng_j055",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「西北地区的自然特征与农业」，再学「塔里木盆地」。"
+  },
+  {
+    "topicId": "cng_j057",
+    "prerequisiteId": "cng_j056",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「塔里木盆地」，再学「青藏地区的自然特征与农业」。"
+  },
+  {
+    "topicId": "cng_j059",
+    "prerequisiteId": "cng_j058",
+    "strength": "soft",
+    "reason": "按人教版地理的教学顺序，先学「三江源地区」，再学「奋进中的中国」。"
+  },
+  {
+    "topicId": "cng_j002",
+    "prerequisiteId": "cng_j001",
+    "strength": "hard",
+    "reason": "地球仪表示的是地球本身，需要先知道地球在宇宙中的位置和它是一颗行星。"
+  },
+  {
+    "topicId": "cng_j003",
+    "prerequisiteId": "cng_j002",
+    "strength": "hard",
+    "reason": "说明自转、公转和经纬网定位，都建立在地球仪和经纬度的基础上。"
+  },
+  {
+    "topicId": "cng_j005",
+    "prerequisiteId": "cng_j004",
+    "strength": "hard",
+    "reason": "判读等高线地形图，先要会读比例尺、方向和图例。"
+  },
+  {
+    "topicId": "cng_j006",
+    "prerequisiteId": "cng_j004",
+    "strength": "hard",
+    "reason": "选择合适的地图，建立在掌握地图三要素的基础上。"
+  },
+  {
+    "topicId": "cng_j008",
+    "prerequisiteId": "cng_j007",
+    "strength": "hard",
+    "reason": "世界主要地形区的分布，需要先知道七大洲的轮廓和位置。"
+  },
+  {
+    "topicId": "cng_j009",
+    "prerequisiteId": "cng_j007",
+    "strength": "hard",
+    "reason": "海陆变迁和板块运动，解释的是大洲大洋的分布为何会变化。"
+  },
+  {
+    "topicId": "cng_j013",
+    "prerequisiteId": "cng_j011",
+    "strength": "hard",
+    "reason": "气候类型的划分，要用到气温的分布和变化。"
+  },
+  {
+    "topicId": "cng_j013",
+    "prerequisiteId": "cng_j012",
+    "strength": "hard",
+    "reason": "气候类型的划分，要用到降水的分布和变化。"
+  },
+  {
+    "topicId": "cng_j018",
+    "prerequisiteId": "cng_j007",
+    "strength": "hard",
+    "reason": "认识亚洲的位置和范围，建立在七大洲、四大洋分布的基础上。"
+  },
+  {
+    "topicId": "cng_j018",
+    "prerequisiteId": "cng_j013",
+    "strength": "hard",
+    "reason": "描述亚洲的气候特点，需要先掌握世界主要气候类型。"
+  },
+  {
+    "topicId": "cng_j019",
+    "prerequisiteId": "cng_j018",
+    "strength": "hard",
+    "reason": "亚洲的人口、文化和经济发展，建立在自然环境差异的基础上。"
+  },
+  {
+    "topicId": "cng_j020",
+    "prerequisiteId": "cng_j018",
+    "strength": "hard",
+    "reason": "日本位于亚洲东部，认识它要以亚洲的位置和自然环境为前提。"
+  },
+  {
+    "topicId": "cng_j031",
+    "prerequisiteId": "cng_j004",
+    "strength": "hard",
+    "reason": "读中国疆域图、辨认邻国和濒临海洋，需要掌握地图阅读。"
+  },
+  {
+    "topicId": "cng_j034",
+    "prerequisiteId": "cng_j031",
+    "strength": "hard",
+    "reason": "中国地形的分布，建立在已经知道国土范围的基础上。"
+  },
+  {
+    "topicId": "cng_j034",
+    "prerequisiteId": "cng_j008",
+    "strength": "hard",
+    "reason": "描述中国的五种地形和阶梯，需要先掌握世界地形的基本概念。"
+  },
+  {
+    "topicId": "cng_j035",
+    "prerequisiteId": "cng_j013",
+    "strength": "hard",
+    "reason": "中国季风气候和气候差异，建立在世界气候类型的基础上。"
+  },
+  {
+    "topicId": "cng_j036",
+    "prerequisiteId": "cng_j034",
+    "strength": "hard",
+    "reason": "长江、黄河的流向和水能，直接受地势西高东低的制约。"
+  },
+  {
+    "topicId": "cng_j038",
+    "prerequisiteId": "cng_j035",
+    "strength": "hard",
+    "reason": "水资源的时空分布，主要由降水的时空分布决定。"
+  },
+  {
+    "topicId": "cng_j041",
+    "prerequisiteId": "cng_j035",
+    "strength": "hard",
+    "reason": "东西部农业差异和南北方作物不同，首先取决于气候条件。"
+  },
+  {
+    "topicId": "cng_j046",
+    "prerequisiteId": "cng_j035",
+    "strength": "hard",
+    "reason": "四大地理区域的划分，用到了气温和降水等气候指标。"
+  },
+  {
+    "topicId": "cng_j047",
+    "prerequisiteId": "cng_j046",
+    "strength": "hard",
+    "reason": "北方地区是四大地理区域之一，需要先知道区域划分。"
+  },
+  {
+    "topicId": "cng_j051",
+    "prerequisiteId": "cng_j046",
+    "strength": "hard",
+    "reason": "南方地区是四大地理区域之一，需要先知道区域划分。"
+  },
+  {
+    "topicId": "cng_j055",
+    "prerequisiteId": "cng_j046",
+    "strength": "hard",
+    "reason": "西北地区是四大地理区域之一，需要先知道区域划分。"
+  },
+  {
+    "topicId": "cng_j057",
+    "prerequisiteId": "cng_j046",
+    "strength": "hard",
+    "reason": "青藏地区是四大地理区域之一，需要先知道区域划分。"
+  },
+  {
+    "topicId": "cng_j058",
+    "prerequisiteId": "cng_j057",
+    "strength": "hard",
+    "reason": "三江源位于青藏高原，认识它要以青藏地区的自然环境为前提。"
+  },
+  {
+    "topicId": "cng_j059",
+    "prerequisiteId": "cng_j045",
+    "strength": "hard",
+    "reason": "奋进中的中国所谈的挑战与责任，建立在环境保护和可持续发展的基础上。"
+  },
+  {
+    "topicId": "cnb_j002",
+    "prerequisiteId": "cnb_j001",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「观察周边环境中的生物」，再学「生物的特征」。"
+  },
+  {
+    "topicId": "cnb_j003",
+    "prerequisiteId": "cnb_j002",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「生物的特征」，再学「学习使用显微镜」。"
+  },
+  {
+    "topicId": "cnb_j009",
+    "prerequisiteId": "cnb_j008",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「动物体的结构层次」，再学「植物体的结构层次」。"
+  },
+  {
+    "topicId": "cnb_j010",
+    "prerequisiteId": "cnb_j009",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「植物体的结构层次」，再学「单细胞生物」。"
+  },
+  {
+    "topicId": "cnb_j011",
+    "prerequisiteId": "cnb_j010",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「单细胞生物」，再学「藻类、苔藓植物和蕨类植物」。"
+  },
+  {
+    "topicId": "cnb_j013",
+    "prerequisiteId": "cnb_j012",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「种子植物」，再学「无脊椎动物」。"
+  },
+  {
+    "topicId": "cnb_j017",
+    "prerequisiteId": "cnb_j016",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「鸟和哺乳动物」，再学「微生物的分布」。"
+  },
+  {
+    "topicId": "cnb_j019",
+    "prerequisiteId": "cnb_j018",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「细菌」，再学「真菌」。"
+  },
+  {
+    "topicId": "cnb_j020",
+    "prerequisiteId": "cnb_j019",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「真菌」，再学「病毒」。"
+  },
+  {
+    "topicId": "cnb_j021",
+    "prerequisiteId": "cnb_j020",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「病毒」，再学「尝试对生物进行分类」。"
+  },
+  {
+    "topicId": "cnb_j023",
+    "prerequisiteId": "cnb_j022",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「从种到界」，再学「种子的萌发」。"
+  },
+  {
+    "topicId": "cnb_j026",
+    "prerequisiteId": "cnb_j025",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「开花和结果」，再学「水的利用与散失」。"
+  },
+  {
+    "topicId": "cnb_j027",
+    "prerequisiteId": "cnb_j026",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「水的利用与散失」，再学「光合作用」。"
+  },
+  {
+    "topicId": "cnb_j030",
+    "prerequisiteId": "cnb_j029",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「植物在自然界中的作用」，再学「人的生殖」。"
+  },
+  {
+    "topicId": "cnb_j032",
+    "prerequisiteId": "cnb_j031",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「青春期」，再学「食物中的营养物质」。"
+  },
+  {
+    "topicId": "cnb_j035",
+    "prerequisiteId": "cnb_j034",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「合理营养与食品安全」，再学「呼吸道对空气的处理」。"
+  },
+  {
+    "topicId": "cnb_j037",
+    "prerequisiteId": "cnb_j036",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「发生在肺内的气体交换」，再学「流动的组织——血液」。"
+  },
+  {
+    "topicId": "cnb_j041",
+    "prerequisiteId": "cnb_j040",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「人体内废物的排出」，再学「人体对外界环境的感知」。"
+  },
+  {
+    "topicId": "cnb_j044",
+    "prerequisiteId": "cnb_j043",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「神经系统支配下的运动」，再学「激素调节」。"
+  },
+  {
+    "topicId": "cnb_j045",
+    "prerequisiteId": "cnb_j044",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「激素调节」，再学「传染病及其预防」。"
+  },
+  {
+    "topicId": "cnb_j047",
+    "prerequisiteId": "cnb_j046",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「免疫与免疫规划」，再学「用药与急救」。"
+  },
+  {
+    "topicId": "cnb_j049",
+    "prerequisiteId": "cnb_j048",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「选择健康的生活方式」，再学「生物与环境的相互作用」。"
+  },
+  {
+    "topicId": "cnb_j052",
+    "prerequisiteId": "cnb_j051",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「生物圈」，再学「分析人类活动对生态环境的影响」。"
+  },
+  {
+    "topicId": "cnb_j054",
+    "prerequisiteId": "cnb_j053",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「维护生态安全」，再学「无性生殖」。"
+  },
+  {
+    "topicId": "cnb_j059",
+    "prerequisiteId": "cnb_j058",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「基因的显性和隐性」，再学「人的性别决定」。"
+  },
+  {
+    "topicId": "cnb_j060",
+    "prerequisiteId": "cnb_j059",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「人的性别决定」，再学「生物的变异」。"
+  },
+  {
+    "topicId": "cnb_j061",
+    "prerequisiteId": "cnb_j060",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「生物的变异」，再学「地球上生命的起源」。"
+  },
+  {
+    "topicId": "cnb_j064",
+    "prerequisiteId": "cnb_j063",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「生物进化的原因」，再学「人类的起源」。"
+  },
+  {
+    "topicId": "cnb_j065",
+    "prerequisiteId": "cnb_j064",
+    "strength": "soft",
+    "reason": "按人教版生物学的教学顺序，先学「人类的起源」，再学「进化与生物多样性」。"
+  },
+  {
+    "topicId": "cnb_j004",
+    "prerequisiteId": "cnb_j003",
+    "strength": "hard",
+    "reason": "观察植物细胞，要先会使用显微镜。"
+  },
+  {
+    "topicId": "cnb_j005",
+    "prerequisiteId": "cnb_j004",
+    "strength": "hard",
+    "reason": "比较动物细胞和植物细胞，要先认识植物细胞的结构。"
+  },
+  {
+    "topicId": "cnb_j006",
+    "prerequisiteId": "cnb_j005",
+    "strength": "hard",
+    "reason": "理解细胞怎样生活，要先知道动物细胞有哪些结构。"
+  },
+  {
+    "topicId": "cnb_j007",
+    "prerequisiteId": "cnb_j006",
+    "strength": "hard",
+    "reason": "细胞通过分裂产生新细胞，建立在细胞生活需要物质和能量的基础上。"
+  },
+  {
+    "topicId": "cnb_j008",
+    "prerequisiteId": "cnb_j007",
+    "strength": "hard",
+    "reason": "动物体的结构层次从细胞分裂和分化讲起。"
+  },
+  {
+    "topicId": "cnb_j009",
+    "prerequisiteId": "cnb_j007",
+    "strength": "hard",
+    "reason": "植物体的结构层次同样从细胞分裂和分化讲起。"
+  },
+  {
+    "topicId": "cnb_j010",
+    "prerequisiteId": "cnb_j006",
+    "strength": "hard",
+    "reason": "单细胞生物能独立完成生命活动，要先知道细胞是生命活动的基本单位。"
+  },
+  {
+    "topicId": "cnb_j012",
+    "prerequisiteId": "cnb_j011",
+    "strength": "hard",
+    "reason": "种子植物要和藻类、苔藓植物、蕨类植物比较，先认识这些类群。"
+  },
+  {
+    "topicId": "cnb_j014",
+    "prerequisiteId": "cnb_j013",
+    "strength": "hard",
+    "reason": "鱼是脊椎动物，认识它要先区分无脊椎动物。"
+  },
+  {
+    "topicId": "cnb_j015",
+    "prerequisiteId": "cnb_j014",
+    "strength": "hard",
+    "reason": "两栖动物、爬行动物与鱼同属脊椎动物，比较类群要先认识鱼。"
+  },
+  {
+    "topicId": "cnb_j016",
+    "prerequisiteId": "cnb_j015",
+    "strength": "hard",
+    "reason": "鸟和哺乳动物与两栖动物、爬行动物都是脊椎动物，按教材顺序比较。"
+  },
+  {
+    "topicId": "cnb_j018",
+    "prerequisiteId": "cnb_j017",
+    "strength": "hard",
+    "reason": "认识细菌，要先知道微生物的分布和培养观察的基本方法。"
+  },
+  {
+    "topicId": "cnb_j019",
+    "prerequisiteId": "cnb_j017",
+    "strength": "hard",
+    "reason": "认识真菌，要先知道微生物的分布。"
+  },
+  {
+    "topicId": "cnb_j020",
+    "prerequisiteId": "cnb_j018",
+    "strength": "hard",
+    "reason": "病毒没有细胞结构，要和有细胞结构的细菌比较。"
+  },
+  {
+    "topicId": "cnb_j021",
+    "prerequisiteId": "cnb_j011",
+    "strength": "hard",
+    "reason": "尝试对生物进行分类，要用到前面学过的植物类群特征。"
+  },
+  {
+    "topicId": "cnb_j021",
+    "prerequisiteId": "cnb_j013",
+    "strength": "hard",
+    "reason": "尝试对生物进行分类，要用到前面学过的动物类群特征。"
+  },
+  {
+    "topicId": "cnb_j022",
+    "prerequisiteId": "cnb_j021",
+    "strength": "hard",
+    "reason": "从种到界的分类等级，建立在已经尝试按特征分类的基础上。"
+  },
+  {
+    "topicId": "cnb_j023",
+    "prerequisiteId": "cnb_j012",
+    "strength": "hard",
+    "reason": "种子萌发是种子植物生活的起点，要先认识种子植物。"
+  },
+  {
+    "topicId": "cnb_j024",
+    "prerequisiteId": "cnb_j023",
+    "strength": "hard",
+    "reason": "植株的生长接在种子萌发之后。"
+  },
+  {
+    "topicId": "cnb_j025",
+    "prerequisiteId": "cnb_j024",
+    "strength": "hard",
+    "reason": "开花和结果是植株生长到一定阶段后的繁殖过程。"
+  },
+  {
+    "topicId": "cnb_j026",
+    "prerequisiteId": "cnb_j024",
+    "strength": "hard",
+    "reason": "讨论水分的吸收、运输和散失，要先知道植株怎样生长。"
+  },
+  {
+    "topicId": "cnb_j027",
+    "prerequisiteId": "cnb_j004",
+    "strength": "hard",
+    "reason": "光合作用主要在叶绿体中进行，要先认识植物细胞里的叶绿体。"
+  },
+  {
+    "topicId": "cnb_j028",
+    "prerequisiteId": "cnb_j027",
+    "strength": "hard",
+    "reason": "呼吸作用和光合作用是植物体内相对的物质与能量变化。"
+  },
+  {
+    "topicId": "cnb_j029",
+    "prerequisiteId": "cnb_j028",
+    "strength": "hard",
+    "reason": "说明植物参与碳氧平衡，也要用到呼吸作用消耗氧气、产生二氧化碳。"
+  },
+  {
+    "topicId": "cnb_j029",
+    "prerequisiteId": "cnb_j026",
+    "strength": "hard",
+    "reason": "说明植物参与水循环，要先知道蒸腾作用散失水分。"
+  },
+  {
+    "topicId": "cnb_j031",
+    "prerequisiteId": "cnb_j030",
+    "strength": "hard",
+    "reason": "青春期是生殖器官发育和性成熟的阶段，接在人的生殖之后。"
+  },
+  {
+    "topicId": "cnb_j033",
+    "prerequisiteId": "cnb_j032",
+    "strength": "hard",
+    "reason": "消化和吸收针对的是食物中的营养物质。"
+  },
+  {
+    "topicId": "cnb_j034",
+    "prerequisiteId": "cnb_j033",
+    "strength": "hard",
+    "reason": "安排膳食和判断食品安全，要知道营养物质怎样被消化吸收。"
+  },
+  {
+    "topicId": "cnb_j036",
+    "prerequisiteId": "cnb_j035",
+    "strength": "hard",
+    "reason": "肺内的气体交换接在呼吸道对空气的处理之后。"
+  },
+  {
+    "topicId": "cnb_j038",
+    "prerequisiteId": "cnb_j037",
+    "strength": "hard",
+    "reason": "血管是血液流动的管道，要先认识血液。"
+  },
+  {
+    "topicId": "cnb_j039",
+    "prerequisiteId": "cnb_j038",
+    "strength": "hard",
+    "reason": "心脏把血液压进血管，要先知道三类血管。"
+  },
+  {
+    "topicId": "cnb_j040",
+    "prerequisiteId": "cnb_j039",
+    "strength": "hard",
+    "reason": "尿液排出前，废物要随血液循环送到肾，先认识心脏和血液循环。"
+  },
+  {
+    "topicId": "cnb_j042",
+    "prerequisiteId": "cnb_j041",
+    "strength": "hard",
+    "reason": "神经调节建立在感受器接受外界刺激的基础上。"
+  },
+  {
+    "topicId": "cnb_j043",
+    "prerequisiteId": "cnb_j042",
+    "strength": "hard",
+    "reason": "骨骼肌的收缩受神经系统支配。"
+  },
+  {
+    "topicId": "cnb_j044",
+    "prerequisiteId": "cnb_j042",
+    "strength": "hard",
+    "reason": "激素调节与神经调节互相配合，先认识神经调节。"
+  },
+  {
+    "topicId": "cnb_j046",
+    "prerequisiteId": "cnb_j045",
+    "strength": "hard",
+    "reason": "免疫规划用来预防传染病，要先知道传染病怎样流行。"
+  },
+  {
+    "topicId": "cnb_j048",
+    "prerequisiteId": "cnb_j045",
+    "strength": "hard",
+    "reason": "选择健康的生活方式，包括预防传染病。"
+  },
+  {
+    "topicId": "cnb_j048",
+    "prerequisiteId": "cnb_j047",
+    "strength": "hard",
+    "reason": "选择健康的生活方式，也包括合理用药和急救。"
+  },
+  {
+    "topicId": "cnb_j050",
+    "prerequisiteId": "cnb_j049",
+    "strength": "hard",
+    "reason": "生态系统的结构和功能，建立在生物与环境相互作用的基础上。"
+  },
+  {
+    "topicId": "cnb_j051",
+    "prerequisiteId": "cnb_j050",
+    "strength": "hard",
+    "reason": "生物圈是最大的生态系统，要先知道生态系统的组成。"
+  },
+  {
+    "topicId": "cnb_j052",
+    "prerequisiteId": "cnb_j050",
+    "strength": "hard",
+    "reason": "分析人类活动的影响，要先知道生态系统怎样维持稳定。"
+  },
+  {
+    "topicId": "cnb_j053",
+    "prerequisiteId": "cnb_j052",
+    "strength": "hard",
+    "reason": "维护生态安全，针对的是人类活动造成的生态问题。"
+  },
+  {
+    "topicId": "cnb_j054",
+    "prerequisiteId": "cnb_j009",
+    "strength": "hard",
+    "reason": "植物的扦插、嫁接等无性生殖，用的是根、茎、叶等营养器官。"
+  },
+  {
+    "topicId": "cnb_j055",
+    "prerequisiteId": "cnb_j054",
+    "strength": "hard",
+    "reason": "有性生殖和无性生殖是产生后代的两条途径，先比较无性生殖。"
+  },
+  {
+    "topicId": "cnb_j055",
+    "prerequisiteId": "cnb_j025",
+    "strength": "hard",
+    "reason": "被子植物的有性生殖要经过开花、传粉和受精，结出果实和种子。"
+  },
+  {
+    "topicId": "cnb_j055",
+    "prerequisiteId": "cnb_j030",
+    "strength": "hard",
+    "reason": "人的生殖是有性生殖，精子和卵细胞结合形成受精卵。"
+  },
+  {
+    "topicId": "cnb_j056",
+    "prerequisiteId": "cnb_j055",
+    "strength": "hard",
+    "reason": "基因控制的性状要通过生殖传给后代。"
+  },
+  {
+    "topicId": "cnb_j057",
+    "prerequisiteId": "cnb_j056",
+    "strength": "hard",
+    "reason": "基因在亲子代间传递，先要知道基因与性状的关系。"
+  },
+  {
+    "topicId": "cnb_j058",
+    "prerequisiteId": "cnb_j057",
+    "strength": "hard",
+    "reason": "显性和隐性是一对基因在亲子代传递中的表现。"
+  },
+  {
+    "topicId": "cnb_j059",
+    "prerequisiteId": "cnb_j057",
+    "strength": "hard",
+    "reason": "人的性别由性染色体决定，建立在基因随染色体传递的基础上。"
+  },
+  {
+    "topicId": "cnb_j060",
+    "prerequisiteId": "cnb_j056",
+    "strength": "hard",
+    "reason": "变异是亲子代性状上的差异，包括遗传物质改变引起的可遗传变异。"
+  },
+  {
+    "topicId": "cnb_j062",
+    "prerequisiteId": "cnb_j061",
+    "strength": "hard",
+    "reason": "生物进化的历程，从地球上生命的起源讲起。"
+  },
+  {
+    "topicId": "cnb_j063",
+    "prerequisiteId": "cnb_j062",
+    "strength": "hard",
+    "reason": "解释进化的原因，要先知道生物进化的大致历程。"
+  },
+  {
+    "topicId": "cnb_j063",
+    "prerequisiteId": "cnb_j060",
+    "strength": "hard",
+    "reason": "自然选择解释的是可遗传的变异怎样被保留下来。"
+  },
+  {
+    "topicId": "cnb_j064",
+    "prerequisiteId": "cnb_j062",
+    "strength": "hard",
+    "reason": "人类的起源是生物进化历程中的一部分。"
+  },
+  {
+    "topicId": "cnb_j064",
+    "prerequisiteId": "cnb_j016",
+    "strength": "hard",
+    "reason": "人类属于哺乳动物，比较人类和类人猿要先认识哺乳动物。"
+  },
+  {
+    "topicId": "cnb_j065",
+    "prerequisiteId": "cnb_j062",
+    "strength": "hard",
+    "reason": "生物多样性是长期进化的结果。"
+  },
+  {
+    "topicId": "cnb_j065",
+    "prerequisiteId": "cnb_j022",
+    "strength": "hard",
+    "reason": "描述生物多样性，要用到从种到界的分类框架。"
+  },
+  {
+    "topicId": "cnb_j066",
+    "prerequisiteId": "cnb_j065",
+    "strength": "hard",
+    "reason": "人与自然和谐共生，建立在认识并保护生物多样性的基础上。"
+  },
+  {
+    "topicId": "cnb_j066",
+    "prerequisiteId": "cnb_j053",
+    "strength": "hard",
+    "reason": "维护生态安全是人与自然和谐共生的一部分。"
+  },
+  {
+    "topicId": "cnk_j002",
+    "prerequisiteId": "cnk_j001",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「化学使世界变得更加绚丽多彩」，再学「物质的变化和性质」。"
+  },
+  {
+    "topicId": "cnk_j003",
+    "prerequisiteId": "cnk_j002",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「物质的变化和性质」，再学「科学探究」。"
+  },
+  {
+    "topicId": "cnk_j005",
+    "prerequisiteId": "cnk_j004",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「化学实验基本操作」，再学「我们周围的空气」。"
+  },
+  {
+    "topicId": "cnk_j009",
+    "prerequisiteId": "cnk_j008",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「氧气的实验室制取与性质」，再学「分子和原子」。"
+  },
+  {
+    "topicId": "cnk_j012",
+    "prerequisiteId": "cnk_j011",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「元素」，再学「水资源及其利用」。"
+  },
+  {
+    "topicId": "cnk_j013",
+    "prerequisiteId": "cnk_j012",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「水资源及其利用」，再学「水的组成」。"
+  },
+  {
+    "topicId": "cnk_j014",
+    "prerequisiteId": "cnk_j013",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「水的组成」，再学「化学式与化合价」。"
+  },
+  {
+    "topicId": "cnk_j016",
+    "prerequisiteId": "cnk_j015",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「根据化学式的计算」，再学「水的组成及变化的探究」。"
+  },
+  {
+    "topicId": "cnk_j017",
+    "prerequisiteId": "cnk_j016",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「水的组成及变化的探究」，再学「质量守恒定律」。"
+  },
+  {
+    "topicId": "cnk_j020",
+    "prerequisiteId": "cnk_j019",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「利用化学方程式的简单计算」，再学「碳单质的多样性」。"
+  },
+  {
+    "topicId": "cnk_j023",
+    "prerequisiteId": "cnk_j022",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「一氧化碳」，再学「二氧化碳的实验室制取」。"
+  },
+  {
+    "topicId": "cnk_j025",
+    "prerequisiteId": "cnk_j024",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「二氧化碳的实验室制取与性质」，再学「燃料的燃烧」。"
+  },
+  {
+    "topicId": "cnk_j027",
+    "prerequisiteId": "cnk_j026",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「化石能源的合理利用」，再学「燃烧条件的探究」。"
+  },
+  {
+    "topicId": "cnk_j028",
+    "prerequisiteId": "cnk_j027",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「燃烧条件的探究」，再学「金属材料」。"
+  },
+  {
+    "topicId": "cnk_j031",
+    "prerequisiteId": "cnk_j030",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「金属活动性顺序」，再学「金属资源的利用和保护」。"
+  },
+  {
+    "topicId": "cnk_j032",
+    "prerequisiteId": "cnk_j031",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「金属资源的利用和保护」，再学「常见金属的物理性质和化学性质」。"
+  },
+  {
+    "topicId": "cnk_j033",
+    "prerequisiteId": "cnk_j032",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「常见金属的物理性质和化学性质」，再学「溶液及其应用」。"
+  },
+  {
+    "topicId": "cnk_j035",
+    "prerequisiteId": "cnk_j034",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「溶解度」，再学「溶质的质量分数」。"
+  },
+  {
+    "topicId": "cnk_j037",
+    "prerequisiteId": "cnk_j036",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「一定溶质质量分数的氯化钠溶液的配制」，再学「粗盐中难溶性杂质的去除」。"
+  },
+  {
+    "topicId": "cnk_j038",
+    "prerequisiteId": "cnk_j037",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「粗盐中难溶性杂质的去除」，再学「溶液的酸碱性」。"
+  },
+  {
+    "topicId": "cnk_j040",
+    "prerequisiteId": "cnk_j039",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「常见的酸」，再学「常见的碱」。"
+  },
+  {
+    "topicId": "cnk_j043",
+    "prerequisiteId": "cnk_j042",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「常见的盐」，再学「常见酸、碱的化学性质」。"
+  },
+  {
+    "topicId": "cnk_j044",
+    "prerequisiteId": "cnk_j043",
+    "strength": "soft",
+    "reason": "按人教版化学的教学顺序，先学「常见酸、碱的化学性质」，再学「化学与人体健康」。"
+  },
+  {
+    "topicId": "cnk_j004",
+    "prerequisiteId": "cnk_j003",
+    "strength": "hard",
+    "reason": "做化学实验，要先知道科学探究里实验和记录证据这一步。"
+  },
+  {
+    "topicId": "cnk_j006",
+    "prerequisiteId": "cnk_j005",
+    "strength": "hard",
+    "reason": "氧气是空气的一种成分，认识氧气的性质要先知道空气里有氧气。"
+  },
+  {
+    "topicId": "cnk_j007",
+    "prerequisiteId": "cnk_j006",
+    "strength": "hard",
+    "reason": "实验室制取氧气，要先知道氧气的性质和检验方法。"
+  },
+  {
+    "topicId": "cnk_j007",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "制取气体要会连接仪器、检查气密性和加热。"
+  },
+  {
+    "topicId": "cnk_j008",
+    "prerequisiteId": "cnk_j007",
+    "strength": "hard",
+    "reason": "氧气的制取实验，用的就是实验室制取氧气的原理。"
+  },
+  {
+    "topicId": "cnk_j009",
+    "prerequisiteId": "cnk_j002",
+    "strength": "hard",
+    "reason": "用分子、原子解释物质变化，要先区分物理变化和化学变化。"
+  },
+  {
+    "topicId": "cnk_j010",
+    "prerequisiteId": "cnk_j009",
+    "strength": "hard",
+    "reason": "认识原子结构，要先知道原子是构成物质的一种微粒。"
+  },
+  {
+    "topicId": "cnk_j011",
+    "prerequisiteId": "cnk_j010",
+    "strength": "hard",
+    "reason": "元素按质子数归类，要先知道原子核内有质子。"
+  },
+  {
+    "topicId": "cnk_j013",
+    "prerequisiteId": "cnk_j009",
+    "strength": "hard",
+    "reason": "电解水生成氢气和氧气，要用分子分成原子再重新组合来理解。"
+  },
+  {
+    "topicId": "cnk_j013",
+    "prerequisiteId": "cnk_j006",
+    "strength": "hard",
+    "reason": "检验电解水得到的氧气，要先会检验氧气。"
+  },
+  {
+    "topicId": "cnk_j014",
+    "prerequisiteId": "cnk_j011",
+    "strength": "hard",
+    "reason": "化学式用元素符号表示物质组成，要先认识元素符号。"
+  },
+  {
+    "topicId": "cnk_j015",
+    "prerequisiteId": "cnk_j014",
+    "strength": "hard",
+    "reason": "根据化学式计算，要先会写化学式和化合价。"
+  },
+  {
+    "topicId": "cnk_j016",
+    "prerequisiteId": "cnk_j013",
+    "strength": "hard",
+    "reason": "探究水的组成，用的就是电解水的结论。"
+  },
+  {
+    "topicId": "cnk_j016",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "完成水的组成实验，要先会基本操作。"
+  },
+  {
+    "topicId": "cnk_j017",
+    "prerequisiteId": "cnk_j009",
+    "strength": "hard",
+    "reason": "从微观解释质量守恒，要知道化学变化中原子的种类和数目不变。"
+  },
+  {
+    "topicId": "cnk_j018",
+    "prerequisiteId": "cnk_j017",
+    "strength": "hard",
+    "reason": "书写化学方程式，必须遵守质量守恒定律。"
+  },
+  {
+    "topicId": "cnk_j018",
+    "prerequisiteId": "cnk_j014",
+    "strength": "hard",
+    "reason": "化学方程式里的化学式，要先会根据组成来写。"
+  },
+  {
+    "topicId": "cnk_j019",
+    "prerequisiteId": "cnk_j018",
+    "strength": "hard",
+    "reason": "根据化学方程式计算，要先会写出配平的化学方程式。"
+  },
+  {
+    "topicId": "cnk_j019",
+    "prerequisiteId": "cnk_j015",
+    "strength": "hard",
+    "reason": "化学方程式计算要用到相对分子质量。"
+  },
+  {
+    "topicId": "cnk_j020",
+    "prerequisiteId": "cnk_j011",
+    "strength": "hard",
+    "reason": "金刚石、石墨都由碳元素组成，要先知道什么是元素。"
+  },
+  {
+    "topicId": "cnk_j021",
+    "prerequisiteId": "cnk_j014",
+    "strength": "hard",
+    "reason": "认识二氧化碳，要会看化学式 CO2。"
+  },
+  {
+    "topicId": "cnk_j021",
+    "prerequisiteId": "cnk_j020",
+    "strength": "hard",
+    "reason": "二氧化碳是碳的氧化物，要先知道碳单质。"
+  },
+  {
+    "topicId": "cnk_j022",
+    "prerequisiteId": "cnk_j021",
+    "strength": "hard",
+    "reason": "一氧化碳和二氧化碳都是碳的氧化物，性质要对着比较。"
+  },
+  {
+    "topicId": "cnk_j023",
+    "prerequisiteId": "cnk_j021",
+    "strength": "hard",
+    "reason": "实验室制取二氧化碳，要先知道它的性质和检验方法。"
+  },
+  {
+    "topicId": "cnk_j023",
+    "prerequisiteId": "cnk_j007",
+    "strength": "hard",
+    "reason": "制取二氧化碳要会选择发生装置和收集方法，这和制取氧气用的是同一套思路。"
+  },
+  {
+    "topicId": "cnk_j024",
+    "prerequisiteId": "cnk_j023",
+    "strength": "hard",
+    "reason": "二氧化碳的制取实验，用的就是实验室制取二氧化碳的原理。"
+  },
+  {
+    "topicId": "cnk_j025",
+    "prerequisiteId": "cnk_j006",
+    "strength": "hard",
+    "reason": "燃烧需要氧气，要先知道氧气能支持燃烧。"
+  },
+  {
+    "topicId": "cnk_j026",
+    "prerequisiteId": "cnk_j025",
+    "strength": "hard",
+    "reason": "讨论燃料怎样合理利用，要先知道燃烧和灭火。"
+  },
+  {
+    "topicId": "cnk_j027",
+    "prerequisiteId": "cnk_j025",
+    "strength": "hard",
+    "reason": "探究燃烧条件，就是检验可燃物、氧气和着火点这三条。"
+  },
+  {
+    "topicId": "cnk_j027",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "完成燃烧条件实验，要先会基本操作。"
+  },
+  {
+    "topicId": "cnk_j029",
+    "prerequisiteId": "cnk_j028",
+    "strength": "hard",
+    "reason": "讨论金属和氧气、酸的反应，要先认识常见金属材料。"
+  },
+  {
+    "topicId": "cnk_j029",
+    "prerequisiteId": "cnk_j006",
+    "strength": "hard",
+    "reason": "金属在氧气中燃烧，用到氧气能支持燃烧。"
+  },
+  {
+    "topicId": "cnk_j030",
+    "prerequisiteId": "cnk_j029",
+    "strength": "hard",
+    "reason": "金属活动性顺序，是从金属与酸、与盐溶液的反应比较出来的。"
+  },
+  {
+    "topicId": "cnk_j031",
+    "prerequisiteId": "cnk_j029",
+    "strength": "hard",
+    "reason": "铁生锈和金属的防护，建立在金属能与氧气反应的基础上。"
+  },
+  {
+    "topicId": "cnk_j031",
+    "prerequisiteId": "cnk_j022",
+    "strength": "hard",
+    "reason": "用一氧化碳炼铁，要先知道一氧化碳能与某些金属氧化物反应。"
+  },
+  {
+    "topicId": "cnk_j032",
+    "prerequisiteId": "cnk_j030",
+    "strength": "hard",
+    "reason": "探究金属的化学性质，要用金属活动性顺序解释现象。"
+  },
+  {
+    "topicId": "cnk_j032",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "完成金属性质实验，要先会基本操作。"
+  },
+  {
+    "topicId": "cnk_j033",
+    "prerequisiteId": "cnk_j002",
+    "strength": "hard",
+    "reason": "判断溶解多半是物理变化，要先会区分物理变化和化学变化。"
+  },
+  {
+    "topicId": "cnk_j034",
+    "prerequisiteId": "cnk_j033",
+    "strength": "hard",
+    "reason": "溶解度描述的是溶质在溶剂里溶解的限度，要先认识溶液。"
+  },
+  {
+    "topicId": "cnk_j035",
+    "prerequisiteId": "cnk_j033",
+    "strength": "hard",
+    "reason": "溶质的质量分数表示溶液组成，要先分清溶质、溶剂和溶液。"
+  },
+  {
+    "topicId": "cnk_j036",
+    "prerequisiteId": "cnk_j035",
+    "strength": "hard",
+    "reason": "配制一定质量分数的溶液，要先会计算溶质和溶剂的质量。"
+  },
+  {
+    "topicId": "cnk_j036",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "配制溶液要用到称量、溶解等基本操作。"
+  },
+  {
+    "topicId": "cnk_j037",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "除去粗盐中的难溶性杂质，要用过滤和蒸发。"
+  },
+  {
+    "topicId": "cnk_j037",
+    "prerequisiteId": "cnk_j033",
+    "strength": "hard",
+    "reason": "粗盐提纯先把粗盐溶解成溶液，要先认识溶液。"
+  },
+  {
+    "topicId": "cnk_j038",
+    "prerequisiteId": "cnk_j033",
+    "strength": "hard",
+    "reason": "溶液的酸碱性是溶液的一种性质，要先认识溶液。"
+  },
+  {
+    "topicId": "cnk_j039",
+    "prerequisiteId": "cnk_j038",
+    "strength": "hard",
+    "reason": "认识常见的酸，要先会用指示剂和 pH 判断酸性。"
+  },
+  {
+    "topicId": "cnk_j040",
+    "prerequisiteId": "cnk_j038",
+    "strength": "hard",
+    "reason": "认识常见的碱，要先会用指示剂和 pH 判断碱性。"
+  },
+  {
+    "topicId": "cnk_j041",
+    "prerequisiteId": "cnk_j039",
+    "strength": "hard",
+    "reason": "中和反应是酸和碱的反应，要先认识常见的酸。"
+  },
+  {
+    "topicId": "cnk_j041",
+    "prerequisiteId": "cnk_j040",
+    "strength": "hard",
+    "reason": "中和反应是酸和碱的反应，要先认识常见的碱。"
+  },
+  {
+    "topicId": "cnk_j042",
+    "prerequisiteId": "cnk_j041",
+    "strength": "hard",
+    "reason": "许多盐可以由中和反应生成，要先知道中和反应生成盐和水。"
+  },
+  {
+    "topicId": "cnk_j042",
+    "prerequisiteId": "cnk_j014",
+    "strength": "hard",
+    "reason": "常见的盐用化学式表示，要先会写化学式。"
+  },
+  {
+    "topicId": "cnk_j043",
+    "prerequisiteId": "cnk_j039",
+    "strength": "hard",
+    "reason": "酸的化学性质实验，检验的是酸与指示剂、金属、金属氧化物等的反应。"
+  },
+  {
+    "topicId": "cnk_j043",
+    "prerequisiteId": "cnk_j040",
+    "strength": "hard",
+    "reason": "碱的化学性质实验，检验的是碱与指示剂、非金属氧化物等的反应。"
+  },
+  {
+    "topicId": "cnk_j043",
+    "prerequisiteId": "cnk_j004",
+    "strength": "hard",
+    "reason": "完成酸、碱性质实验，要先会基本操作。"
+  },
+  {
+    "topicId": "cnk_j044",
+    "prerequisiteId": "cnk_j011",
+    "strength": "hard",
+    "reason": "讨论人体中的元素，要先认识元素。"
+  },
+  {
+    "topicId": "cnk_j045",
+    "prerequisiteId": "cnk_j026",
+    "strength": "hard",
+    "reason": "化学与可持续发展里的能源问题，接在化石能源的合理利用之后。"
+  },
+  {
+    "topicId": "cnk_j045",
+    "prerequisiteId": "cnk_j044",
+    "strength": "hard",
+    "reason": "材料与健康同属化学与社会，可持续发展要连着人体健康来看化学的作用。"
   }
 ]

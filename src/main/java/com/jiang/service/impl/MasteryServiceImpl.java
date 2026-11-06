@@ -261,26 +261,36 @@ public class MasteryServiceImpl implements MasteryService {
 
     @Override
     public List<MasteryDashboardVO> getStudentDashboard(String subject) {
+        return getStudentDashboard(subject, false);
+    }
+
+    @Override
+    public List<MasteryDashboardVO> getStudentDashboard(String subject, boolean showDisabled) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
 
-        // 1. 使用 JOIN 查询学生 active 知识点的掌握度状态（单次 DB 往返）
-        List<StudentKnowledgeState> states = stateMapper.selectActiveStatesWithKpInfo(studentId, tenantId, subject);
+        log.info("[getStudentDashboard] studentId={}, tenantId={}, subject={}, showDisabled={}",
+                studentId, tenantId, subject, showDisabled);
+
+        // 修复 IMP-14：showDisabled 参数控制是否包含停用知识点
+        List<StudentKnowledgeState> states = stateMapper.selectActiveStatesWithKpInfo(
+                studentId, tenantId, subject, showDisabled);
+        log.info("[getStudentDashboard] 查询结果数量: {}", states.size());
         if (states.isEmpty()) {
             return Collections.emptyList();
         }
 
-        // 2. 提取知识点 ID 列表，用于批量查询最新变更日志
+        // 提取知识点 ID 列表，用于批量查询最新变更日志
         List<String> kpIds = states.stream()
                 .map(StudentKnowledgeState::getKnowledgePointId)
                 .collect(Collectors.toList());
 
-        // 3. 批量查询最新变更日志（用于 lastChangeDirection）
+        // 批量查询最新变更日志（用于 lastChangeDirection）
         List<MasteryChangeLog> latestLogs = changeLogMapper.selectLatestByKpIds(studentId, tenantId, kpIds);
         Map<String, MasteryChangeLog> logMap = latestLogs.stream()
                 .collect(Collectors.toMap(MasteryChangeLog::getKnowledgePointId, log -> log, (a, b) -> a));
 
-        // 4. 组装 VO（直接使用 state 中的瞬态字段，无需额外查询知识点信息）
+        // 组装 VO
         List<MasteryDashboardVO> result = new ArrayList<>();
         for (StudentKnowledgeState state : states) {
             MasteryChangeLog latestLog = logMap.get(state.getKnowledgePointId());

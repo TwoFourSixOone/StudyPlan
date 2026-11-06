@@ -302,7 +302,7 @@ class MasteryServiceTest {
         state.setKpName("测试知识点");
         state.setKpSubject("数学");
         state.setKpStatus("active");
-        when(stateMapper.selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), eq("数学")))
+        when(stateMapper.selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), eq("数学"), eq(false)))
                 .thenReturn(Arrays.asList(state));
 
         MasteryChangeLog log = createChangeLog(KP_ID, new BigDecimal("0.05"));
@@ -320,7 +320,7 @@ class MasteryServiceTest {
     @Test
     @DisplayName("getStudentDashboard：无 active 知识点 - 返回空列表")
     void testGetStudentDashboard_noActiveKp() {
-        when(stateMapper.selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), any()))
+        when(stateMapper.selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), any(), eq(false)))
                 .thenReturn(Collections.emptyList());
 
         List<MasteryDashboardVO> result = masteryService.getStudentDashboard(null);
@@ -328,6 +328,41 @@ class MasteryServiceTest {
         assertTrue(result.isEmpty());
         // 不应查询变更日志
         verify(changeLogMapper, never()).selectLatestByKpIds(anyLong(), anyString(), anyList());
+    }
+
+    @Test
+    @DisplayName("getStudentDashboard(showDisabled=false)：隐藏停用知识点")
+    void should_hideDisabledKp_when_showDisabledFalse() {
+        // 修复 IMP-14：showDisabled=false 时只返回 active 知识点
+        when(stateMapper.selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), any(), eq(false)))
+                .thenReturn(Collections.emptyList());
+
+        List<MasteryDashboardVO> result = masteryService.getStudentDashboard("数学", false);
+
+        assertTrue(result.isEmpty());
+        // 验证传入 includeDisabled=false
+        verify(stateMapper).selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), eq("数学"), eq(false));
+    }
+
+    @Test
+    @DisplayName("getStudentDashboard(showDisabled=true)：显示停用知识点")
+    void should_showDisabledKp_when_showDisabledTrue() {
+        // 修复 IMP-14：showDisabled=true 时返回所有知识点（含停用）
+        StudentKnowledgeState state = createState(STUDENT_ID, KP_ID, new BigDecimal("0.6000"));
+        state.setKpName("测试知识点");
+        state.setKpSubject("数学");
+        state.setKpStatus("disabled");
+
+        when(stateMapper.selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), any(), eq(true)))
+                .thenReturn(Arrays.asList(state));
+        when(changeLogMapper.selectLatestByKpIds(eq(STUDENT_ID), eq(TENANT_ID), anyList()))
+                .thenReturn(Collections.emptyList());
+
+        List<MasteryDashboardVO> result = masteryService.getStudentDashboard("数学", true);
+
+        assertEquals(1, result.size());
+        // 验证传入 includeDisabled=true
+        verify(stateMapper).selectActiveStatesWithKpInfo(eq(STUDENT_ID), eq(TENANT_ID), eq("数学"), eq(true));
     }
 
     // ==================== getStudentChangeHistory 测试 ====================

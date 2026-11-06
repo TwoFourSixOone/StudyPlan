@@ -41,7 +41,7 @@ public interface HomeworkSubmissionDetailMapper extends BaseMapper<HomeworkSubmi
      */
     @Select("SELECT s1.submission_id, s1.plan_id, s1.question_id, s1.question_source, " +
             "s1.question_type, s1.student_answer, s1.is_correct, " +
-            "s1.knowledge_point_id, s1.submitted_at, " +
+            "s1.knowledge_point_id, s1.submitted_at, s1.analysis, " +
             "s1.tenant_id, s1.create_time, s1.update_time " +
             "FROM homework_submission_detail s1 " +
             "INNER JOIN (" +
@@ -52,4 +52,34 @@ public interface HomeworkSubmissionDetailMapper extends BaseMapper<HomeworkSubmi
             ") s2 ON s1.submission_id = s2.max_id")
     List<HomeworkSubmissionDetail> selectByPlanId(@Param("planId") Long planId,
                                                   @Param("tenantId") String tenantId);
+
+    /**
+     * 查询最近 N 天的作业提交正确率（SIG-1 信号检测）
+     * 修复 H-5：增加 tenant_id 隔离
+     *
+     * @param goalId     目标 ID
+     * @param windowDays 窗口天数
+     * @param tenantId   租户 ID
+     * @return 正确率列表（按日期升序）
+     */
+    @Select("SELECT COALESCE(SUM(is_correct) * 1.0 / COUNT(*), 0) AS accuracy " +
+            "FROM homework_submission_detail d " +
+            "JOIN daily_plan p ON d.plan_id = p.plan_id AND p.tenant_id = #{tenantId} " +
+            "WHERE p.goal_id = #{goalId} " +
+            "AND d.tenant_id = #{tenantId} " +
+            "AND d.submitted_at >= DATE_SUB(CURDATE(), INTERVAL #{windowDays} DAY) " +
+            "GROUP BY DATE(d.submitted_at) " +
+            "ORDER BY DATE(d.submitted_at) ASC")
+    List<Double> selectRecentAccuracy(@Param("goalId") Long goalId,
+                                      @Param("windowDays") int windowDays,
+                                      @Param("tenantId") String tenantId);
+
+    /**
+     * 按 ID 和学生 ID 查询作业提交详情（学习记录详情）
+     */
+    @Select("SELECT * FROM homework_submission_detail " +
+            "WHERE submission_id = #{id} AND student_id = #{studentId} AND tenant_id = #{tenantId}")
+    HomeworkSubmissionDetail selectByIdAndStudentId(@Param("id") Long id,
+                                                     @Param("studentId") Long studentId,
+                                                     @Param("tenantId") String tenantId);
 }

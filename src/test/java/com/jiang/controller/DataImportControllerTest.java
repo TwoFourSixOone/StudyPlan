@@ -14,6 +14,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -68,19 +69,26 @@ class DataImportControllerTest {
         ImportResultDTO result = ImportResultDTO.builder()
                 .importId(1L)
                 .dataType("topic")
-                .fileSource("json/topics.json")
+                .fileSource("topics.json")
                 .successCount(100)
                 .failCount(2)
                 .skipCount(3)
                 .errorSamples(List.of("[kp001] ID 冲突，已跳过", "[kp002] name 为空"))
                 .importedAt(LocalDateTime.now())
                 .build();
-        when(dataImportService.importData("topic")).thenReturn(result);
+        when(dataImportService.importData(any(), eq("topic"))).thenReturn(result);
 
-        mockMvc.perform(post("/api/admin/import")
-                        .header("Authorization", "Bearer valid_token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dataType\":\"topic\"}"))
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "topics.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                "[{\"id\":\"kp001\",\"name\":\"测试知识点\"}]".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/admin/import")
+                        .file(file)
+                        .param("dataType", "topic")
+                        .header("Authorization", "Bearer valid_token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200))
                 .andExpect(jsonPath("$.data.importId").value(1))
@@ -92,21 +100,27 @@ class DataImportControllerTest {
     }
 
     @Test
-    void should_return400_when_dataTypeBlank() throws Exception {
+    void should_return500_when_fileMissing() throws Exception {
         stubJwtAuth();
 
-        mockMvc.perform(post("/api/admin/import")
+        mockMvc.perform(multipart("/api/admin/import")
                         .header("Authorization", "Bearer valid_token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dataType\":\"\"}"))
-                .andExpect(status().isBadRequest());
+                        .param("dataType", "topic"))
+                .andExpect(status().isInternalServerError());
     }
 
     @Test
     void should_return401_when_noJwt() throws Exception {
-        mockMvc.perform(post("/api/admin/import")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dataType\":\"topic\"}"))
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "topics.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                "[{\"id\":\"kp001\",\"name\":\"测试知识点\"}]".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/admin/import")
+                        .file(file)
+                        .param("dataType", "topic"))
                 .andExpect(status().isUnauthorized());
     }
 
@@ -117,7 +131,7 @@ class DataImportControllerTest {
         ImportResultDTO result = ImportResultDTO.builder()
                 .importId(2L)
                 .dataType("question")
-                .fileSource("json/questions.json")
+                .fileSource("questions.json")
                 .successCount(50)
                 .failCount(10)
                 .skipCount(5)
@@ -128,12 +142,19 @@ class DataImportControllerTest {
                 ))
                 .importedAt(LocalDateTime.now())
                 .build();
-        when(dataImportService.importData("question")).thenReturn(result);
+        when(dataImportService.importData(any(), eq("question"))).thenReturn(result);
 
-        mockMvc.perform(post("/api/admin/import")
-                        .header("Authorization", "Bearer valid_token")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"dataType\":\"question\"}"))
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "questions.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                "[{\"topicId\":\"q001\",\"prompt\":\"测试\"}]".getBytes()
+        );
+
+        mockMvc.perform(multipart("/api/admin/import")
+                        .file(file)
+                        .param("dataType", "question")
+                        .header("Authorization", "Bearer valid_token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.errorSamples").isArray())
                 .andExpect(jsonPath("$.data.errorSamples.length()").value(3))

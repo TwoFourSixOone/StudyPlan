@@ -94,7 +94,7 @@ class MasteryControllerTest {
     void should_returnDashboard_when_studentHasData() throws Exception {
         stubJwtAuth();
         List<MasteryDashboardVO> dashboardList = Arrays.asList(buildDashboardVO());
-        when(masteryService.getStudentDashboard(isNull())).thenReturn(dashboardList);
+        when(masteryService.getStudentDashboard(isNull(), eq(false))).thenReturn(dashboardList);
 
         mockMvc.perform(get("/api/student/mastery/dashboard")
                         .header("Authorization", AUTH_HEADER))
@@ -110,7 +110,7 @@ class MasteryControllerTest {
     void should_returnDashboardBySubject_when_subjectProvided() throws Exception {
         stubJwtAuth();
         List<MasteryDashboardVO> dashboardList = Arrays.asList(buildDashboardVO());
-        when(masteryService.getStudentDashboard(eq("数学"))).thenReturn(dashboardList);
+        when(masteryService.getStudentDashboard(eq("数学"), eq(false))).thenReturn(dashboardList);
 
         mockMvc.perform(get("/api/student/mastery/dashboard")
                         .header("Authorization", AUTH_HEADER)
@@ -122,7 +122,7 @@ class MasteryControllerTest {
     @Test
     void should_returnEmptyList_when_noActiveKp() throws Exception {
         stubJwtAuth();
-        when(masteryService.getStudentDashboard(isNull())).thenReturn(Collections.emptyList());
+        when(masteryService.getStudentDashboard(isNull(), eq(false))).thenReturn(Collections.emptyList());
 
         mockMvc.perform(get("/api/student/mastery/dashboard")
                         .header("Authorization", AUTH_HEADER))

@@ -3819,8 +3819,8 @@
     "name": "除数是两位数的除法",
     "domain": "数与代数",
     "grade": 4,
-    "semester": "下",
-    "chapter": "四年级下册 第9单元 除数是两位数的除法",
+    "semester": "上",
+    "chapter": "四年级上册 第6单元 除数是两位数的除法",
     "type": "procedural",
     "description": "会计算除数是两位数的除法，先用整十数试商。",
     "mastery_criteria": [
@@ -3844,8 +3844,8 @@
     "name": "商不变的规律",
     "domain": "数与代数",
     "grade": 4,
-    "semester": "下",
-    "chapter": "四年级下册 第9单元 除数是两位数的除法",
+    "semester": "上",
+    "chapter": "四年级上册 第6单元 除数是两位数的除法",
     "type": "reasoning",
     "description": "知道被除数和除数同时乘或除以相同的数（0 除外），商不变。",
     "mastery_criteria": [
@@ -5792,7 +5792,7 @@
   },
   {
     "id": "cnm_p205",
-    "name": "百分数的应用",
+    "name": "求一个数比另一个数多百分之几（增长率）",
     "domain": "数与代数",
     "grade": 6,
     "semester": "上",
@@ -5804,8 +5804,8 @@
       "能把增加量除以原来的数写成百分数"
     ],
     "diagnostic_question": {
-      "question": "50 的 20% 是多少？",
-      "answer": "10"
+      "question": "某厂原计划生产 8 万辆，实际生产 10 万辆，实际比原计划增长了百分之几？",
+      "answer": "25%"
     },
     "external": false,
     "standards": [
@@ -75908,6 +75908,8238 @@
         "id": "cds-2022:3.GM.01",
         "confidence": "inferred",
         "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j001",
+    "name": "远古时期的人类活动",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 史前时期：原始社会与中华文明的起源",
+    "type": "conceptual",
+    "description": "知道元谋人、北京人和山顶洞人的地点与主要特征。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "我国境内目前已知最早的古人类是？",
+      "answer": "元谋人"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ],
+    "root_reason": "七年级上册从史前时期讲起，远古时期的人类活动是初中历史的起点，前面没有更早的初中历史知识点。"
+  },
+  {
+    "id": "cnh_j002",
+    "name": "原始农业与史前社会",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 史前时期：原始社会与中华文明的起源",
+    "type": "conceptual",
+    "description": "知道河姆渡、半坡等原始农耕居民的生产生活。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "河姆渡人生活的大致地点是？",
+      "answer": "浙江余姚"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j003",
+    "name": "中华文明的起源",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 史前时期：原始社会与中华文明的起源",
+    "type": "reasoning",
+    "description": "知道良渚等考古发现所反映的早期文明。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "教材用来说明中华文明起源的重要考古文化是？",
+      "answer": "良渚文化"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j004",
+    "name": "夏商西周王朝的更替",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 夏商周时期：奴隶制王朝的更替和向封建社会的过渡",
+    "type": "conceptual",
+    "description": "知道夏、商、西周的建立、都城和更替。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "我国历史上第一个奴隶制王朝是？",
+      "answer": "夏朝"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j005",
+    "name": "动荡变化中的春秋时期",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 夏商周时期：奴隶制王朝的更替和向封建社会的过渡",
+    "type": "conceptual",
+    "description": "知道春秋时期王室衰微和霸主争霸的基本史实。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "公元前770年，周平王东迁洛邑，历史进入？",
+      "answer": "春秋时期"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j006",
+    "name": "战国时期的社会变革",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 夏商周时期：奴隶制王朝的更替和向封建社会的过渡",
+    "type": "reasoning",
+    "description": "知道战国七雄、商鞅变法和都江堰。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "战国初期，三家分晋后形成的诸侯国包括？",
+      "answer": "韩、赵、魏"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j007",
+    "name": "百家争鸣",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 夏商周时期：奴隶制王朝的更替和向封建社会的过渡",
+    "type": "conceptual",
+    "description": "知道儒、道、墨、法诸家的代表人物和主要主张。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "孔子的核心思想是？",
+      "answer": "仁"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j008",
+    "name": "夏商周时期的科技与文化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 夏商周时期：奴隶制王朝的更替和向封建社会的过渡",
+    "type": "conceptual",
+    "description": "知道甲骨文、青铜器和夏商周时期的重要文化成就。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "我国已发现的古代文字中，年代最早、体系较完整的是？",
+      "answer": "甲骨文"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j009",
+    "name": "秦统一中国",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "conceptual",
+    "description": "知道秦的统一和巩固统一的措施。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "秦统一六国是在公元前哪一年？",
+      "answer": "公元前221年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j010",
+    "name": "秦末农民大起义",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "reasoning",
+    "description": "知道陈胜、吴广起义和秦朝灭亡的基本过程。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "陈胜、吴广起义爆发的地点是？",
+      "answer": "大泽乡"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j011",
+    "name": "西汉建立和“文景之治”",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "conceptual",
+    "description": "知道西汉建立和文景之治的休养生息。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "西汉的建立者是？",
+      "answer": "刘邦"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j012",
+    "name": "大一统王朝的巩固",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "reasoning",
+    "description": "知道汉武帝在政治、思想和经济上巩固大一统的措施。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "汉武帝接受主父偃的建议，实行？",
+      "answer": "推恩令"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j013",
+    "name": "东汉的兴衰",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "conceptual",
+    "description": "知道东汉建立、光武中兴和后期的衰亡。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "东汉的建立者是？",
+      "answer": "刘秀"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j014",
+    "name": "丝绸之路的开通与经营西域",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "conceptual",
+    "description": "知道张骞通西域、丝绸之路和西域都护。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "两次出使西域的是？",
+      "answer": "张骞"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j015",
+    "name": "秦汉时期的科技与文化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 秦汉时期：统一多民族封建国家的建立和巩固",
+    "type": "conceptual",
+    "description": "知道造纸术的改进和秦汉医学、史学、数学成就。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "改进造纸术、使纸的使用更普遍的是？",
+      "answer": "蔡伦"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j016",
+    "name": "三国鼎立",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 三国两晋南北朝时期：孕育统一和民族交融",
+    "type": "conceptual",
+    "description": "知道官渡之战、赤壁之战和三国建立。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "200年官渡之战的结果是？",
+      "answer": "曹操以少胜多，打败袁绍"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.04",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j017",
+    "name": "西晋的短暂统一和北方各族的内迁",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 三国两晋南北朝时期：孕育统一和民族交融",
+    "type": "reasoning",
+    "description": "知道西晋统一、灭亡和北方各族内迁。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "西晋统一全国是在？",
+      "answer": "280年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.04",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j018",
+    "name": "东晋南朝政治和江南地区开发",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 三国两晋南北朝时期：孕育统一和民族交融",
+    "type": "conceptual",
+    "description": "知道东晋建立和江南地区的开发。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "东晋的建立者是？",
+      "answer": "司马睿"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.04",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j019",
+    "name": "北朝政治和北方民族大交融",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 三国两晋南北朝时期：孕育统一和民族交融",
+    "type": "reasoning",
+    "description": "知道北魏统一北方和孝文帝改革。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "439年统一北方的政权是？",
+      "answer": "北魏"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.04",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j020",
+    "name": "三国两晋南北朝时期的科技与文化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 三国两晋南北朝时期：孕育统一和民族交融",
+    "type": "conceptual",
+    "description": "知道祖冲之、贾思勰和这一时期的书法艺术。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "把圆周率计算到小数点后第七位的是？",
+      "answer": "祖冲之"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.04",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j021",
+    "name": "从考古发现看中华文明的起源与形成",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 三国两晋南北朝时期：孕育统一和民族交融",
+    "type": "application",
+    "description": "知道用考古材料认识中华文明起源的方法。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "活动课强调认识早期文明，应当主要依据？",
+      "answer": "考古发现的遗址、遗物和相关研究"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.04",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j022",
+    "name": "隋朝统一与灭亡",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "conceptual",
+    "description": "知道隋朝统一、大运河和隋朝灭亡。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "581年建立隋朝的是？",
+      "answer": "杨坚"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j023",
+    "name": "唐朝建立与“贞观之治”",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "conceptual",
+    "description": "知道唐朝建立和贞观之治。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "618年建立唐朝的是？",
+      "answer": "李渊"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j024",
+    "name": "“开元盛世”",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "reasoning",
+    "description": "知道唐玄宗前期的开元盛世。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "开元盛世出现在谁统治的前期？",
+      "answer": "唐玄宗"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j025",
+    "name": "安史之乱与唐朝衰亡",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "reasoning",
+    "description": "知道安史之乱和唐朝灭亡。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "安史之乱爆发于？",
+      "answer": "755年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j026",
+    "name": "隋唐时期的民族交往与交融",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "conceptual",
+    "description": "知道文成公主入藏和唐朝与周边民族的交往。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "文成公主入藏，嫁给的是？",
+      "answer": "松赞干布"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j027",
+    "name": "隋唐时期的中外文化交流",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "conceptual",
+    "description": "知道玄奘西行、鉴真东渡和遣唐使。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "玄奘西行的目的地是？",
+      "answer": "天竺"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j028",
+    "name": "隋唐时期的科技与文化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第1单元 隋唐时期：繁荣与开放的时代",
+    "type": "conceptual",
+    "description": "知道赵州桥、雕版印刷和唐诗。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "设计赵州桥的是？",
+      "answer": "李春"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.05",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j029",
+    "name": "北宋的政治",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "conceptual",
+    "description": "知道北宋建立和加强中央集权的办法。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "960年陈桥驿兵变后建立北宋的是？",
+      "answer": "赵匡胤"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j030",
+    "name": "辽、西夏与北宋并立",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "conceptual",
+    "description": "知道辽、西夏的建立和宋与它们的和议。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "916年建立契丹政权的是？",
+      "answer": "耶律阿保机"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j031",
+    "name": "金与南宋对峙",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "reasoning",
+    "description": "知道靖康之变、南宋建立和岳飞抗金。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1115年建立金朝的是？",
+      "answer": "完颜阿骨打"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j032",
+    "name": "元朝的建立与统一",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "conceptual",
+    "description": "知道蒙古兴起、元朝统一和行省制度。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1206年统一蒙古各部的是？",
+      "answer": "铁木真"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j033",
+    "name": "辽宋夏金元时期经济的繁荣",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "conceptual",
+    "description": "知道宋元时期农业、手工业和商业的发展。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "北宋前期出现在四川地区、被看作世界上最早纸币的是？",
+      "answer": "交子"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j034",
+    "name": "辽宋夏金元时期的对外交流",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "conceptual",
+    "description": "知道海上丝绸之路和宋元港口。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "宋元时期海外贸易兴盛，重要港口有？",
+      "answer": "广州和泉州"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j035",
+    "name": "辽宋夏金元时期的科技与文化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第2单元 辽宋夏金元时期：民族关系发展和社会变化",
+    "type": "conceptual",
+    "description": "知道活字印刷、指南针、火药和宋元文学。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "发明活字印刷术的是？",
+      "answer": "毕昇"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.06",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j036",
+    "name": "明朝的统治",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "conceptual",
+    "description": "知道明朝建立和君主权力的加强。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1368年建立明朝的是？",
+      "answer": "朱元璋"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j037",
+    "name": "明朝的对外关系",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "conceptual",
+    "description": "知道郑和远航和戚继光抗倭。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1405年开始率领船队七次远航的是？",
+      "answer": "郑和"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j038",
+    "name": "明朝的灭亡和清朝的建立",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "reasoning",
+    "description": "知道后金建立、清军入关和郑成功收复台湾。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1616年统一女真各部、建立后金的是？",
+      "answer": "努尔哈赤"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j039",
+    "name": "清朝的边疆治理",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "conceptual",
+    "description": "知道清朝巩固边疆的措施。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1689年中俄签订的平等条约是？",
+      "answer": "《尼布楚条约》"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j040",
+    "name": "清朝君主专制的强化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "reasoning",
+    "description": "知道军机处和文字狱。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "设立军机处的皇帝是？",
+      "answer": "雍正帝"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j041",
+    "name": "明清时期社会经济的发展",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "conceptual",
+    "description": "知道明清农业、手工业和商业的发展。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "明朝后期张居正推行的赋税改革是？",
+      "answer": "一条鞭法"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j042",
+    "name": "明清时期的科技与文化",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "conceptual",
+    "description": "知道李时珍、宋应星、徐光启和明清小说。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "《本草纲目》的作者是？",
+      "answer": "李时珍"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j043",
+    "name": "我国传统节日的起源与传承",
+    "domain": "中国古代史",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 明清时期（至鸦片战争前）：统一多民族封建国家的巩固与发展",
+    "type": "application",
+    "description": "知道主要传统节日的习俗及其由来。",
+    "mastery_criteria": [
+      "能说出本课的时间、人物或地点",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "端午节常见的习俗是？",
+      "answer": "吃粽子、赛龙舟"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CA.07",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j044",
+    "name": "鸦片战争",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第1单元 中国开始沦为半殖民地半封建社会",
+    "type": "reasoning",
+    "description": "知道虎门销烟、《南京条约》和鸦片战争的结果。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1839年在虎门销毁鸦片的是？",
+      "answer": "林则徐"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j045",
+    "name": "第二次鸦片战争",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第1单元 中国开始沦为半殖民地半封建社会",
+    "type": "reasoning",
+    "description": "知道第二次鸦片战争和火烧圆明园。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1856年到1860年发动第二次鸦片战争的主要国家是？",
+      "answer": "英国和法国"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j046",
+    "name": "太平天国运动",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第1单元 中国开始沦为半殖民地半封建社会",
+    "type": "conceptual",
+    "description": "知道金田起义、定都天京和天京事变。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1851年洪秀全在哪里发动起义？",
+      "answer": "金田"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j047",
+    "name": "洋务运动和边疆危机",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 早期现代化的初步探索和民族危机加剧",
+    "type": "conceptual",
+    "description": "知道洋务运动的口号、企业和新疆建省。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "洋务派前期提出的口号是？",
+      "answer": "自强"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j048",
+    "name": "甲午中日战争与列强瓜分中国狂潮",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 早期现代化的初步探索和民族危机加剧",
+    "type": "reasoning",
+    "description": "知道黄海海战和《马关条约》。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "甲午中日战争爆发于？",
+      "answer": "1894年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j049",
+    "name": "戊戌变法",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 早期现代化的初步探索和民族危机加剧",
+    "type": "conceptual",
+    "description": "知道公车上书和戊戌变法的基本史实。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1895年康有为、梁启超领导的上书是？",
+      "answer": "公车上书"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j050",
+    "name": "义和团运动和八国联军侵华",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 早期现代化的初步探索和民族危机加剧",
+    "type": "conceptual",
+    "description": "知道义和团运动和《辛丑条约》。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1900年侵华的八国联军以哪国军官为统帅？",
+      "answer": "德国"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j051",
+    "name": "中国同盟会",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 资产阶级民主革命与中华民国的建立",
+    "type": "conceptual",
+    "description": "知道兴中会、同盟会和三民主义。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1894年孙中山在檀香山建立的团体是？",
+      "answer": "兴中会"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j052",
+    "name": "辛亥革命",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 资产阶级民主革命与中华民国的建立",
+    "type": "reasoning",
+    "description": "知道武昌起义和中华民国成立。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1911年10月10日爆发的起义是？",
+      "answer": "武昌起义"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j053",
+    "name": "帝制复辟与军阀割据",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 资产阶级民主革命与中华民国的建立",
+    "type": "conceptual",
+    "description": "知道袁世凯称帝、张勋复辟和军阀割据。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1915年底袁世凯复辟帝制，年号是？",
+      "answer": "洪宪"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j054",
+    "name": "五四运动",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 新民主主义革命的兴起",
+    "type": "conceptual",
+    "description": "知道巴黎和会与五四运动。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "五四运动爆发于？",
+      "answer": "1919年5月4日"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j055",
+    "name": "中国共产党诞生",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 新民主主义革命的兴起",
+    "type": "reasoning",
+    "description": "知道中共一大和党的成立。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "中共一大开幕的地点是？",
+      "answer": "上海"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j056",
+    "name": "国共合作与北伐战争",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 从国共合作到农村革命根据地的建立",
+    "type": "conceptual",
+    "description": "知道国民党一大、黄埔军校和北伐。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1924年标志着国共第一次合作正式形成的会议是？",
+      "answer": "国民党一大"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j057",
+    "name": "毛泽东开辟井冈山道路",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 从国共合作到农村革命根据地的建立",
+    "type": "reasoning",
+    "description": "知道南昌起义、秋收起义和井冈山会师。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1927年8月1日爆发的起义是？",
+      "answer": "南昌起义"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j058",
+    "name": "中国工农红军长征与遵义会议",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 从国共合作到农村革命根据地的建立",
+    "type": "reasoning",
+    "description": "知道长征的起止和遵义会议。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1934年10月中央红军开始长征的出发地是？",
+      "answer": "瑞金"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j059",
+    "name": "从九一八事变到西安事变",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第6单元 中华民族的抗日战争",
+    "type": "conceptual",
+    "description": "知道九一八事变和西安事变。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1931年9月18日日本炸毁柳条湖一段铁路，随即进攻？",
+      "answer": "沈阳北大营"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j060",
+    "name": "七七事变与全民族抗战",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第6单元 中华民族的抗日战争",
+    "type": "reasoning",
+    "description": "知道七七事变、淞沪会战和南京大屠杀。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1937年7月7日日本进攻宛平城，这一事件称为？",
+      "answer": "七七事变"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j061",
+    "name": "全民族抗战中的正面战场和敌后战场",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第6单元 中华民族的抗日战争",
+    "type": "conceptual",
+    "description": "知道两个战场的代表性战役。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1937年9月林彪率领的平型关大捷属于？",
+      "answer": "敌后战场的伏击战"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j062",
+    "name": "抗日战争的胜利",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第6单元 中华民族的抗日战争",
+    "type": "conceptual",
+    "description": "知道日本投降和台湾光复。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1945年8月15日发生的事情是？",
+      "answer": "日本天皇宣布无条件投降"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j063",
+    "name": "国民党挑起内战",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第7单元 人民解放战争",
+    "type": "conceptual",
+    "description": "知道重庆谈判和全面内战爆发。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1945年毛泽东赴重庆谈判，签订的文件是？",
+      "answer": "双十协定"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j064",
+    "name": "人民解放战争的胜利",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第7单元 人民解放战争",
+    "type": "reasoning",
+    "description": "知道挺进大别山、三大战役和渡江战役。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1947年夏，刘伯承、邓小平率军挺进的地区是？",
+      "answer": "大别山"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j065",
+    "name": "探寻红色文化的历史基因",
+    "domain": "中国近代史",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第7单元 人民解放战争",
+    "type": "application",
+    "description": "知道用红色遗址和文物了解革命史实的方法。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、条约或事件",
+      "能把原因和结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "探寻红色文化，应当把遗址放回？",
+      "answer": "具体的历史事件中去理解"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CN.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j066",
+    "name": "中华人民共和国成立",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第1单元 中华人民共和国成立和社会主义制度建立",
+    "type": "conceptual",
+    "description": "知道政协会议、开国大典和西藏和平解放。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1949年9月中国人民政治协商会议通过的文件是？",
+      "answer": "《中国人民政治协商会议共同纲领》"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j067",
+    "name": "巩固人民民主政权",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第1单元 中华人民共和国成立和社会主义制度建立",
+    "type": "conceptual",
+    "description": "知道抗美援朝和土地改革。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1950年10月中国人民志愿军赴朝作战，司令员是？",
+      "answer": "彭德怀"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j068",
+    "name": "社会主义制度建立",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第1单元 中华人民共和国成立和社会主义制度建立",
+    "type": "reasoning",
+    "description": "知道一五计划、三大改造和1954年宪法。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "第一个五年计划的时间是？",
+      "answer": "1953年到1957年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j069",
+    "name": "独立自主的和平外交",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第1单元 中华人民共和国成立和社会主义制度建立",
+    "type": "conceptual",
+    "description": "知道和平共处五项原则和万隆会议。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1953年底周恩来首次提出和平共处五项原则，是在接见哪国代表团时？",
+      "answer": "印度"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j070",
+    "name": "艰辛探索与曲折发展",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第2单元 社会主义建设道路的探索",
+    "type": "conceptual",
+    "description": "知道探索中的失误和文化大革命的起止时间。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1958年提出的建设口号和运动包括？",
+      "answer": "总路线、大跃进、人民公社化运动"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j071",
+    "name": "社会主义建设的巨大成就和先锋模范",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第2单元 社会主义建设道路的探索",
+    "type": "conceptual",
+    "description": "知道建设成就和焦裕禄、王进喜、邓稼先等人物。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "在兰考带领群众治理风沙的县委书记是？",
+      "answer": "焦裕禄"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j072",
+    "name": "国防现代化起步和外交工作新突破",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第2单元 社会主义建设道路的探索",
+    "type": "conceptual",
+    "description": "知道两弹一星和20世纪70年代的外交突破。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "我国第一颗原子弹爆炸成功是在？",
+      "answer": "1964年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j073",
+    "name": "伟大的历史转折",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第3单元 改革开放与中国特色社会主义的开创",
+    "type": "reasoning",
+    "description": "知道十一届三中全会。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "十一届三中全会召开于？",
+      "answer": "1978年12月"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j074",
+    "name": "改革开放的起步",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第3单元 改革开放与中国特色社会主义的开创",
+    "type": "conceptual",
+    "description": "知道家庭联产承包责任制和经济特区。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "家庭联产承包责任制最早在安徽得到突破的村子是？",
+      "answer": "凤阳小岗村"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j075",
+    "name": "改革开放和社会主义现代化建设的全面展开",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第3单元 改革开放与中国特色社会主义的开创",
+    "type": "conceptual",
+    "description": "知道沿海开放城市和改革从农村推向城市。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1984年进一步开放的是？",
+      "answer": "14个沿海港口城市"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j076",
+    "name": "社会主义初级阶段基本路线",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第3单元 改革开放与中国特色社会主义的开创",
+    "type": "conceptual",
+    "description": "知道党的十三大和基本路线。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "提出社会主义初级阶段基本路线的会议是？",
+      "answer": "中共十三大"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j077",
+    "name": "加快改革开放和社会主义现代化建设步伐",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第4单元 中国特色社会主义迈向21世纪",
+    "type": "reasoning",
+    "description": "知道南方谈话和中共十四大。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1992年邓小平视察南方并发表谈话，强调？",
+      "answer": "计划和市场都是经济手段"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j078",
+    "name": "中国特色社会主义事业取得新成就",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第4单元 中国特色社会主义迈向21世纪",
+    "type": "conceptual",
+    "description": "知道十五大、香港回归和澳门回归。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1997年中共十五大把什么确立为党的指导思想？",
+      "answer": "邓小平理论"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j079",
+    "name": "国防和外交工作新局面",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第4单元 中国特色社会主义迈向21世纪",
+    "type": "conceptual",
+    "description": "知道新时期的军队建设和大国外交进展。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "1997年7月1日进驻香港的是？",
+      "answer": "中国人民解放军驻香港部队"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j080",
+    "name": "开始全面建设小康社会",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第5单元 在新形势下坚持和发展中国特色社会主义",
+    "type": "conceptual",
+    "description": "知道加入世贸组织和中共十六大。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "中国加入世界贸易组织是在？",
+      "answer": "2001年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j081",
+    "name": "夺取全面建设小康社会新胜利",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第5单元 在新形势下坚持和发展中国特色社会主义",
+    "type": "conceptual",
+    "description": "知道科学发展观和这一时期的重大成就。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "2007年中共十七大把什么写入党章？",
+      "answer": "科学发展观"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j082",
+    "name": "推进国防军队建设和外交工作",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第5单元 在新形势下坚持和发展中国特色社会主义",
+    "type": "conceptual",
+    "description": "知道新世纪国防和外交的重要举措。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "2008年12月起，中国海军在哪一海域护航？",
+      "answer": "亚丁湾、索马里海域"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j083",
+    "name": "擘画中国梦宏伟蓝图",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 中国特色社会主义进入新时代",
+    "type": "conceptual",
+    "description": "知道中共十八大和中国梦。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "中共十八大召开于？",
+      "answer": "2012年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j084",
+    "name": "决胜全面建成小康社会",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 中国特色社会主义进入新时代",
+    "type": "reasoning",
+    "description": "知道脱贫攻坚和中共十九大。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "中共十九大召开于？",
+      "answer": "2017年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j085",
+    "name": "维护国家安全和推进祖国统一",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 中国特色社会主义进入新时代",
+    "type": "conceptual",
+    "description": "知道总体国家安全观和祖国统一的方针。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "2005年全国人民代表大会通过的相关法律是？",
+      "answer": "《反分裂国家法》"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j086",
+    "name": "构建人类命运共同体与中国特色大国外交",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 中国特色社会主义进入新时代",
+    "type": "conceptual",
+    "description": "知道一带一路和人类命运共同体。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "2013年提出的国际合作设想是？",
+      "answer": "丝绸之路经济带和21世纪海上丝绸之路"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j087",
+    "name": "实现第一个百年奋斗目标",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 全面建设社会主义现代化国家",
+    "type": "conceptual",
+    "description": "知道全面建成小康社会和建党一百年。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "第一个百年奋斗目标实现的时间节点是？",
+      "answer": "2021年中国共产党成立100年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j088",
+    "name": "开启全面建设社会主义现代化国家新征程",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 全面建设社会主义现代化国家",
+    "type": "reasoning",
+    "description": "知道中国式现代化和新征程的目标。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "中共二十大提出以什么全面推进中华民族伟大复兴？",
+      "answer": "中国式现代化"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j089",
+    "name": "新时代社会生活的巨大变化",
+    "domain": "中国现代史",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 全面建设社会主义现代化国家",
+    "type": "application",
+    "description": "知道从衣食住行的变化认识时代。",
+    "mastery_criteria": [
+      "能说出本课的关键年代和基本史实",
+      "能把政策或事件与教材中的时间对应起来"
+    ],
+    "diagnostic_question": {
+      "question": "观察新时代社会生活，可以从哪些方面入手？",
+      "answer": "交通、通信、居住和消费方式"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:CM.03",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j090",
+    "name": "从原始社会到奴隶社会",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 文明的产生和古代亚非文明",
+    "type": "conceptual",
+    "description": "知道早期人类和奴隶社会产生的基本标志。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "目前所知最早的人类化石主要发现于？",
+      "answer": "非洲"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j091",
+    "name": "古代两河流域",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 文明的产生和古代亚非文明",
+    "type": "conceptual",
+    "description": "知道古巴比伦和《汉谟拉比法典》。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "两河是指？",
+      "answer": "幼发拉底河和底格里斯河"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j092",
+    "name": "古代埃及",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 文明的产生和古代亚非文明",
+    "type": "conceptual",
+    "description": "知道古埃及的统一、金字塔和象形文字。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "古埃及文明发源于？",
+      "answer": "尼罗河流域"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j093",
+    "name": "古代印度",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 文明的产生和古代亚非文明",
+    "type": "conceptual",
+    "description": "知道种姓制度和佛教的产生。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "古代印度种姓制度中居于首位的是？",
+      "answer": "婆罗门"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j094",
+    "name": "古代希腊",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第2单元 古代欧洲文明",
+    "type": "conceptual",
+    "description": "知道雅典民主政治和亚历山大东征。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "公元前5世纪雅典民主政治达到高峰，与哪位执政者有关？",
+      "answer": "伯里克利"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j095",
+    "name": "古代罗马",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第2单元 古代欧洲文明",
+    "type": "conceptual",
+    "description": "知道罗马共和国、罗马帝国和西罗马帝国灭亡。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "公元前509年，罗马建立？",
+      "answer": "共和国"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j096",
+    "name": "法兰克王国和西欧封建制度",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第3单元 封建时代的欧洲",
+    "type": "conceptual",
+    "description": "知道法兰克王国、封君封臣和查理曼帝国的分裂。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "481年建立法兰克王国的是？",
+      "answer": "克洛维"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j097",
+    "name": "西欧的城市和大学",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第3单元 封建时代的欧洲",
+    "type": "conceptual",
+    "description": "知道西欧城市自治和大学的兴起。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "10世纪以后西欧城市争取自治，常用的方式是？",
+      "answer": "金钱赎买和武力斗争"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j098",
+    "name": "拜占庭帝国",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第3单元 封建时代的欧洲",
+    "type": "conceptual",
+    "description": "知道拜占庭帝国的兴衰和1453年的灭亡。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "拜占庭帝国的都城是？",
+      "answer": "君士坦丁堡"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j099",
+    "name": "封建时代的日本",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 中古时期的亚洲、非洲和美洲",
+    "type": "conceptual",
+    "description": "知道大化改新和幕府统治。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "646年开始的日本改革是？",
+      "answer": "大化改新"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j100",
+    "name": "阿拉伯帝国",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 中古时期的亚洲、非洲和美洲",
+    "type": "conceptual",
+    "description": "知道伊斯兰教的创立和阿拉伯帝国的扩张。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "7世纪初创立伊斯兰教的是？",
+      "answer": "穆罕默德"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j101",
+    "name": "中古时期的非洲和美洲",
+    "domain": "世界古代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 中古时期的亚洲、非洲和美洲",
+    "type": "conceptual",
+    "description": "知道加纳等非洲古国和玛雅、阿兹特克、印加。",
+    "mastery_criteria": [
+      "能说出本课的文明、人物或制度",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "中古西非相继兴起的古国有？",
+      "answer": "加纳、马里、桑海"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WA.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j102",
+    "name": "西欧经济社会发展与文艺复兴运动",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第5单元 走向近代",
+    "type": "conceptual",
+    "description": "知道文艺复兴的发源地和代表人物。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "文艺复兴开始于？",
+      "answer": "14世纪的意大利"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j103",
+    "name": "探寻新航路",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第5单元 走向近代",
+    "type": "reasoning",
+    "description": "知道迪亚士、哥伦布、达·伽马和麦哲伦船队。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1487年迪亚士到达？",
+      "answer": "非洲好望角"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j104",
+    "name": "早期殖民掠夺",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第5单元 走向近代",
+    "type": "conceptual",
+    "description": "知道新航路开辟后的早期殖民和三角贸易。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "最早进行殖民扩张的国家是？",
+      "answer": "西班牙和葡萄牙"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j105",
+    "name": "英国资产阶级革命",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 资本主义制度的初步确立",
+    "type": "conceptual",
+    "description": "知道英国革命的开始、光荣革命和《权利法案》。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1640年英国资产阶级革命开始的标志是？",
+      "answer": "议会重新召开"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j106",
+    "name": "美国的独立",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 资本主义制度的初步确立",
+    "type": "conceptual",
+    "description": "知道独立战争、《独立宣言》和1787年宪法。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1775年来克星顿枪声标志？",
+      "answer": "美国独立战争开始"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j107",
+    "name": "法国大革命和拿破仑帝国",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 资本主义制度的初步确立",
+    "type": "reasoning",
+    "description": "知道法国大革命的开始和拿破仑帝国。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1789年7月14日巴黎人民攻占？",
+      "answer": "巴士底狱"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j108",
+    "name": "第一次工业革命",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 第一次工业革命和马克思主义的诞生",
+    "type": "conceptual",
+    "description": "知道珍妮机、改良蒸汽机和火车。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1765年哈格里夫斯发明的机器是？",
+      "answer": "珍妮机"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j109",
+    "name": "马克思主义的诞生",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 第一次工业革命和马克思主义的诞生",
+    "type": "reasoning",
+    "description": "知道《共产党宣言》发表的时间和作者。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1848年发表的文献是？",
+      "answer": "《共产党宣言》"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j110",
+    "name": "第一国际和巴黎公社",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 第一次工业革命和马克思主义的诞生",
+    "type": "conceptual",
+    "description": "知道第一国际的成立和巴黎公社。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1864年成立的国际工人组织是？",
+      "answer": "第一国际"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j111",
+    "name": "唱响“国际歌”",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 第一次工业革命和马克思主义的诞生",
+    "type": "application",
+    "description": "知道《国际歌》与巴黎公社的关系。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "《国际歌》的词作者是？",
+      "answer": "欧仁·鲍狄埃"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j112",
+    "name": "殖民地人民的反抗斗争",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第1单元 殖民地人民的反抗与资本主义制度的扩展",
+    "type": "conceptual",
+    "description": "知道拉丁美洲独立运动和印度民族大起义。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "19世纪初领导西属拉丁美洲独立的北部领导人是？",
+      "answer": "玻利瓦尔"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j113",
+    "name": "俄国的改革",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第1单元 殖民地人民的反抗与资本主义制度的扩展",
+    "type": "conceptual",
+    "description": "知道1861年俄国农奴制改革。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1861年签署废除农奴制法令的沙皇是？",
+      "answer": "亚历山大二世"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j114",
+    "name": "美国内战",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第1单元 殖民地人民的反抗与资本主义制度的扩展",
+    "type": "reasoning",
+    "description": "知道南北战争和林肯的两项法令。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "美国内战爆发于？",
+      "answer": "1861年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j115",
+    "name": "日本明治维新",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第1单元 殖民地人民的反抗与资本主义制度的扩展",
+    "type": "conceptual",
+    "description": "知道明治维新的时间和主要措施。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "明治维新开始于？",
+      "answer": "1868年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j116",
+    "name": "第二次工业革命",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第2单元 第二次工业革命和近代科学文化",
+    "type": "conceptual",
+    "description": "知道电力、内燃机、汽车和飞机。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "第二次工业革命开始于？",
+      "answer": "19世纪六七十年代"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j117",
+    "name": "工业化国家的社会变化",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第2单元 第二次工业革命和近代科学文化",
+    "type": "conceptual",
+    "description": "知道工业化带来的社会变化。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "第二次工业革命后，主要资本主义国家出现了？",
+      "answer": "垄断组织"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j118",
+    "name": "近代科学与文化",
+    "domain": "世界近代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第2单元 第二次工业革命和近代科学文化",
+    "type": "conceptual",
+    "description": "知道达尔文进化论和爱因斯坦相对论。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、人物或文件",
+      "能把事件与结果对应到教材中的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1859年出版《物种起源》的是？",
+      "answer": "达尔文"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WN.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j119",
+    "name": "第一次世界大战",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第3单元 第一次世界大战和战后初期的世界",
+    "type": "reasoning",
+    "description": "知道萨拉热窝事件和第一次世界大战的双方。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1914年6月萨拉热窝事件中被刺杀的是？",
+      "answer": "奥匈帝国皇储斐迪南大公"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j120",
+    "name": "列宁与十月革命",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第3单元 第一次世界大战和战后初期的世界",
+    "type": "conceptual",
+    "description": "知道二月革命和十月革命。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1917年3月俄国二月革命推翻的是？",
+      "answer": "沙皇专制"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j121",
+    "name": "《凡尔赛条约》和《九国公约》",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第3单元 第一次世界大战和战后初期的世界",
+    "type": "conceptual",
+    "description": "知道巴黎和会、华盛顿会议和战后秩序。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1919年巴黎和会与德国签订的条约是？",
+      "answer": "《凡尔赛条约》"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j122",
+    "name": "苏联的社会主义建设",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第3单元 第一次世界大战和战后初期的世界",
+    "type": "conceptual",
+    "description": "知道新经济政策、苏联成立和五年计划。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1921年苏俄开始实行？",
+      "answer": "新经济政策"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j123",
+    "name": "亚非拉民族民主运动的高涨",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第3单元 第一次世界大战和战后初期的世界",
+    "type": "conceptual",
+    "description": "知道甘地的非暴力不合作和这一时期的民族运动。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "印度非暴力不合作运动的领导人是？",
+      "answer": "甘地"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j124",
+    "name": "罗斯福新政",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第4单元 经济大危机和第二次世界大战",
+    "type": "conceptual",
+    "description": "知道1929年经济大危机和新政的内容。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "资本主义世界经济大危机开始于？",
+      "answer": "1929年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j125",
+    "name": "法西斯国家的侵略扩张",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第4单元 经济大危机和第二次世界大战",
+    "type": "reasoning",
+    "description": "知道德意日法西斯化和慕尼黑协定。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1922年在意大利建立法西斯政权的是？",
+      "answer": "墨索里尼"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j126",
+    "name": "第二次世界大战",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第4单元 经济大危机和第二次世界大战",
+    "type": "conceptual",
+    "description": "知道二战的爆发、转折和结束。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1939年9月1日德国突袭波兰，标志？",
+      "answer": "第二次世界大战全面爆发"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.01",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j127",
+    "name": "冷战",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第5单元 二战后的世界变化",
+    "type": "reasoning",
+    "description": "知道杜鲁门主义、北约和华约。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1947年杜鲁门主义出台，通常被看作？",
+      "answer": "冷战开始的标志"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j128",
+    "name": "二战后资本主义的新变化",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第5单元 二战后的世界变化",
+    "type": "conceptual",
+    "description": "知道欧洲联合和福利国家。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1967年成立的欧洲共同体，后来发展为？",
+      "answer": "欧洲联盟"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j129",
+    "name": "社会主义的发展与挫折",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第5单元 二战后的世界变化",
+    "type": "conceptual",
+    "description": "知道东欧剧变和苏联解体的时间。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1991年发生的事情是？",
+      "answer": "苏联解体"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j130",
+    "name": "亚非拉国家的新发展",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第5单元 二战后的世界变化",
+    "type": "conceptual",
+    "description": "知道印度独立、南非种族隔离制度的结束和拉美国家维护主权。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "1947年印度和巴基斯坦分治，印度领导人是？",
+      "answer": "尼赫鲁"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j131",
+    "name": "联合国与世界贸易组织",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第6单元 走向和平发展的世界",
+    "type": "conceptual",
+    "description": "知道联合国和世界贸易组织的成立时间与职能。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "联合国成立于？",
+      "answer": "1945年"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j132",
+    "name": "冷战后的世界格局",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第6单元 走向和平发展的世界",
+    "type": "reasoning",
+    "description": "知道两极格局结束后的多极化趋势。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "冷战后世界格局的趋势是？",
+      "answer": "多极化"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j133",
+    "name": "不断发展的现代社会",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第6单元 走向和平发展的世界",
+    "type": "conceptual",
+    "description": "知道现代社会在科技、全球化和生态方面的变化。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "20世纪90年代以来加快的经济现象是？",
+      "answer": "经济全球化"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnh_j134",
+    "name": "时事溯源",
+    "domain": "世界现代史",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第6单元 走向和平发展的世界",
+    "type": "application",
+    "description": "知道把时事放回历史背景中理解的方法。",
+    "mastery_criteria": [
+      "能说出本课的关键年代、组织或事件",
+      "能判断与教材表述相符的史实"
+    ],
+    "diagnostic_question": {
+      "question": "时事溯源要求先做的是？",
+      "answer": "查清事件发生的时间和相关各方"
+    },
+    "external": false,
+    "subject": "history",
+    "standards": [
+      {
+        "id": "chs-2022:WM.02",
+        "confidence": "inferred",
+        "note": "统编版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j001",
+    "name": "地球的宇宙环境",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 地球",
+    "type": "conceptual",
+    "description": "知道地球在太阳系中的位置，以及恒星、行星、卫星等天体的基本关系。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "地球在太阳系中属于哪一类天体？",
+      "answer": "行星"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ],
+    "root_reason": "七年级上册从地球的宇宙环境讲起，认识地球在宇宙中的位置是初中地理的起点，前面没有更早的初中地理知识点。"
+  },
+  {
+    "id": "cng_j002",
+    "name": "地球与地球仪",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 地球",
+    "type": "procedural",
+    "description": "知道地球的形状和大小，会用经纬网确定位置。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "地球的平均半径大约是？",
+      "answer": "6371千米"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j003",
+    "name": "地球的运动",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 地球",
+    "type": "reasoning",
+    "description": "知道地球自转和公转的方向、周期及地理意义。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "地球自转的方向是？",
+      "answer": "自西向东"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j004",
+    "name": "地图的阅读",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 地图",
+    "type": "procedural",
+    "description": "知道地图三要素，会用比例尺、方向和图例读图。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "地图的三要素是？",
+      "answer": "比例尺、方向、图例"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j005",
+    "name": "地形图的判读",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 地图",
+    "type": "procedural",
+    "description": "会根据等高线判读海拔、坡度和五种基本地形。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "等高线地形图上，等高线越密集，表示？",
+      "answer": "坡度越陡"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j006",
+    "name": "地图的选择和应用",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 地图",
+    "type": "application",
+    "description": "能根据出行、查找范围等需要选择合适的地图。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "查找北京到上海的铁路路线，最合适的是？",
+      "answer": "中国交通图"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j007",
+    "name": "大洲和大洋",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 陆地和海洋",
+    "type": "conceptual",
+    "description": "知道海陆分布和七大洲、四大洋的名称与位置。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "地球表面海洋与陆地面积大约是？",
+      "answer": "海洋约 71%，陆地约 29%"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j008",
+    "name": "世界的地形",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 陆地和海洋",
+    "type": "conceptual",
+    "description": "知道陆地五种基本地形和世界主要山脉、平原的分布。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "陆地五种基本地形是？",
+      "answer": "平原、高原、山地、丘陵、盆地"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j009",
+    "name": "海陆的变迁",
+    "domain": "地球与地图",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第3单元 陆地和海洋",
+    "type": "reasoning",
+    "description": "知道沧海桑田的证据，以及板块运动与火山地震的关系。",
+    "mastery_criteria": [
+      "能说出本课的基本概念、数据和空间位置",
+      "能在地图或示意图上作出与教材相符的判断"
+    ],
+    "diagnostic_question": {
+      "question": "海陆变迁的重要证据之一是？",
+      "answer": "有的高山上发现海洋生物化石"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:EM.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j010",
+    "name": "多变的天气",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 天气与气候",
+    "type": "conceptual",
+    "description": "区分天气和气候，会读天气预报中的常用符号。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "“今天多云，明天有中雨”描述的是？",
+      "answer": "天气"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j011",
+    "name": "气温的变化与分布",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 天气与气候",
+    "type": "reasoning",
+    "description": "知道气温的日变化、年变化和世界气温分布规律。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "一天中，陆地最高气温通常出现在？",
+      "answer": "午后 2 时左右"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j012",
+    "name": "降水的变化与分布",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 天气与气候",
+    "type": "reasoning",
+    "description": "知道降水的季节变化和世界降水的分布规律。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "赤道附近地区年降水量通常？",
+      "answer": "很丰富"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j013",
+    "name": "世界的气候",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第4单元 天气与气候",
+    "type": "conceptual",
+    "description": "知道世界主要气候类型的分布和特征。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "热带雨林气候主要分布在？",
+      "answer": "赤道附近"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j014",
+    "name": "人口与人种",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第5单元 居民与文化",
+    "type": "conceptual",
+    "description": "知道世界人口的增长、分布和三大人种。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "目前世界人口最多的大洲是？",
+      "answer": "亚洲"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j015",
+    "name": "城镇与乡村",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第5单元 居民与文化",
+    "type": "conceptual",
+    "description": "知道聚落的形态、城乡差异及形成条件。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "聚落通常分为？",
+      "answer": "乡村和城镇"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j016",
+    "name": "多样的文化",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第5单元 居民与文化",
+    "type": "conceptual",
+    "description": "知道世界语言、宗教和文化景观的多样性。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "使用人数最多的语言是？",
+      "answer": "汉语"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j017",
+    "name": "发展与合作",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第6单元 发展与合作",
+    "type": "reasoning",
+    "description": "知道发达国家与发展中国家的差异，以及国际合作的意义。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "目前世界上大多数国家属于？",
+      "answer": "发展中国家"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j018",
+    "name": "亚洲的自然环境",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第7单元 我们生活的大洲——亚洲",
+    "type": "conceptual",
+    "description": "知道亚洲的位置、地形地势、河流和气候特点。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "亚洲大部分位于哪个半球？",
+      "answer": "北半球和东半球"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j019",
+    "name": "亚洲的人文环境",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第7单元 我们生活的大洲——亚洲",
+    "type": "conceptual",
+    "description": "知道亚洲的人口、文化和经济发展差异。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "亚洲是世界上人口最多的大洲，人口主要集中在？",
+      "answer": "东亚、东南亚和南亚"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j020",
+    "name": "日本",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第8单元 我们邻近的地区和国家",
+    "type": "conceptual",
+    "description": "知道日本的位置、自然环境和经济发展特点。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "日本是位于亚洲东部的？",
+      "answer": "岛国"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j021",
+    "name": "东南亚",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第8单元 我们邻近的地区和国家",
+    "type": "conceptual",
+    "description": "知道东南亚的位置、气候、农业和马六甲海峡的重要性。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "东南亚处在亚洲与大洋洲、印度洋与太平洋之间的？",
+      "answer": "“十字路口”"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j022",
+    "name": "印度",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第8单元 我们邻近的地区和国家",
+    "type": "conceptual",
+    "description": "知道印度的位置、热带季风气候、农业和信息技术产业。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "印度大部分地区的气候类型是？",
+      "answer": "热带季风气候"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j023",
+    "name": "俄罗斯",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第8单元 我们邻近的地区和国家",
+    "type": "conceptual",
+    "description": "知道俄罗斯的位置、自然资源和工业、交通特点。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "俄罗斯是世界上？",
+      "answer": "面积最大的国家"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j024",
+    "name": "西亚",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第9单元 东半球其他的地区和国家",
+    "type": "conceptual",
+    "description": "知道西亚的位置、干旱环境和石油资源。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "西亚地处亚、欧、非三洲交界，被称为？",
+      "answer": "“三洲五海之地”"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j025",
+    "name": "欧洲西部",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第9单元 东半球其他的地区和国家",
+    "type": "conceptual",
+    "description": "知道欧洲西部的位置、温带海洋性气候和发达的经济。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "欧洲西部大多数国家属于？",
+      "answer": "发达国家"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j026",
+    "name": "撒哈拉以南非洲",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第9单元 东半球其他的地区和国家",
+    "type": "reasoning",
+    "description": "知道撒哈拉以南非洲的位置、热带气候、资源和经济发展。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "撒哈拉以南非洲大部分位于？",
+      "answer": "热带"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j027",
+    "name": "澳大利亚",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第9单元 东半球其他的地区和国家",
+    "type": "conceptual",
+    "description": "知道澳大利亚是独占一块大陆的国家，以及气候、动物和农矿产业。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "澳大利亚是世界上唯一独占一块大陆的国家，这块大陆是？",
+      "answer": "澳大利亚大陆"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j028",
+    "name": "美国",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第10单元 西半球的国家",
+    "type": "conceptual",
+    "description": "知道美国的位置、农业专业化、工业和高新技术产业。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "美国本土位于哪个大洲？",
+      "answer": "北美洲"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.07",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j029",
+    "name": "巴西",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第10单元 西半球的国家",
+    "type": "conceptual",
+    "description": "知道巴西的位置、热带雨林、人口城市分布和经济发展。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "巴西大部分位于？",
+      "answer": "南美洲东部，赤道和南回归线之间"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.07",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j030",
+    "name": "极地地区",
+    "domain": "世界地理",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第11单元 极地地区",
+    "type": "conceptual",
+    "description": "知道北极地区和南极地区的自然环境及科考、环保意义。",
+    "mastery_criteria": [
+      "能说出本课的位置、自然或人文特征",
+      "能把区域特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "南极地区是地球上最冷的地区之一，被称为？",
+      "answer": "“冰雪高原”"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:WG.08",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j031",
+    "name": "疆域",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第1单元 从世界看中国",
+    "type": "conceptual",
+    "description": "知道中国的半球位置、海陆位置、领土面积、邻国和行政区划。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国领土面积大约是？",
+      "answer": "960 万平方千米"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j032",
+    "name": "人口",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第1单元 从世界看中国",
+    "type": "conceptual",
+    "description": "知道中国人口数量、分布特点和人口政策。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国是世界上人口最多的国家之一，人口分布的基本特点是？",
+      "answer": "东南多、西北少"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j033",
+    "name": "民族",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第1单元 从世界看中国",
+    "type": "conceptual",
+    "description": "知道中国是统一的多民族国家，以及民族分布特点。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国共有多少个民族？",
+      "answer": "56 个"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j034",
+    "name": "地形",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 中国的自然环境",
+    "type": "conceptual",
+    "description": "知道中国地势西高东低、三级阶梯和主要地形区。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国地势的基本特征是？",
+      "answer": "西高东低，呈三级阶梯"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j035",
+    "name": "气候",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 中国的自然环境",
+    "type": "reasoning",
+    "description": "知道中国气候的主要特征及其成因。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国气候的显著特征之一是？",
+      "answer": "季风气候显著"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j036",
+    "name": "河流与湖泊",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第2单元 中国的自然环境",
+    "type": "conceptual",
+    "description": "知道长江、黄河等外流河和主要湖泊的特征。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国最长的河流是？",
+      "answer": "长江"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j037",
+    "name": "土地资源",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 中国的自然资源",
+    "type": "conceptual",
+    "description": "知道中国土地资源的构成和“十分珍惜、合理利用土地”的国策。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国土地资源的特点是？",
+      "answer": "总量丰富，人均不足，山地多、耕地少"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j038",
+    "name": "水资源",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 中国的自然资源",
+    "type": "reasoning",
+    "description": "知道中国水资源的时空分布特点和解决措施。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国水资源的空间分布特点是？",
+      "answer": "东多西少、南多北少"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j039",
+    "name": "矿产资源",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 中国的自然资源",
+    "type": "conceptual",
+    "description": "知道中国矿产资源的特点及能源矿产的分布。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国矿产资源的基本特点是？",
+      "answer": "种类多、储量较丰富，但人均较少"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j040",
+    "name": "海洋资源",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第3单元 中国的自然资源",
+    "type": "conceptual",
+    "description": "知道中国的海洋国土、海洋资源和海洋权益。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国既是陆地大国，也是海洋大国，管辖的海域面积约？",
+      "answer": "300 万平方千米"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j041",
+    "name": "农业",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 中国的经济发展",
+    "type": "conceptual",
+    "description": "知道中国农业的地区差异和主要农作物分布。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国农业的地区分布，大体是？",
+      "answer": "东部以种植业为主，西部以畜牧业为主"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j042",
+    "name": "工业",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 中国的经济发展",
+    "type": "conceptual",
+    "description": "知道中国工业的分布和高新技术产业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国四大工业基地都位于？",
+      "answer": "东部沿海地区"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j043",
+    "name": "交通运输",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 中国的经济发展",
+    "type": "conceptual",
+    "description": "知道中国交通运输方式的特点和铁路干线分布。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "现代交通运输方式中，运量大、运费较低、速度较慢的是？",
+      "answer": "水路运输"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j044",
+    "name": "自然灾害与防灾减灾",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 建设美丽中国",
+    "type": "application",
+    "description": "知道中国主要自然灾害的分布和防灾减灾措施。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国是自然灾害多发的国家，常见的气象灾害有？",
+      "answer": "干旱、洪涝、台风、寒潮等"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j045",
+    "name": "环境保护与发展",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 建设美丽中国",
+    "type": "reasoning",
+    "description": "知道生态文明建设和可持续发展的基本要求。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国面临的环境问题包括？",
+      "answer": "大气污染、水污染、水土流失、土地荒漠化等"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j046",
+    "name": "中国的地理差异",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 中国的地理差异",
+    "type": "conceptual",
+    "description": "知道秦岭—淮河线和四大地理区域的划分。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国四大地理区域是？",
+      "answer": "北方地区、南方地区、西北地区、青藏地区"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j047",
+    "name": "北方地区的自然特征与农业",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 北方地区",
+    "type": "conceptual",
+    "description": "知道北方地区的位置、气候、地形和旱作农业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "北方地区主要位于？",
+      "answer": "秦岭—淮河以北的东部季风区"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.07",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j048",
+    "name": "东北三省",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 北方地区",
+    "type": "conceptual",
+    "description": "知道东北三省的位置、“山环水绕、沃野千里”和工业、农业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "东北三省是指？",
+      "answer": "黑龙江、吉林、辽宁"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.07",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j049",
+    "name": "黄土高原",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 北方地区",
+    "type": "reasoning",
+    "description": "知道黄土高原的位置、黄土成因和水土流失的治理。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "黄土高原是世界上最大的黄土堆积区，主要位于？",
+      "answer": "黄河中游"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.07",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j050",
+    "name": "北京",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第7单元 北方地区",
+    "type": "application",
+    "description": "知道北京的位置、城市职能和城市建设。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "北京是我国的？",
+      "answer": "首都，也是政治、文化中心和国际交往中心"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.07",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j051",
+    "name": "南方地区的自然特征与农业",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第8单元 南方地区",
+    "type": "conceptual",
+    "description": "知道南方地区的位置、亚热带和热带季风气候及水田农业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "南方地区位于秦岭—淮河以南、青藏高原以东，气候以什么为主？",
+      "answer": "亚热带、热带季风气候"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.08",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j052",
+    "name": "长江三角洲地区",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第8单元 南方地区",
+    "type": "conceptual",
+    "description": "知道长江三角洲的位置、河海交汇优势和城市群。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "长江三角洲位于？",
+      "answer": "长江入海口附近"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.08",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j053",
+    "name": "香港和澳门",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第8单元 南方地区",
+    "type": "conceptual",
+    "description": "知道香港、澳门的位置、特别行政区地位和与祖国内地的联系。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "香港和澳门是我国的？",
+      "answer": "特别行政区"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.08",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j054",
+    "name": "台湾省",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第8单元 南方地区",
+    "type": "conceptual",
+    "description": "知道台湾是中国神圣领土，以及自然环境和经济发展。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "台湾岛是我国面积最大的岛屿，西隔什么与福建省相望？",
+      "answer": "台湾海峡"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.08",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j055",
+    "name": "西北地区的自然特征与农业",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第9单元 西北地区",
+    "type": "conceptual",
+    "description": "知道西北地区干旱的自然环境、草原荒漠和灌溉农业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "西北地区最显著的自然特征是？",
+      "answer": "干旱"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.09",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j056",
+    "name": "塔里木盆地",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第9单元 西北地区",
+    "type": "reasoning",
+    "description": "知道塔里木盆地的位置、油气资源和绿洲农业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "塔里木盆地是我国面积最大的盆地，位于？",
+      "answer": "新疆南部"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.09",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j057",
+    "name": "青藏地区的自然特征与农业",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第10单元 青藏地区",
+    "type": "conceptual",
+    "description": "知道青藏地区高寒的自然环境和河谷农业、高寒畜牧业。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "青藏地区的突出自然特征是？",
+      "answer": "高寒"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.10",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j058",
+    "name": "三江源地区",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第10单元 青藏地区",
+    "type": "reasoning",
+    "description": "知道三江源是长江、黄河、澜沧江的源区及其生态意义。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "三江源地区位于青海省南部，是哪些大河的源头？",
+      "answer": "长江、黄河、澜沧江"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.10",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cng_j059",
+    "name": "奋进中的中国",
+    "domain": "中国地理",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第11单元 奋进中的中国",
+    "type": "reasoning",
+    "description": "知道中国的发展成就、面临的挑战和负责任大国的作用。",
+    "mastery_criteria": [
+      "能说出本课的位置、分布或基本国情",
+      "能把自然或人文特征对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "我国目前仍是世界上最大的？",
+      "answer": "发展中国家"
+    },
+    "external": false,
+    "subject": "geography",
+    "standards": [
+      {
+        "id": "cgs-2022:CG.11",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j001",
+    "name": "观察周边环境中的生物",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "procedural",
+    "description": "能有目的地观察周边生物，并做真实记录。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "科学观察生物时，首先要做的是？",
+      "answer": "有明确的观察目的"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ],
+    "root_reason": "七年级上册从观察周边环境中的生物讲起，认识什么是生物是初中生物的起点，前面没有更早的初中生物知识点。"
+  },
+  {
+    "id": "cnb_j002",
+    "name": "生物的特征",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "能根据营养、呼吸、生长、繁殖和对刺激的反应等判断是否属于生物。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "下列哪一项是生物的共同特征？",
+      "answer": "能生长和繁殖"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j003",
+    "name": "学习使用显微镜",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "procedural",
+    "description": "会计算显微镜的放大倍数，并按规范找到清晰物像。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "显微镜的放大倍数等于？",
+      "answer": "目镜放大倍数乘物镜放大倍数"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j004",
+    "name": "植物细胞",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "能认出植物细胞的细胞壁、细胞膜、细胞质、细胞核、液泡和叶绿体。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "对细胞起支持和保护作用的结构是？",
+      "answer": "细胞壁"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j005",
+    "name": "动物细胞",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "能说出动物细胞与植物细胞在结构上的主要区别。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "人口腔上皮细胞属于？",
+      "answer": "动物细胞"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j006",
+    "name": "细胞的生活",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "知道细胞膜、细胞质、细胞核和能量转换器在细胞生活中的作用。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "细胞中的遗传信息主要储存在？",
+      "answer": "细胞核"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j007",
+    "name": "细胞通过分裂产生新细胞",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "知道细胞分裂时染色体先复制再平均分配，新细胞与原细胞染色体数目相同。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "细胞分裂产生的新细胞，染色体数目与原细胞相比？",
+      "answer": "相同"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j008",
+    "name": "动物体的结构层次",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "能按细胞、组织、器官、系统、动物体说明人体的结构层次。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "人体的结构层次由小到大是？",
+      "answer": "细胞、组织、器官、系统、人体"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j009",
+    "name": "植物体的结构层次",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "能说出植物体由细胞、组织、器官构成，并区分营养器官和生殖器官。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "植物体的结构层次一般是？",
+      "answer": "细胞、组织、器官、植物体"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j010",
+    "name": "单细胞生物",
+    "domain": "生物体的结构层次",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第1单元 生物和细胞",
+    "type": "conceptual",
+    "description": "知道一个细胞也能完成各项生命活动，能举出草履虫等例子。",
+    "mastery_criteria": [
+      "能说出本课的基本结构和生命活动",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "草履虫整个身体由几个细胞构成？",
+      "answer": "1 个"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BS.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j011",
+    "name": "藻类、苔藓植物和蕨类植物",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "能根据有没有根茎叶的分化、有没有输导组织比较藻类、苔藓植物和蕨类植物。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "藻类植物的主要特点是？",
+      "answer": "没有根、茎、叶的分化"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j012",
+    "name": "种子植物",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "能区分裸子植物和被子植物，并说明种子繁殖对陆地生活的意义。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "种子植物包括？",
+      "answer": "裸子植物和被子植物"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j013",
+    "name": "无脊椎动物",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "能根据身体是否分节、有无外骨骼等特征辨认常见无脊椎动物类群。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "无脊椎动物的共同特点是？",
+      "answer": "身体内没有由脊椎骨组成的脊柱"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j014",
+    "name": "鱼",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "能说出鱼适于水中生活的形态结构和呼吸方式。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "鱼在水中呼吸，进行气体交换的结构是？",
+      "answer": "鳃"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j015",
+    "name": "两栖动物和爬行动物",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "能比较两栖动物和爬行动物在呼吸、皮肤和生殖上的差别。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "青蛙的成体可以在陆地生活，呼吸时主要依靠？",
+      "answer": "肺，并靠皮肤辅助"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j016",
+    "name": "鸟和哺乳动物",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "能说出鸟类适于飞行的特征，以及哺乳动物胎生、哺乳的特点。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "鸟类呼吸的特点是？",
+      "answer": "气体两次经过肺，气囊辅助呼吸"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j017",
+    "name": "微生物的分布",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "procedural",
+    "description": "知道细菌和真菌分布广泛，并了解检测菌落的基本步骤。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "由一个细菌或真菌繁殖后形成的、肉眼可见的集合体叫做？",
+      "answer": "菌落"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j018",
+    "name": "细菌",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "知道细菌没有成形的细胞核，靠分裂繁殖，芽孢是休眠体。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "细菌与酵母菌相比，结构上最主要的区别是？",
+      "answer": "细菌没有成形的细胞核"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j019",
+    "name": "真菌",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "知道真菌有成形的细胞核，营异养生活，酵母菌可以出芽生殖并用于发酵。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "蘑菇、酵母菌和霉菌都属于？",
+      "answer": "真菌"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      },
+      {
+        "id": "cbs-2022:BX.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j020",
+    "name": "病毒",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "知道病毒没有细胞结构，必须寄生在活细胞里，以复制方式增殖。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "病毒的结构通常包括？",
+      "answer": "蛋白质外壳和内部的遗传物质"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j021",
+    "name": "尝试对生物进行分类",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "procedural",
+    "description": "能根据形态结构等特征，把生物逐级归类。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "对生物进行分类，主要依据是？",
+      "answer": "形态结构等特征"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j022",
+    "name": "从种到界",
+    "domain": "生物的多样性",
+    "grade": 7,
+    "semester": "上",
+    "chapter": "七年级上册 第2单元 多种多样的生物",
+    "type": "conceptual",
+    "description": "知道界、门、纲、目、科、属、种七个等级，种是最基本的分类单位。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "生物分类的单位从大到小依次是？",
+      "answer": "界、门、纲、目、科、属、种"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j023",
+    "name": "种子的萌发",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "conceptual",
+    "description": "知道种子萌发需要完整有活力的胚、适宜的温度、一定的水分和充足的空气。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "种子萌发所需的环境条件是？",
+      "answer": "适宜的温度、一定的水分和充足的空气"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j024",
+    "name": "植株的生长",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "conceptual",
+    "description": "知道根的生长、芽的发育，以及氮、磷、钾对植株的作用。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "根吸收水分和无机盐的主要部位是？",
+      "answer": "成熟区"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j025",
+    "name": "开花和结果",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "conceptual",
+    "description": "能说出花的主要结构，以及传粉、受精后子房和胚珠的发育结果。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "一朵花中，与结出果实和种子直接有关的结构是？",
+      "answer": "雄蕊和雌蕊"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j026",
+    "name": "水的利用与散失",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "conceptual",
+    "description": "知道导管运输水分，气孔和保卫细胞与蒸腾作用有关。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "水分在植物体内上升，主要经过？",
+      "answer": "导管"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j027",
+    "name": "光合作用",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "conceptual",
+    "description": "能说明光合作用的原料、产物、条件和场所，并解释绿叶在光下制造淀粉的实验。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "光合作用的原料是？",
+      "answer": "二氧化碳和水"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j028",
+    "name": "呼吸作用",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "conceptual",
+    "description": "能说明呼吸作用分解有机物、释放能量，并与光合作用比较。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "植物呼吸作用的主要场所是？",
+      "answer": "线粒体"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j029",
+    "name": "植物在自然界中的作用",
+    "domain": "植物的生活",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第3单元 植物的生活",
+    "type": "reasoning",
+    "description": "能说明植物为其他生物提供食物、维持碳氧平衡并参与水循环。",
+    "mastery_criteria": [
+      "能说出植物生活中的结构和生理过程",
+      "能把实验现象对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "绿色植物维持生物圈碳氧平衡，主要依靠？",
+      "answer": "光合作用释放氧气、吸收二氧化碳"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BP.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j030",
+    "name": "人的生殖",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能说出睾丸、卵巢的功能，以及受精和胚胎发育的场所。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "男性产生精子并分泌雄性激素的器官是？",
+      "answer": "睾丸"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j031",
+    "name": "青春期",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "知道青春期身体和心理的主要变化，以及遗精、月经是正常生理现象。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "青春期发育最明显的特点是？",
+      "answer": "身高和体重迅速增长，生殖器官发育成熟"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j032",
+    "name": "食物中的营养物质",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能说出六类营养物质的作用，以及缺乏维生素或无机盐时的常见表现。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "为人体生命活动提供能量的主要物质是？",
+      "answer": "糖类"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j033",
+    "name": "消化和吸收",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能说出淀粉、蛋白质、脂肪开始消化的部位，以及小肠是主要吸收场所。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "淀粉开始被消化的部位是？",
+      "answer": "口腔"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j034",
+    "name": "合理营养与食品安全",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "application",
+    "description": "能根据平衡膳食判断一日三餐，并会查看食品的生产日期和保质期。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "合理营养是指？",
+      "answer": "食物多样，营养比例合适，并能满足身体需要"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j035",
+    "name": "呼吸道对空气的处理",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能按顺序说出呼吸道的组成，并说明呼吸道对空气的温暖、湿润和清洁作用。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "呼吸道由上到下依次包括？",
+      "answer": "鼻、咽、喉、气管、支气管"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j036",
+    "name": "发生在肺内的气体交换",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能说明肺泡适于气体交换的特点，以及吸气和呼气时胸廓的变化。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "人体与外界进行气体交换的主要场所是？",
+      "answer": "肺"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j037",
+    "name": "流动的组织——血液",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能说出血浆和三种血细胞的功能，并解释贫血的常见原因。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "血液由哪两部分组成？",
+      "answer": "血浆和血细胞"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j038",
+    "name": "血流的管道——血管",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能比较动脉、静脉和毛细血管的结构与功能。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "把血液从心脏送到全身各处的血管是？",
+      "answer": "动脉"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j039",
+    "name": "输送血液的泵——心脏",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能描述心脏四腔、瓣膜和体循环、肺循环的路径。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "心脏四个腔中，壁最厚的是？",
+      "answer": "左心室"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j040",
+    "name": "人体内废物的排出",
+    "domain": "人体生理与健康",
+    "grade": 7,
+    "semester": "下",
+    "chapter": "七年级下册 第4单元 人体生理与健康（一）",
+    "type": "conceptual",
+    "description": "能区分排泄和排遗，说出泌尿系统、肾单位以及尿的形成。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "排泄是指排出？",
+      "answer": "二氧化碳、尿素和多余的水、无机盐等代谢废物"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j041",
+    "name": "人体对外界环境的感知",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "conceptual",
+    "description": "能说出视觉、听觉形成的基本路径，以及近视的成因和矫正。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "外界物体反射来的光线，在眼球里成像的部位是？",
+      "answer": "视网膜"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j042",
+    "name": "神经调节",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "conceptual",
+    "description": "能说出反射弧的五个部分，并区分简单反射和复杂反射。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "完成反射的神经结构是？",
+      "answer": "反射弧"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j043",
+    "name": "神经系统支配下的运动",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "conceptual",
+    "description": "知道运动系统由骨、关节和骨骼肌组成，骨骼肌要受神经支配才能收缩。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "运动系统主要由哪些结构组成？",
+      "answer": "骨、关节和骨骼肌"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j044",
+    "name": "激素调节",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "conceptual",
+    "description": "能说出生长激素、甲状腺激素和胰岛素的主要作用及异常时的表现。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "幼年时期生长激素分泌不足，可能患？",
+      "answer": "侏儒症"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j045",
+    "name": "传染病及其预防",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "conceptual",
+    "description": "能说出传染病流行的三个环节和预防措施。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "传染病流行必须同时具备？",
+      "answer": "传染源、传播途径和易感人群"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j046",
+    "name": "免疫与免疫规划",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "conceptual",
+    "description": "能区分三道免疫防线，并说明接种疫苗属于免疫规划。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "皮肤和黏膜阻挡病原体，属于？",
+      "answer": "第一道防线"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j047",
+    "name": "用药与急救",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "application",
+    "description": "能区分处方药和非处方药，并知道常见急救原则。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "非处方药的英文简称是？",
+      "answer": "OTC"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j048",
+    "name": "选择健康的生活方式",
+    "domain": "人体生理与健康",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第4单元 人体生理与健康（二）",
+    "type": "application",
+    "description": "能说明吸烟、酗酒、毒品和缺乏运动对健康的危害。",
+    "mastery_criteria": [
+      "能说出本课涉及的结构、生理过程或健康常识",
+      "能把结构与功能对应到教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "健康的生活方式包括？",
+      "answer": "均衡营养、坚持锻炼、不吸烟、不酗酒、拒绝毒品"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BH.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j049",
+    "name": "生物与环境的相互作用",
+    "domain": "生物与环境",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 生物与环境",
+    "type": "conceptual",
+    "description": "能举出环境影响生物、生物适应并影响环境的例子。",
+    "mastery_criteria": [
+      "能说出生物与环境、生态系统的基本关系",
+      "能判断食物链、能量流动或生态问题的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "影响生物生活的非生物因素包括？",
+      "answer": "光、温度、水和空气"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BE.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j050",
+    "name": "生态系统的结构和功能",
+    "domain": "生物与环境",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 生物与环境",
+    "type": "conceptual",
+    "description": "能说出生态系统的组成、食物链和能量流动的特点。",
+    "mastery_criteria": [
+      "能说出生物与环境、生态系统的基本关系",
+      "能判断食物链、能量流动或生态问题的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "生态系统中，能把无机物制造成有机物的是？",
+      "answer": "生产者"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BE.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j051",
+    "name": "生物圈",
+    "domain": "生物与环境",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 生物与环境",
+    "type": "conceptual",
+    "description": "知道生物圈是最大的生态系统，以及生物生存的基本条件。",
+    "mastery_criteria": [
+      "能说出生物与环境、生态系统的基本关系",
+      "能判断食物链、能量流动或生态问题的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "生物圈的范围大致包括？",
+      "answer": "大气圈的底部、水圈的大部和岩石圈的表面"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BE.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j052",
+    "name": "分析人类活动对生态环境的影响",
+    "domain": "生物与环境",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 生物与环境",
+    "type": "reasoning",
+    "description": "能用具体事例说明人类活动对植被、生物多样性和环境质量的影响。",
+    "mastery_criteria": [
+      "能说出生物与环境、生态系统的基本关系",
+      "能判断食物链、能量流动或生态问题的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "大量砍伐森林后，较容易引起？",
+      "answer": "水土流失"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BE.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j053",
+    "name": "维护生态安全",
+    "domain": "生物与环境",
+    "grade": 8,
+    "semester": "上",
+    "chapter": "八年级上册 第5单元 生物与环境",
+    "type": "application",
+    "description": "能说出保护植被、建立保护区和减少污染等维护生态安全的做法。",
+    "mastery_criteria": [
+      "能说出生物与环境、生态系统的基本关系",
+      "能判断食物链、能量流动或生态问题的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "维护生态安全，较合适的做法是？",
+      "answer": "保护植被、治理污染、防止外来物种随意扩散"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BE.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j054",
+    "name": "无性生殖",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "能判断不经过两性生殖细胞结合的生殖方式，并说明嫁接的要点。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "无性生殖的特点是？",
+      "answer": "不经过两性生殖细胞的结合"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j055",
+    "name": "有性生殖",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "知道有性生殖要经过两性生殖细胞结合，后代具有双亲的遗传特性。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "有性生殖必须经过？",
+      "answer": "两性生殖细胞结合"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j056",
+    "name": "基因与生物性状的关系",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "知道基因是有遗传效应的 DNA 片段，基因控制性状，环境也会影响性状。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "基因是？",
+      "answer": "有遗传效应的 DNA 片段"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j057",
+    "name": "基因在亲子代间的传递",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "知道体细胞中染色体成对、生殖细胞中染色体成单，受精后恢复成对。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "人的体细胞中染色体数目是？",
+      "answer": "23 对"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j058",
+    "name": "基因的显性和隐性",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "能根据相对性状判断显性表现和隐性纯合时的基因组成。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "相对性状是指？",
+      "answer": "同种生物同一性状的不同表现"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j059",
+    "name": "人的性别决定",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "知道女性性染色体是 XX、男性是 XY，生男生女取决于精子的类型。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "女性体细胞中的性染色体组成是？",
+      "answer": "XX"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j060",
+    "name": "生物的变异",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "能区分可遗传变异和不可遗传变异。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "变异是指？",
+      "answer": "亲子代之间以及子代个体之间的差异"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j061",
+    "name": "地球上生命的起源",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "知道原始生命起源于原始海洋，以及米勒实验说明了什么。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "原始生命诞生的场所，目前较普遍的认识是？",
+      "answer": "原始海洋"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j062",
+    "name": "生物进化的历程",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "能根据化石和比较的证据，说出生物进化的总体趋势。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "研究生物进化历程最直接的证据之一是？",
+      "answer": "化石"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j063",
+    "name": "生物进化的原因",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "reasoning",
+    "description": "能用过度繁殖、遗传变异、生存斗争和适者生存说明自然选择。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "达尔文解释生物进化的学说是？",
+      "answer": "自然选择学说"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j064",
+    "name": "人类的起源",
+    "domain": "遗传与进化",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "知道现代类人猿和人类的共同祖先是森林古猿，直立行走是重要标志。",
+    "mastery_criteria": [
+      "能说出生殖、遗传或进化的基本事实",
+      "能用教材中的概念解释一个典型例子"
+    ],
+    "diagnostic_question": {
+      "question": "现代类人猿和人类的共同祖先是？",
+      "answer": "森林古猿"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BG.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j065",
+    "name": "进化与生物多样性",
+    "domain": "生物的多样性",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "能说出生物多样性的三个层次，并把多样性与进化联系起来。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "生物多样性包括？",
+      "answer": "基因多样性、物种多样性和生态系统多样性"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnb_j066",
+    "name": "人与自然和谐共生",
+    "domain": "生物的多样性",
+    "grade": 8,
+    "semester": "下",
+    "chapter": "八年级下册 第6单元 生命的延续和发展",
+    "type": "conceptual",
+    "description": "能说出威胁生物多样性的主要原因，以及就地保护和迁地保护。",
+    "mastery_criteria": [
+      "能说出本课类群或分类的主要特征",
+      "能把类群特征对应到教材中的典型生物"
+    ],
+    "diagnostic_question": {
+      "question": "保护生物多样性最有效的措施是？",
+      "answer": "建立自然保护区，就地保护"
+    },
+    "external": false,
+    "subject": "biology",
+    "standards": [
+      {
+        "id": "cbs-2022:BD.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j001",
+    "name": "化学使世界变得更加绚丽多彩",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 走进化学世界",
+    "type": "conceptual",
+    "description": "绪言（教师之家作「绪论」，用词待核）。认识化学研究物质的组成、结构、性质与变化，以及化学在材料、能源、健康和环境保护中的作用。挂在第 1 单元下，便于按册浏览。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "化学主要在哪个层次上研究物质？",
+      "answer": "分子、原子"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ],
+    "root_reason": "九年级上册从认识化学研究什么讲起。六三制初中化学在九年级开设，前面没有更早的初中化学知识点。"
+  },
+  {
+    "id": "cnk_j002",
+    "name": "物质的变化和性质",
+    "domain": "物质的化学变化",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 走进化学世界",
+    "type": "conceptual",
+    "description": "能区分物理变化和化学变化，也能区分物理性质和化学性质。化学变化有新物质生成。",
+    "mastery_criteria": [
+      "能判断变化类型或写出相关的化学方程式",
+      "能用质量守恒或反应规律解释一个典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "有新物质生成的变化是？",
+      "answer": "化学变化"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SR.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j003",
+    "name": "科学探究",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 走进化学世界",
+    "type": "procedural",
+    "description": "能按提出问题、猜想、设计实验、记录现象、得出结论和反思的顺序完成简单探究。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "科学探究中，实验之前通常要先做的是？",
+      "answer": "提出问题并作出猜想"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j004",
+    "name": "化学实验基本操作",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第1单元 走进化学世界",
+    "type": "procedural",
+    "description": "初步学会药品取用、加热、检查气密性，以及溶解、过滤、蒸发，并遵守实验室安全规则。这一部分属于「化学实验与科学探究」，不是单独印出的课题名。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "闻气体气味时，正确的方法是？",
+      "answer": "用手在瓶口轻轻扇动，使少量气体飘进鼻孔"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j005",
+    "name": "我们周围的空气",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第2单元 空气和氧气",
+    "type": "conceptual",
+    "description": "知道空气的主要成分及大致体积分数，能说明氮气、氧气的常见用途，并知道空气是混合物。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "空气中体积分数最大的气体是？",
+      "answer": "氮气"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      },
+      {
+        "id": "cks-2022:SC.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j006",
+    "name": "氧气",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第2单元 空气和氧气",
+    "type": "conceptual",
+    "description": "认识氧气的物理性质和氧化性：能支持燃烧，本身一般不燃烧。会用带火星的木条检验氧气。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "检验一瓶气体是不是氧气，常用的方法是？",
+      "answer": "把带火星的木条伸入瓶中，木条复燃"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j007",
+    "name": "制取氧气",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第2单元 空气和氧气",
+    "type": "procedural",
+    "description": "知道用过氧化氢在二氧化锰催化下制氧气，以及加热高锰酸钾制氧气。能选择发生装置和收集方法，并知道分解反应和催化剂。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "实验室用过氧化氢溶液和二氧化锰制氧气，二氧化锰的作用是？",
+      "answer": "催化剂，能加快反应，反应前后质量和化学性质不变"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      },
+      {
+        "id": "cks-2022:SR.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j008",
+    "name": "氧气的实验室制取与性质",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第2单元 空气和氧气",
+    "type": "procedural",
+    "description": "完成实验活动：检查气密性，用过氧化氢和二氧化锰制取氧气，并用带火星的木条检验。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "制取氧气前，必须先做的一步是？",
+      "answer": "检查装置气密性"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j009",
+    "name": "分子和原子",
+    "domain": "物质的组成与结构",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第3单元 物质构成的奥秘",
+    "type": "conceptual",
+    "description": "知道物质可以由分子、原子构成。分子、原子在不断运动，彼此有间隔。化学变化中分子可以分成原子，原子再重新组合。",
+    "mastery_criteria": [
+      "能用微粒、元素或化学式表示物质的组成",
+      "能完成教材要求的简单判断或计算"
+    ],
+    "diagnostic_question": {
+      "question": "墙内开花墙外香，主要说明？",
+      "answer": "分子在不断运动"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SC.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j010",
+    "name": "原子结构",
+    "domain": "物质的组成与结构",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第3单元 物质构成的奥秘",
+    "type": "conceptual",
+    "description": "知道原子由原子核和核外电子构成，原子核由质子和中子构成。原子中质子数等于核外电子数。",
+    "mastery_criteria": [
+      "能用微粒、元素或化学式表示物质的组成",
+      "能完成教材要求的简单判断或计算"
+    ],
+    "diagnostic_question": {
+      "question": "原子的中心部分是？",
+      "answer": "原子核"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SC.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j011",
+    "name": "元素",
+    "domain": "物质的组成与结构",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第3单元 物质构成的奥秘",
+    "type": "conceptual",
+    "description": "元素是质子数相同的一类原子的总称。能书写常见元素符号，并知道元素周期表给出原子序数、符号和相对原子质量。",
+    "mastery_criteria": [
+      "能用微粒、元素或化学式表示物质的组成",
+      "能完成教材要求的简单判断或计算"
+    ],
+    "diagnostic_question": {
+      "question": "决定元素种类的是？",
+      "answer": "质子数（核电荷数）"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SC.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j012",
+    "name": "水资源及其利用",
+    "domain": "化学与社会·跨学科实践",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 自然界的水",
+    "type": "application",
+    "description": "知道淡水并不充裕，能说出沉淀、过滤、吸附和蒸馏等净化水的方法，以及节约用水、防止水污染。",
+    "mastery_criteria": [
+      "能说出化学与资源、健康或材料的一个基本事实",
+      "能判断一种常见做法是否符合节约资源和保护环境"
+    ],
+    "diagnostic_question": {
+      "question": "净化水时，能把不溶性杂质与液体分离的操作是？",
+      "answer": "过滤"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SS.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j013",
+    "name": "水的组成",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 自然界的水",
+    "type": "conceptual",
+    "description": "通过电解水知道水由氢、氧两种元素组成。氢气与氧气体积比约为 2:1，并会检验这两种气体。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "电解水的实验说明水是？",
+      "answer": "由氢元素和氧元素组成的化合物"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j014",
+    "name": "化学式与化合价",
+    "domain": "物质的组成与结构",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 自然界的水",
+    "type": "procedural",
+    "description": "能用化学式表示常见物质，知道常见元素的化合价，并据此书写简单化学式。这一部分属于「物质组成的表示」。",
+    "mastery_criteria": [
+      "能用微粒、元素或化学式表示物质的组成",
+      "能完成教材要求的简单判断或计算"
+    ],
+    "diagnostic_question": {
+      "question": "化学式 H2O 表示？",
+      "answer": "1 个水分子由 2 个氢原子和 1 个氧原子构成"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SC.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j015",
+    "name": "根据化学式的计算",
+    "domain": "物质的组成与结构",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 自然界的水",
+    "type": "procedural",
+    "description": "能根据化学式，由相对原子质量求相对分子质量，并求元素质量比。计算用的相对原子质量在题中给出。这一部分仍属于「物质组成的表示」，不是单独的课题名。",
+    "mastery_criteria": [
+      "能用微粒、元素或化学式表示物质的组成",
+      "能完成教材要求的简单判断或计算"
+    ],
+    "diagnostic_question": {
+      "question": "相对分子质量等于？",
+      "answer": "化学式中各原子的相对原子质量之和"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SC.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j016",
+    "name": "水的组成及变化的探究",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第4单元 自然界的水",
+    "type": "procedural",
+    "description": "完成实验活动：电解水，比较两端气体体积，并检验氢气和氧气。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "电解水实验中，体积较小的那一端气体能使？",
+      "answer": "带火星的木条复燃"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j017",
+    "name": "质量守恒定律",
+    "domain": "物质的化学变化",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第5单元 化学反应的定量关系",
+    "type": "conceptual",
+    "description": "认识质量守恒定律：参加化学反应的各物质质量总和等于生成的各物质质量总和。能从原子种类、数目和质量不变来解释。",
+    "mastery_criteria": [
+      "能判断变化类型或写出相关的化学方程式",
+      "能用质量守恒或反应规律解释一个典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "质量守恒定律说的是？",
+      "answer": "参加反应的各物质质量总和等于生成的各物质质量总和"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SR.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j018",
+    "name": "化学方程式的书写",
+    "domain": "物质的化学变化",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第5单元 化学反应的定量关系",
+    "type": "procedural",
+    "description": "能根据实验事实书写简单化学方程式：配平、注明条件，气体和沉淀用箭头标出。不能改动化学式右下角的数字来配平。",
+    "mastery_criteria": [
+      "能判断变化类型或写出相关的化学方程式",
+      "能用质量守恒或反应规律解释一个典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "书写化学方程式的依据是？",
+      "answer": "客观事实和质量守恒定律"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SR.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j019",
+    "name": "利用化学方程式的简单计算",
+    "domain": "物质的化学变化",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第5单元 化学反应的定量关系",
+    "type": "procedural",
+    "description": "能根据配平的化学方程式，由一种纯净物的质量求出另一种物质的质量。参加计算的必须是实际参加反应的纯净物质量。",
+    "mastery_criteria": [
+      "能判断变化类型或写出相关的化学方程式",
+      "能用质量守恒或反应规律解释一个典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "根据化学方程式计算时，代入的质量必须是？",
+      "answer": "实际参加反应的纯净物质量"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SR.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j020",
+    "name": "碳单质的多样性",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 碳和碳的氧化物",
+    "type": "conceptual",
+    "description": "知道金刚石、石墨等都由碳元素组成，但物理性质差异很大。知道木炭、活性炭有吸附性。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "金刚石和石墨的相同点是？",
+      "answer": "都由碳元素组成"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j021",
+    "name": "二氧化碳的性质",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 碳和碳的氧化物",
+    "type": "conceptual",
+    "description": "知道二氧化碳的主要性质和用途：密度比空气大，能溶于水并与水反应，能使澄清石灰水变浑浊，一般不燃烧也不支持燃烧。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "检验二氧化碳的常用试剂是？",
+      "answer": "澄清石灰水"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j022",
+    "name": "一氧化碳",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 碳和碳的氧化物",
+    "type": "conceptual",
+    "description": "了解一氧化碳有可燃性和毒性，并能与某些金属氧化物反应。不把「还原性」当作必须记住的术语。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "一氧化碳的一个显著危害是？",
+      "answer": "有毒，能与血液中的血红蛋白结合"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j023",
+    "name": "二氧化碳的实验室制取",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 碳和碳的氧化物",
+    "type": "procedural",
+    "description": "用大理石或石灰石与稀盐酸制取二氧化碳，选择固液不加热装置和向上排空气法，并用澄清石灰水检验。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "实验室制取二氧化碳，常用的药品是？",
+      "answer": "大理石（或石灰石）和稀盐酸"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j024",
+    "name": "二氧化碳的实验室制取与性质",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第6单元 碳和碳的氧化物",
+    "type": "procedural",
+    "description": "完成实验活动：制取二氧化碳，检验，并观察它不支持燃烧、密度比空气大等性质。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "制取二氧化碳时，长颈漏斗的下端应？",
+      "answer": "伸入液面以下"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j025",
+    "name": "燃料的燃烧",
+    "domain": "物质的化学变化",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 能源的合理利用与开发",
+    "type": "conceptual",
+    "description": "知道燃烧需要可燃物、与氧气接触以及温度达到着火点。灭火就是破坏其中至少一个条件。不采用具体的着火点数字。",
+    "mastery_criteria": [
+      "能判断变化类型或写出相关的化学方程式",
+      "能用质量守恒或反应规律解释一个典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "燃烧需要同时满足的条件是？",
+      "answer": "可燃物、与氧气接触、温度达到着火点"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SR.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j026",
+    "name": "化石能源的合理利用",
+    "domain": "化学与社会·跨学科实践",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 能源的合理利用与开发",
+    "type": "application",
+    "description": "知道煤、石油、天然气是化石能源。石油分馏主要是物理变化。完全燃烧与不完全燃烧的产物不同。节约能源、减少排放。",
+    "mastery_criteria": [
+      "能说出化学与资源、健康或材料的一个基本事实",
+      "能判断一种常见做法是否符合节约资源和保护环境"
+    ],
+    "diagnostic_question": {
+      "question": "煤、石油、天然气属于？",
+      "answer": "化石能源，在短期内不能再生"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SS.01",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      },
+      {
+        "id": "cks-2022:SS.03",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j027",
+    "name": "燃烧条件的探究",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "上",
+    "chapter": "九年级上册 第7单元 能源的合理利用与开发",
+    "type": "procedural",
+    "description": "完成实验活动：用对照实验说明燃烧的三个条件。不记录红磷、白磷的具体着火点数字。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "铜片上的白磷燃烧、红磷不燃烧，水中的白磷不燃烧。这个实验说明燃烧需要？",
+      "answer": "温度达到着火点，并且与氧气接触"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j028",
+    "name": "金属材料",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第8单元 金属和金属材料",
+    "type": "conceptual",
+    "description": "知道金属的导电性、导热性、延展性和金属光泽，以及合金与纯金属的性质差异。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "多数金属共有的物理性质是？",
+      "answer": "有金属光泽，能导电、导热，有延展性"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j029",
+    "name": "金属与氧气、酸的反应",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第8单元 金属和金属材料",
+    "type": "conceptual",
+    "description": "知道常见金属与氧气、与稀酸反应的现象和化学方程式。铝表面的致密氧化膜能保护内部。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "铝在空气中不易继续被腐蚀，主要因为？",
+      "answer": "表面生成致密的氧化膜"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j030",
+    "name": "金属活动性顺序",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第8单元 金属和金属材料",
+    "type": "reasoning",
+    "description": "能用金属活动性顺序判断金属与酸、金属与盐溶液能否反应。这一部分是「金属的化学性质」中的比较，不是单独印出的课题名。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "金属活动性顺序里，排在氢前面的金属？",
+      "answer": "能与稀盐酸或稀硫酸反应产生氢气"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j031",
+    "name": "金属资源的利用和保护",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第8单元 金属和金属材料",
+    "type": "application",
+    "description": "知道铁矿石炼铁、铁锈蚀需要空气和水，以及涂油、喷漆、镀层等防锈方法。回收金属。炼铁反应不要求使用「还原性」这一术语。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "铁生锈需要的主要条件是？",
+      "answer": "与氧气和水同时接触"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.05",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j032",
+    "name": "常见金属的物理性质和化学性质",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第8单元 金属和金属材料",
+    "type": "procedural",
+    "description": "完成实验活动：比较常见金属的导电、颜色等物理性质，以及与稀酸、与盐溶液反应的现象。实验活动名称各公开目录用词不完全一致，待核。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "比较镁、铁、铜与同浓度稀盐酸的反应，产生气泡由快到慢，说明活动性？",
+      "answer": "镁大于铁大于铜"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j033",
+    "name": "溶液及其应用",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第9单元 溶液",
+    "type": "conceptual",
+    "description": "认识溶液由溶质和溶剂组成，是均一、稳定的混合物。能区分溶液、悬浊液和乳浊液。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "溶液的特征是？",
+      "answer": "均一、稳定的混合物"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j034",
+    "name": "溶解度",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第9单元 溶液",
+    "type": "conceptual",
+    "description": "理解固体溶解度要指明温度，单位是在 100 g 溶剂里达到饱和所溶解的溶质质量。知道多数固体溶解度随温度升高而增大。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "固体溶解度的含义是？",
+      "answer": "一定温度下，100 g 溶剂中达到饱和时溶解的溶质质量"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j035",
+    "name": "溶质的质量分数",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第9单元 溶液",
+    "type": "procedural",
+    "description": "能用溶质质量与溶液质量之比表示溶液组成，并计算配制溶液所需的溶质和溶剂质量。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "溶质的质量分数等于？",
+      "answer": "溶质质量除以溶液质量"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j036",
+    "name": "一定溶质质量分数的氯化钠溶液的配制",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第9单元 溶液",
+    "type": "procedural",
+    "description": "完成实验活动：计算、称量、量取、溶解，配制一定质量分数的氯化钠溶液。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "配制溶液时，称量氯化钠常用？",
+      "answer": "托盘天平"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j037",
+    "name": "粗盐中难溶性杂质的去除",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第9单元 溶液",
+    "type": "procedural",
+    "description": "完成实验活动：溶解、过滤、蒸发，除去粗盐中的泥沙等难溶性杂质。可溶性杂质不能靠这一套操作除尽。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "除去粗盐中的泥沙，正确的顺序是？",
+      "answer": "溶解、过滤、蒸发"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j038",
+    "name": "溶液的酸碱性",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第10单元 常见的酸、碱、盐",
+    "type": "conceptual",
+    "description": "会用酸碱指示剂和 pH 判断溶液的酸碱性。酸性溶液 pH 小于 7，中性等于 7，碱性大于 7。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "pH 小于 7 的溶液呈？",
+      "answer": "酸性"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j039",
+    "name": "常见的酸",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第10单元 常见的酸、碱、盐",
+    "type": "conceptual",
+    "description": "认识盐酸、硫酸等常见酸的主要性质：与指示剂、活泼金属、金属氧化物和碱反应。浓硫酸稀释必须酸入水。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "稀盐酸中滴入紫色石蕊试液，溶液变为？",
+      "answer": "红色"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j040",
+    "name": "常见的碱",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第10单元 常见的酸、碱、盐",
+    "type": "conceptual",
+    "description": "认识氢氧化钠、氢氧化钙等碱的主要性质、用途和腐蚀性。碱溶液能使酚酞变红，能与某些非金属氧化物反应。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "氢氧化钠露置在空气中容易潮解，保存时应？",
+      "answer": "密封"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j041",
+    "name": "酸和碱的中和反应",
+    "domain": "物质的化学变化",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第10单元 常见的酸、碱、盐",
+    "type": "conceptual",
+    "description": "知道酸与碱作用生成盐和水，属于复分解反应。了解中和反应在改良土壤、处理废水中的应用。这一部分是从「常见的酸和碱」里抽出的反应规律，不是单独印出的课题名。",
+    "mastery_criteria": [
+      "能判断变化类型或写出相关的化学方程式",
+      "能用质量守恒或反应规律解释一个典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "中和反应是？",
+      "answer": "酸与碱作用生成盐和水"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SR.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j042",
+    "name": "常见的盐",
+    "domain": "物质的性质与应用",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第10单元 常见的酸、碱、盐",
+    "type": "conceptual",
+    "description": "认识氯化钠、碳酸钠、碳酸钙等盐的组成和用途。知道盐不一定是食盐，碳酸钠溶液呈碱性。化肥中的铵盐遇碱会放出氨气。",
+    "mastery_criteria": [
+      "能说出本课物质的主要性质或用途",
+      "能用性质解释一个教材中的典型事实"
+    ],
+    "diagnostic_question": {
+      "question": "食盐的主要成分是？",
+      "answer": "氯化钠"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SP.06",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j043",
+    "name": "常见酸、碱的化学性质",
+    "domain": "科学探究与化学实验",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第10单元 常见的酸、碱、盐",
+    "type": "procedural",
+    "description": "完成实验活动：试验常见酸、碱与指示剂、金属、金属氧化物或相互之间的反应，并记录现象。",
+    "mastery_criteria": [
+      "能说出本课的探究步骤或实验操作要点",
+      "能把现象和证据对应到教材中的结论"
+    ],
+    "diagnostic_question": {
+      "question": "把稀盐酸分别滴到紫色石蕊和酚酞上，现象是？",
+      "answer": "石蕊变红，酚酞仍为无色"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SQ.04",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j044",
+    "name": "化学与人体健康",
+    "domain": "化学与社会·跨学科实践",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第11单元 化学与社会",
+    "type": "conceptual",
+    "description": "知道人体所需的蛋白质、糖类、油脂、维生素、无机盐和水，以及钙、铁、碘、锌等元素的大致作用。",
+    "mastery_criteria": [
+      "能说出化学与资源、健康或材料的一个基本事实",
+      "能判断一种常见做法是否符合节约资源和保护环境"
+    ],
+    "diagnostic_question": {
+      "question": "人体所需的营养物质包括？",
+      "answer": "蛋白质、糖类、油脂、维生素、无机盐和水"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SS.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
+      }
+    ]
+  },
+  {
+    "id": "cnk_j045",
+    "name": "化学与可持续发展",
+    "domain": "化学与社会·跨学科实践",
+    "grade": 9,
+    "semester": "下",
+    "chapter": "九年级下册 第11单元 化学与社会",
+    "type": "application",
+    "description": "知道塑料、合成纤维、合成橡胶等合成材料，认识化学在新材料、新能源中的作用，以及减少污染、回收利用对可持续发展的意义。",
+    "mastery_criteria": [
+      "能说出化学与资源、健康或材料的一个基本事实",
+      "能判断一种常见做法是否符合节约资源和保护环境"
+    ],
+    "diagnostic_question": {
+      "question": "塑料、合成纤维和合成橡胶属于？",
+      "answer": "合成材料"
+    },
+    "external": false,
+    "subject": "chemistry",
+    "standards": [
+      {
+        "id": "cks-2022:SS.02",
+        "confidence": "inferred",
+        "note": "人教版该课的常见教学内容。条目是公开转述，不是逐页核对的原文。"
       }
     ]
   }

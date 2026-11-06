@@ -1,0 +1,51 @@
+/* ========================================
+ * 智学伴学生端 — 全局 SCSS 变量
+ * ======================================== */
+
+/* 主题色 */
+$primary-color: #409eff;
+$primary-light: #ecf5ff;
+$success-color: #67c23a;
+$warning-color: #e6a23c;
+$danger-color: #f56c6c;
+$info-color: #909399;
+
+/* 文字色 */
+$text-primary: #303133;
+$text-regular: #606266;
+$text-secondary: #909399;
+$text-placeholder: #c0c4cc;
+
+/* 背景色 */
+$bg-color: #f5f5f5;
+$bg-white: #ffffff;
+
+/* 边框色 */
+$border-color: #dcdfe6;
+$border-light: #e4e7ed;
+
+/* 间距 */
+$spacing-xs: 8rpx;
+$spacing-sm: 16rpx;
+$spacing-md: 24rpx;
+$spacing-lg: 32rpx;
+$spacing-xl: 48rpx;
+
+/* 圆角 */
+$radius-sm: 4rpx;
+$radius-md: 8rpx;
+$radius-lg: 16rpx;
+$radius-round: 999rpx;
+
+/* 字体大小 */
+$font-xs: 20rpx;
+$font-sm: 24rpx;
+$font-md: 28rpx;
+$font-lg: 32rpx;
+$font-xl: 36rpx;
+$font-xxl: 44rpx;
+
+/* 阴影 */
+$shadow-sm: 0 2rpx 8rpx rgba(0, 0, 0, 0.05);
+$shadow-md: 0 4rpx 16rpx rgba(0, 0, 0, 0.1);
+$shadow-lg: 0 8rpx 32rpx rgba(0, 0, 0, 0.15);

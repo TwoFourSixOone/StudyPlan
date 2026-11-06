@@ -33,8 +33,11 @@ public class MasteryController {
     @GetMapping("/dashboard")
     @Operation(summary = "获取掌握度看板")
     public Result<List<MasteryDashboardVO>> getDashboard(
-            @RequestParam(required = false) String subject) {
-        return Result.success(masteryService.getStudentDashboard(subject));
+            @RequestParam(required = false) String subject,
+            @RequestParam(value = "showDisabled", required = false) Boolean showDisabled) {
+        // 修复 IMP-14：Boolean null 安全处理
+        boolean show = Boolean.TRUE.equals(showDisabled);
+        return Result.success(masteryService.getStudentDashboard(subject, show));
     }
 
     @GetMapping("/history/{knowledgePointId}")

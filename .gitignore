@@ -41,3 +41,8 @@ build/
 
 ### 本地配置文件（包含敏感信息） ###
 src/main/resources/application-local.yml
+
+### 学生端小程序 ###
+student-app/node_modules/
+student-app/dist/
+student-app/unpackage/

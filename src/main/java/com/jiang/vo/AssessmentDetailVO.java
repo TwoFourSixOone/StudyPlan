@@ -3,11 +3,13 @@ package com.jiang.vo;
 import lombok.Builder;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 /**
  * 评测详情 VO（含题目列表，不含答案）
+ * 用于 AssessmentService.getAssessmentDetail
  *
  * @author StudyMate Team
  * @since 2026-11-03

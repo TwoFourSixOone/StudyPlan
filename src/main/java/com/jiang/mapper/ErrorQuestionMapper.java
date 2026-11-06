@@ -220,4 +220,23 @@ public interface ErrorQuestionMapper extends BaseMapper<ErrorQuestion> {
             "GROUP BY knowledge_point_id")
     List<Map<String, Object>> selectActiveErrorCountGroupByKp(@Param("studentId") Long studentId,
                                                                @Param("tenantId") String tenantId);
+
+    /**
+     * 查询超期未解决的错题（T-08：错题超 30 天标记）
+     * 查询 stage=5 且 first_wrong_date < cutoffDate 的错题
+     * 修复 H-1：增加 tenant_id 隔离
+     *
+     * @param cutoffDate 截止日期（30 天前）
+     * @param tenantId   租户 ID
+     * @return 超期错题列表
+     */
+    @Select("SELECT error_question_id, question_id, knowledge_point_id, student_id, " +
+            "first_wrong_date, current_stage, status " +
+            "FROM error_question " +
+            "WHERE current_stage >= 5 " +
+            "AND first_wrong_date < #{cutoffDate} " +
+            "AND status = 'active' " +
+            "AND tenant_id = #{tenantId}")
+    List<ErrorQuestion> selectCriticalErrors(@Param("cutoffDate") LocalDate cutoffDate,
+                                              @Param("tenantId") String tenantId);
 }

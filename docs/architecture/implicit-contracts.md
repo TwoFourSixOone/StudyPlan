@@ -88,6 +88,48 @@
 - **违反后果**：技术异常与业务异常混淆，降级策略无法正确触发
 - **发现时间**：2026-11-03
 
+### 约定 #15：管理端租户隔离通过 JWT 鉴权
+
+- **约定内容**：管理端接口（`/api/admin/**`）通过 JWT 鉴权实现租户隔离。`WebMvcConfig` 拦截所有 `/api/**`，仅排除 `/api/auth/login` 和 `/api/admin/auth/login`（管理员登录免鉴权）。前端 admin-web 登录成功后将 JWT token 存储于 `localStorage`（key: `VITE_DEMO_TOKEN`），`request.js` 拦截器统一注入 `Authorization: Bearer <token>`，后端从 token 解析 `tenant_id`。
+- **影响范围**：`Admin*Controller` 全部接口、`AdminAuthController`、`WebMvcConfig`、admin-web `request.js`
+- **违反后果**：管理端接口缺少鉴权导致数据越权；token 未注入导致 401 拒绝
+- **发现时间**：2026-11-03（2026-11-05 更新：管理端已独立实现登录认证，不再复用 StudentContext）
+
+### 约定 #16：admin-web 前端路由守卫与登录流程
+
+- **约定内容**：admin-web 前端通过 Vue Router `beforeEach` 守卫检查 `localStorage.getItem('VITE_DEMO_TOKEN')` 是否存在。未登录时自动跳转 `/login`；登录页（`Login.vue`）调用 `POST /api/admin/auth/login` 获取 token 后保存并重定向至首页。公开路由需标记 `meta: { public: true }` 跳过守卫。
+- **影响范围**：`router/index.js`、`Login.vue`、`request.js`
+- **违反后果**：未登录用户可访问受保护页面；token 丢失后请求全部 401
+- **发现时间**：2026-11-05
+
+### 约定 #17：admin-web 构建产物部署方式
+
+- **约定内容**：admin-web 使用 Vite 构建，产物输出至 `admin-web/dist/` 目录。生产环境由后端 Spring Boot 托管静态资源（`spring.web.resources.static-locations` 指向 `dist/`），开发环境通过 Vite `server.proxy` 将 `/api` 请求代理至 `http://localhost:8080`。
+- **影响范围**：`admin-web/vite.config.js`、后端静态资源配置、部署流程
+- **违反后果**：开发环境跨域请求失败；生产环境前端页面 404
+- **发现时间**：2026-11-05
+
+### 约定 #18：uni-app `api/` 目录模块注册异常
+
+- **约定内容**：uni-app 编译至微信小程序（mp-weixin）时，`src/api/` 目录下的 JS 文件不会被正确注册到微信小程序模块系统中，导致 `require` 时报 `module 'api/xxx.js' is not defined`。请求工具、API 接口等文件应放在 `src/utils/` 目录下。
+- **影响范围**：student-app 全部前端模块导入
+- **违反后果**：运行时模块加载失败，页面白屏或功能不可用
+- **发现时间**：2026-11-05
+
+### 约定 #19：微信小程序请求必须使用完整 URL
+
+- **约定内容**：微信小程序环境不支持 Vite `server.proxy` 代理，所有 `uni.request` 必须使用完整 URL（如 `http://localhost:80/api`），不能使用相对路径（如 `/api`）。开发环境指向本地后端，生产环境需替换为正式域名。CORS 配置中 `exposedHeaders` 必须包含 `X-Refresh-Token`。
+- **影响范围**：student-app `utils/request.js`、`stores/auth.js` 中的 `uni.request` 调用
+- **违反后果**：请求无法发送到后端，登录和所有 API 调用失败
+- **发现时间**：2026-11-05
+
+### 约定 #20：微信开发者工具缓存机制
+
+- **约定内容**：微信开发者工具会缓存已编译的小程序代码。源码修改并重新 `npm run build:mp-weixin` 后，必须在开发者工具中执行「工具 → 清除文件缓存 → 清除全部」或重新导入项目，否则运行的仍是旧代码。
+- **影响范围**：student-app 全部前端开发调试流程
+- **违反后果**：修改源码后页面行为不变，误判为代码无效，浪费排查时间
+- **发现时间**：2026-11-05
+
 ---
 
 ## 3. 维护规则

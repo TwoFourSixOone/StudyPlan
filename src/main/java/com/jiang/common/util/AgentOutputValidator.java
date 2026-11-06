@@ -28,11 +28,15 @@ public class AgentOutputValidator {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private JsonNode questionGenSchema;
+    private JsonNode attributionSchema;
+    private JsonNode adjustmentSchema;
 
     @PostConstruct
     public void init() {
         try {
             questionGenSchema = loadSchema("prompts/schemas/question_gen_schema.json");
+            attributionSchema = loadSchema("prompts/schemas/attribution_schema.json");
+            adjustmentSchema = loadSchema("prompts/schemas/adjustment_schema.json");
         } catch (IOException e) {
             log.error("加载 JSON Schema 失败: {}", e.getMessage());
         }
@@ -129,6 +133,117 @@ public class AgentOutputValidator {
         try (InputStream is = resource.getInputStream()) {
             return OBJECT_MAPPER.readTree(is);
         }
+    }
+
+    /**
+     * 校验归因 Agent 输出是否符合 Schema
+     * 期望格式：JSON 数组，每个元素包含 questionIndex、knowledgePointId、confidence
+     *
+     * @param agentOutput Agent 返回的 JSON 字符串
+     * @return 校验结果
+     */
+    public ValidationResult validateAttribution(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+
+        if (!jsonNode.isArray()) {
+            return ValidationResult.fail("输出必须是 JSON 数组");
+        }
+
+        List<String> errors = new ArrayList<>();
+        for (int i = 0; i < jsonNode.size(); i++) {
+            JsonNode item = jsonNode.get(i);
+            String prefix = "题目[" + i + "]";
+
+            // questionIndex 必填且为整数
+            if (!item.has("questionIndex") || !item.get("questionIndex").isNumber()) {
+                errors.add(prefix + ": 缺少或非法字段 questionIndex");
+            }
+
+            // knowledgePointId 必填且为字符串
+            if (!item.has("knowledgePointId") || !item.get("knowledgePointId").isTextual()) {
+                errors.add(prefix + ": 缺少或非法字段 knowledgePointId");
+            }
+
+            // confidence 必填且为枚举值
+            if (!item.has("confidence")) {
+                errors.add(prefix + ": 缺少字段 confidence");
+            } else {
+                String confidence = item.get("confidence").asText();
+                if (!Set.of("high", "medium", "low").contains(confidence)) {
+                    errors.add(prefix + ": confidence 值非法: " + confidence);
+                }
+            }
+        }
+
+        if (errors.isEmpty()) {
+            return ValidationResult.success();
+        }
+        return ValidationResult.fail(String.join("; ", errors));
+    }
+
+    /**
+     * 校验调整 Agent 输出是否符合 Schema
+     * 期望格式：JSON 对象，包含 modifiedDates、reason
+     *
+     * @param agentOutput Agent 返回的 JSON 字符串
+     * @return 校验结果
+     */
+    public ValidationResult validateAdjustment(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+
+        if (!jsonNode.isObject()) {
+            return ValidationResult.fail("输出必须是 JSON 对象");
+        }
+
+        List<String> errors = new ArrayList<>();
+
+        // modifiedDates 必填且为数组
+        if (!jsonNode.has("modifiedDates") || !jsonNode.get("modifiedDates").isArray()) {
+            errors.add("缺少或非法字段 modifiedDates（必须为数组）");
+        } else {
+            JsonNode dates = jsonNode.get("modifiedDates");
+            for (int i = 0; i < dates.size(); i++) {
+                JsonNode item = dates.get(i);
+                String prefix = "modifiedDates[" + i + "]";
+
+                if (!item.has("date") || !item.get("date").isTextual()) {
+                    errors.add(prefix + ": 缺少或非法字段 date");
+                } else {
+                    String dateStr = item.get("date").asText();
+                    if (!dateStr.matches("\\d{4}-\\d{2}-\\d{2}")) {
+                        errors.add(prefix + ": date 格式非法（应为 YYYY-MM-DD）: " + dateStr);
+                    }
+                }
+
+                if (!item.has("newContent") || !item.get("newContent").isTextual()) {
+                    errors.add(prefix + ": 缺少或非法字段 newContent");
+                }
+
+                if (!item.has("reason") || !item.get("reason").isTextual()) {
+                    errors.add(prefix + ": 缺少或非法字段 reason");
+                }
+            }
+        }
+
+        // reason 必填
+        if (!jsonNode.has("reason") || !jsonNode.get("reason").isTextual()) {
+            errors.add("缺少或非法字段 reason");
+        }
+
+        if (errors.isEmpty()) {
+            return ValidationResult.success();
+        }
+        return ValidationResult.fail(String.join("; ", errors));
     }
 
     /**

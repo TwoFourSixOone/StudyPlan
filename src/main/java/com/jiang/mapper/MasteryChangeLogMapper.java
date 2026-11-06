@@ -87,4 +87,43 @@ public interface MasteryChangeLogMapper extends BaseMapper<MasteryChangeLog> {
             @Param("studentId") Long studentId,
             @Param("tenantId") String tenantId,
             @Param("kpIds") List<String> kpIds);
+
+    /**
+     * 查询指定目标的最大掌握度下降值（SIG-2 信号检测）
+     * 修复 H-3：增加 tenant_id 隔离
+     *
+     * @param goalId   目标 ID
+     * @param tenantId 租户 ID
+     * @return 最大下降值（负数表示下降）
+     */
+    @Select("SELECT MIN(delta) FROM mastery_change_log " +
+            "WHERE source_id IN (" +
+            "  SELECT exam_paper_id FROM exam_paper WHERE goal_id = #{goalId} AND tenant_id = #{tenantId}" +
+            ") AND delta < 0 AND tenant_id = #{tenantId}")
+    Double selectMaxMasteryDropByGoalId(@Param("goalId") Long goalId,
+                                        @Param("tenantId") String tenantId);
+
+    /**
+     * 按知识点查询掌握度变更历史（学习记录-掌握度变更）
+     */
+    @Select("SELECT * FROM mastery_change_log " +
+            "WHERE knowledge_point_id = #{knowledgePointId} " +
+            "AND student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "ORDER BY create_time DESC LIMIT #{limit}")
+    List<MasteryChangeLog> selectByKnowledgePointIdAndStudentId(
+            @Param("knowledgePointId") String knowledgePointId,
+            @Param("studentId") Long studentId,
+            @Param("tenantId") String tenantId,
+            @Param("limit") int limit);
+
+    /**
+     * 按来源查询掌握度变更（IMP-17 修复）
+     */
+    @Select("SELECT * FROM mastery_change_log " +
+            "WHERE source_id = #{sourceId} AND change_type = #{changeType} " +
+            "AND tenant_id = #{tenantId} " +
+            "ORDER BY create_time DESC")
+    List<MasteryChangeLog> selectBySourceIdAndType(@Param("sourceId") Long sourceId,
+                                                    @Param("changeType") String changeType,
+                                                    @Param("tenantId") String tenantId);
 }

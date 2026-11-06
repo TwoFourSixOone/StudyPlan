@@ -1,0 +1,103 @@
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {}
+  },
+  "pages": [
+    {
+      "path": "pages/index/Index",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/homework/Homework",
+      "style": {
+        "navigationBarTitleText": "每日作业",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/homework-detail/HomeworkDetail",
+      "style": {
+        "navigationBarTitleText": "答题详情",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/mastery/Mastery",
+      "style": {
+        "navigationBarTitleText": "掌握度看板",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/profile/Profile",
+      "style": {
+        "navigationBarTitleText": "我的",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/login/Login",
+      "style": {
+        "navigationBarTitleText": "登录",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/error/Error",
+      "style": {
+        "navigationBarTitleText": "错题本",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/error-detail/ErrorDetail",
+      "style": {
+        "navigationBarTitleText": "错题详情",
+        "navigationStyle": "custom"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "智学伴",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f5f5f5",
+    "backgroundTextStyle": "dark"
+  },
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#409eff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      {
+        "pagePath": "pages/index/Index",
+        "text": "首页",
+        "iconPath": "static/images/tab-home.png",
+        "selectedIconPath": "static/images/tab-home-active.png"
+      },
+      {
+        "pagePath": "pages/homework/Homework",
+        "text": "作业",
+        "iconPath": "static/images/tab-homework.png",
+        "selectedIconPath": "static/images/tab-homework-active.png"
+      },
+      {
+        "pagePath": "pages/mastery/Mastery",
+        "text": "看板",
+        "iconPath": "static/images/tab-mastery.png",
+        "selectedIconPath": "static/images/tab-mastery-active.png"
+      },
+      {
+        "pagePath": "pages/profile/Profile",
+        "text": "我的",
+        "iconPath": "static/images/tab-profile.png",
+        "selectedIconPath": "static/images/tab-profile-active.png"
+      }
+    ]
+  }
+}

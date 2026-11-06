@@ -5,6 +5,8 @@ import com.jiang.dto.CreateGoalRequest;
 import com.jiang.dto.UpdateGoalRequest;
 import com.jiang.vo.GoalVO;
 
+import java.util.List;
+
 /**
  * 学习目标管理 Service 接口
  *
@@ -16,8 +18,8 @@ public interface GoalService {
     /** 创建学习目标 */
     GoalVO createGoal(CreateGoalRequest request);
 
-    /** 查看当前活跃目标（学生端，按 studentId + 可选 subjectId 查询） */
-    GoalVO getActiveGoal(Long subjectId);
+    /** 查看当前活跃目标列表（学生端，按 studentId + 可选 subjectId 查询） */
+    List<GoalVO> getActiveGoals(Long subjectId);
 
     /** 查看目标列表（学生端，含历史，分页） */
     PageResult<GoalVO> getGoalList(int page, int size);

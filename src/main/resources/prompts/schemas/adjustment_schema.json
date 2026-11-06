@@ -1,0 +1,46 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Plan Adjustment Output Schema",
+  "description": "调整 Agent 输出校验 Schema",
+  "type": "object",
+  "required": ["modifiedDates", "reason"],
+  "properties": {
+    "modifiedDates": {
+      "type": "array",
+      "maxItems": 30,
+      "items": {
+        "type": "object",
+        "required": ["date", "newContent", "reason"],
+        "properties": {
+          "date": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+            "description": "目标日期（YYYY-MM-DD）"
+          },
+          "newContent": {
+            "type": "string",
+            "minLength": 1,
+            "description": "新的计划内容（JSON 字符串）"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "修改原因"
+          }
+        }
+      }
+    },
+    "reason": {
+      "type": "string",
+      "maxLength": 500,
+      "description": "总体调整原因"
+    },
+    "criticalErrorQuestionIds": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "需优先处理的错题 ID 列表"
+    }
+  }
+}

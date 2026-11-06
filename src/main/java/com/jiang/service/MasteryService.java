@@ -63,6 +63,16 @@ public interface MasteryService {
     List<MasteryDashboardVO> getStudentDashboard(String subject);
 
     /**
+     * 获取学生掌握度看板（支持显示停用知识点）。
+     * 修复 IMP-14：showDisabled 参数控制是否显示停用知识点
+     *
+     * @param subject     科目名称
+     * @param showDisabled 是否显示停用知识点
+     * @return 掌握度看板列表
+     */
+    List<MasteryDashboardVO> getStudentDashboard(String subject, boolean showDisabled);
+
+    /**
      * 获取学生指定知识点的掌握度变更历史（按时间倒序）。
      *
      * @param knowledgePointId 知识点 ID

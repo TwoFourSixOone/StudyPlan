@@ -3,7 +3,7 @@ package com.jiang.model.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.jiang.common.handler.JsonStringTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -41,7 +41,7 @@ public class QuestionBank extends BaseEntity {
     /**
      * 选项（选择题用）
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String choices;
 
     /**

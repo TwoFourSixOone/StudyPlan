@@ -36,8 +36,15 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public LoginResponse login(String code) {
-        // 1. 调用微信 API 换取 openid（事务外，避免长事务占用 DB 连接）
-        String openid = wechatApiClient.fetchOpenid(code);
+        String openid;
+        // 开发模式：跳过微信 API，使用测试 openid（前端发送 dev_ 开头的 code 触发）
+        if (code != null && code.startsWith("dev_")) {
+            log.info("[DEV MODE] 开发模式登录，跳过微信 API: code={}", code);
+            openid = "dev_openid_test_001";
+        } else {
+            // 1. 调用微信 API 换取 openid（事务外，避免长事务占用 DB 连接）
+            openid = wechatApiClient.fetchOpenid(code);
+        }
 
         // 2. 跨 Bean 调用事务方法（经过 Spring 代理，@Transactional 生效）
         return txService.transactionalLogin(openid);

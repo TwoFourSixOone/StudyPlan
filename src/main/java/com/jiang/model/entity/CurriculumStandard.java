@@ -1,5 +1,6 @@
 package com.jiang.model.entity;
 
+import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.AllArgsConstructor;
@@ -23,7 +24,7 @@ public class CurriculumStandard extends BaseEntity {
     /**
      * 标准 ID
      */
-    @TableId("standard_id")
+    @TableId(value = "standard_id", type = IdType.AUTO)
     private Long standardId;
 
     /**

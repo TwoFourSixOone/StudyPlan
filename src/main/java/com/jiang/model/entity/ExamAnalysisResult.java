@@ -3,7 +3,7 @@ package com.jiang.model.entity;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.jiang.common.handler.JsonStringTypeHandler;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -49,13 +49,13 @@ public class ExamAnalysisResult extends BaseEntity {
     /**
      * 试卷图片 URL 列表
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String imageUrls;
 
     /**
      * 题目分析结果
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JsonStringTypeHandler.class)
     private String questions;
 
     /**

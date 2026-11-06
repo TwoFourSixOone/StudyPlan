@@ -11,6 +11,8 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
@@ -61,24 +63,45 @@ class DataImportServiceTest {
 
     @Test
     void should_throwException_when_dataTypeInvalid() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "test.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                "[]".getBytes()
+        );
+        
         BusinessException ex = assertThrows(BusinessException.class,
-                () -> dataImportService.importData("invalid_type"));
+                () -> dataImportService.importData(file, "invalid_type"));
         assertEquals(400, ex.getCode());
         assertTrue(ex.getMessage().contains("不支持的数据类型"));
     }
 
     @Test
     void should_throwException_when_dataTypeNull() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "test.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                "[]".getBytes()
+        );
+        
         assertThrows(BusinessException.class,
-                () -> dataImportService.importData(null));
+                () -> dataImportService.importData(file, null));
     }
 
     // ========================= 字段映射验证（通过 public importData 间接验证） =========================
 
     @Test
     void should_rejectUnknownDataType() {
+        MockMultipartFile file = new MockMultipartFile(
+                "file",
+                "test.json",
+                MediaType.APPLICATION_JSON_VALUE,
+                "[]".getBytes()
+        );
+        
         // 验证不支持的 dataType 抛出 BusinessException
-        assertThrows(BusinessException.class, () -> dataImportService.importData("unknown_type"));
+        assertThrows(BusinessException.class, () -> dataImportService.importData(file, "unknown_type"));
     }
 
     // ========================= 枚举校验（通过反射测试私有方法） =========================

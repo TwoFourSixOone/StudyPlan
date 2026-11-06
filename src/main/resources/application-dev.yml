@@ -19,3 +19,16 @@ logging:
     root: INFO
     com.jiang: DEBUG
     org.springframework.web: DEBUG
+
+# 线程池配置
+thread-pool:
+  ai:
+    core-size: 4
+    queue-capacity: 50
+    await-terminate-seconds: 30
+  exam-analysis:
+    core-size: 3
+    queue-capacity: 30
+    await-terminate-seconds: 60
+
+

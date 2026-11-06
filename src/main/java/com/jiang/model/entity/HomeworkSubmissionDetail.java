@@ -72,4 +72,9 @@ public class HomeworkSubmissionDetail extends BaseEntity {
      * 提交时间
      */
     private LocalDateTime submittedAt;
+
+    /**
+     * AI 生成的题目解析（批改时生成）
+     */
+    private String analysis;
 }
