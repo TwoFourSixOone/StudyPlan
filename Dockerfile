@@ -1,58 +1,125 @@
-# 二开推荐阅读[如何提高项目构建效率](https://developers.weixin.qq.com/miniprogram/dev/wxcloudrun/src/scene/build/speed.html)
-# 选择构建用基础镜像。如需更换，请到[dockerhub官方仓库](https://hub.docker.com/_/java?tab=tags)自行选择后替换。
-FROM maven:3.9-eclipse-temurin-17 as build
+# ============================================================
+# 阶段一：构建阶段（build）
+# 用 Maven + JDK17 镜像编译打包，产物是 jar
+# 这个阶段的所有东西（Maven、JDK、源码、依赖缓存）都不会进入最终镜像
+# ============================================================
+FROM maven:3.9-eclipse-temurin-17 AS build
 
-# 指定构建过程中的工作目录
+# 构建阶段的工作目录，后续 COPY / RUN 都相对这个目录
 WORKDIR /app
 
-# 将src目录下所有文件，拷贝到工作目录中src目录下（.gitignore/.dockerignore中文件除外）
-COPY src /app/src
-
-# 将pom.xml文件，拷贝到工作目录下
+# ------------------------------------------------------------
+# 【改动1】先只拷贝 pom.xml 和 settings.xml，再执行依赖预下载
+# 原因：Docker 分层缓存机制 —— 只要这一层 COPY 的文件没变，
+#       下一层 mvn 就不会重新执行。
+# 而源码（src）几乎每次提交都会变，如果先 COPY src 再 COPY pom，
+# 会导致「改一行代码 → 依赖全部重新下载」，构建极慢。
+# 所以正确顺序：先 COPY 依赖描述文件 → 下载依赖 → 再 COPY 源码 → 编译。
+# ------------------------------------------------------------
 COPY settings.xml pom.xml /app/
 
-# 执行代码编译命令
-# 自定义settings.xml, 选用国内镜像源以提高下载速度
+# ------------------------------------------------------------
+# 【改动2】预先下载依赖（go-offline）
+# 作用：把 pom 里声明的所有依赖提前拉到本地仓库，
+#       让这一层被缓存住。后续改代码时这层直接命中缓存，不联网。
+# -B：批处理模式，减少下载时的冗余日志输出。
+# 注意：go-offline 是「尽力而为」，个别插件依赖可能仍会在线获取，
+#       这是正常现象，不影响最终编译。
+# ------------------------------------------------------------
+RUN mvn -s /app/settings.xml -f /app/pom.xml dependency:go-offline -B
+
+# ------------------------------------------------------------
+# 【改动3】依赖下载完成后，再拷贝源码
+# 这一层在每次改代码时都会失效（重新 COPY），但前面下载依赖的层仍然缓存，
+# 所以编译时只需编译源码，不再重新下载依赖。
+# ------------------------------------------------------------
+COPY src /app/src
+
+# 执行编译打包
+# clean package：清掉旧产物并打包
+# -DskipTests：跳过测试（构建提速；如需跑测试可去掉）
+# -s settings.xml：使用自定义国内镜像源加速
 RUN mvn -s /app/settings.xml -f /app/pom.xml clean package -DskipTests
 
 
-# 选择运行时基础镜像（使用 Debian 基础以支持完整 CA 证书链）
+# ============================================================
+# 阶段二：运行时阶段（runtime）
+# 只带 JRE（不含 JDK/Maven），镜像更小，攻击面更小
+# 使用 Debian 基础以支持完整 CA 证书链
+# ============================================================
 FROM eclipse-temurin:17-jre
 
-# 安装 ca-certificates、Java 证书工具和 Redis
+# ------------------------------------------------------------
+# 【改动4】安装依赖时减少体积
+# --no-install-recommends：不装推荐包，减小镜像
+# rm -rf /var/lib/apt/lists/*：清掉 apt 缓存，减小镜像
+# 注意：这里【不装 ca-certificates-java】——除非你明确需要系统级证书注入，
+#       JRE 镜像自带 cacerts，装它反而容易引入 trustStore 混乱（见下方说明）。
+# ------------------------------------------------------------
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-       ca-certificates \
-       ca-certificates-java \
-       redis-server \
-    && update-ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+ && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    redis-server \
+ && rm -rf /var/lib/apt/lists/*
 
-# 配置 Redis：绑定所有网卡、关闭保护模式（容器内安全）、后台运行
-RUN sed -i 's/^bind .*/bind 0.0.0.0/' /etc/redis/redis.conf \
-    && sed -i 's/^protected-mode yes/protected-mode no/' /etc/redis/redis.conf \
-    && sed -i 's/^daemonize yes/daemonize no/' /etc/redis/redis.conf
+# ------------------------------------------------------------
+# 【改动5】用「追加配置」代替 sed 正则替换
+# 原写法 sed 's/^bind .*/.../' 的问题：
+#   1) 若文件里没有匹配行（不同发行版/版本默认配置不同），sed 静默不生效
+#   2) 正则是脆弱的，容易改错别的行
+# Redis 配置规则是「同名配置以最后一次出现为准」，
+# 所以直接追加到文件末尾，能稳定覆盖前面的同名项。
+# 三个配置的含义：
+#   bind 0.0.0.0      ：允许容器内任意网卡访问（否则默认只绑 127.0.0.1，
+#                       某些场景下 Spring Boot 连不上）
+#   protected-mode no ：关闭保护模式（容器内网环境安全，且需允许非本地访问）
+#   daemonize no      ：前台运行，配合 start.sh 里的 & 放后台；
+#                       若为 yes 会 fork 出子进程，容器管理进程很麻烦
+# ------------------------------------------------------------
+RUN echo "bind 0.0.0.0" >> /etc/redis/redis.conf \
+ && echo "protected-mode no" >> /etc/redis/redis.conf \
+ && echo "daemonize no" >> /etc/redis/redis.conf
 
-# 设置 JVM 使用系统级证书库（包含平台可能注入的代理 CA）
-ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
+# ------------------------------------------------------------
+# 【改动6】关于 trustStore 的说明（原代码这一行已删除，按需保留）
+# 原写法：
+#   ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
+# 风险：
+#   1) 该路径不一定与 JDK 自带 trustStore 同步，路径错 → 所有 HTTPS 直接挂
+#   2) cacerts 默认口令是 changeit，不配 trustStorePassword 会报错/警告
+#   3) 一旦挂掉，Spring Boot 调微信接口等全部失败，且错误不直观
+# 结论：
+#   - 没有「平台注入代理 CA」的明确需求 → 直接删掉，用 JRE 默认 cacerts
+#   - 确有需求 → 用 keytool 把 CA 导入 $JAVA_HOME/lib/security/cacerts，
+#     而不是切换 trustStore 路径
+# 如需保留，请务必先在本地验证 HTTPS 能通（如 curl 访问一个 https 地址）。
+# ------------------------------------------------------------
 
-# 容器默认时区为UTC，如需使用上海时间请启用以下时区设置命令
-# RUN ln -sf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
-
-# 指定运行时的工作目录
+# 运行时工作目录
 WORKDIR /app
 
-# 将构建产物jar包拷贝到运行时目录中
-COPY --from=build /app/target/*.jar .
+# ------------------------------------------------------------
+# 【改动7】固定产物为 app.jar，解决 jar 名硬编码问题
+# 原写法 COPY target/*.jar . 后，start.sh 里写死了
+#   java -jar /app/StudyPlan-1.0-SNAPSHOT.jar
+# 一旦版本号变成 1.1-SNAPSHOT，启动就失败。
+# 这里直接重命名为 app.jar，start.sh 固定用 app.jar，与版本号解耦。
+# ------------------------------------------------------------
+COPY --from=build /app/target/*.jar /app/app.jar
 
-# 拷贝启动脚本
+# 拷贝启动脚本并赋可执行权限
 COPY start.sh /app/start.sh
 RUN chmod +x /app/start.sh
 
-# 暴露端口
-# 此处端口必须与「服务设置」-「流水线」以及「手动上传代码包」部署时填写的端口一致，否则会部署失败。
+# ------------------------------------------------------------
+# 【改动8】只暴露业务端口
+# 原写法 EXPOSE 80 + EXPOSE 6379：
+#   - 云托管/PaaS 只认一个业务端口，6379 暴露无意义且可能引起配置混淆
+#   - Redis 只需容器内 localhost 访问，不需要对外暴露
+# 这里只保留业务端口（按你实际应用监听端口填，常见 80 或 8080）。
+# 注意：此端口必须与「服务设置-流水线」及部署时填写的端口一致。
+# ------------------------------------------------------------
 EXPOSE 80
-EXPOSE 6379
 
-# 执行启动命令
+# 启动入口
 CMD ["/app/start.sh"]
