@@ -17,7 +17,8 @@ until redis-cli ping 2>/dev/null | grep -q PONG; do
 done
 
 # 后台启动 Spring Boot（用 app.jar 与版本号解耦）
-java -jar /app/app.jar &
+# 使用 prod profile 加载云环境配置
+java -Dspring.profiles.active=prod -jar /app/app.jar &
 JAVA_PID=$!
 
 # 【改进2】wait -n：等待「任意一个」子进程退出

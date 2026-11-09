@@ -18,11 +18,11 @@ spring:
       max-file-size: 10MB
       max-request-size: 10MB
 
-  # 数据源配置
+  # 数据源配置（具体 URL 由 profile 决定）
   datasource:
-    url: jdbc:mysql://localhost:3306/studyplan?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    url: ${DB_URL}
     username: ${DB_USERNAME:root}
-    password: ${DB_PASSWORD:7emAdKSb}
+    password: ${DB_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       minimum-idle: 5

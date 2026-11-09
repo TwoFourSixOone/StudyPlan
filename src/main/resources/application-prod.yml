@@ -1,0 +1,43 @@
+# =============================================
+# 智学伴（StudyMate）生产环境配置（腾讯云）
+# =============================================
+
+# 云环境变量（使用平台已有的 MYSQL_* 变量）
+# MYSQL_ADDRESS: 10.4.109.134:3306（内网地址）
+# MYSQL_USERNAME: root
+# MYSQL_PASSWORD: 7emAdKSb
+
+spring:
+  datasource:
+    url: jdbc:mysql://${MYSQL_ADDRESS}/studyplan?useUnicode=true&characterEncoding=UTF-8&serverTimezone=Asia/Shanghai&useSSL=true&allowPublicKeyRetrieval=true
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
+    hikari:
+      # 云数据库连接池优化
+      minimum-idle: 10
+      maximum-pool-size: 50
+      idle-timeout: 600000
+      connection-timeout: 30000
+      max-lifetime: 1800000
+
+# MyBatis-Plus 生产环境配置
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+# 日志配置
+logging:
+  level:
+    root: WARN
+    com.jiang: INFO
+
+# 线程池配置
+thread-pool:
+  ai:
+    core-size: 8
+    queue-capacity: 100
+    await-terminate-seconds: 30
+  exam-analysis:
+    core-size: 5
+    queue-capacity: 50
+    await-terminate-seconds: 60
