@@ -3,7 +3,18 @@ import { onLaunch } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 
+// 云托管环境 ID（与 request.js 中的 CLOUD_ENV 保持一致）
+const CLOUD_ENV = 'prod-d8g1ado543d76cfe4';
+
 onLaunch(() => {
+  // 初始化微信云开发（云托管必需）
+  if (wx.cloud) {
+    wx.cloud.init({
+      env: CLOUD_ENV,
+      traceUser: true
+    });
+  }
+
   const authStore = useAuthStore();
   const appStore = useAppStore();
 

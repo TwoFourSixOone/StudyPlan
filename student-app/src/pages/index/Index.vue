@@ -38,8 +38,8 @@
 import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
-import { useAuthGuard } from '@/utils/useAuthGuard.js';
-import { getGoalList } from '@/api/goal.js';
+import { useAuthGuard } from '@/utils/useAuthGuard';
+import { getGoalList } from '@/api/goal';
 import LoadingState from '@/components/LoadingState.vue';
 
 // ========== 登录态守卫 ==========

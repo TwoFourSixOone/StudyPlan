@@ -117,9 +117,9 @@
 import { ref, computed, onMounted } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAppStore } from '@/stores/app';
-import { useAuthGuard } from '@/utils/useAuthGuard.js';
-import { submitAnswer, getHomeworkByDate } from '@/api/homework.js';
-import { showSuccess } from '@/utils/message.js';
+import { useAuthGuard } from '@/utils/useAuthGuard';
+import { submitAnswer, getHomeworkByDate } from '@/api/homework';
+import { showSuccess } from '@/utils/message';
 
 // ========== 登录态守卫 ==========
 useAuthGuard();

@@ -99,7 +99,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { useAuthGuard } from '@/utils/useAuthGuard.js';
+import { useAuthGuard } from '@/utils/useAuthGuard';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
@@ -135,7 +135,7 @@ async function fetchErrorDetail(errorId) {
   try {
     // TODO: 后端需要提供单个错题详情的接口
     // 目前先用列表接口模拟，实际应该用 GET /api/error-questions/{errorId}
-    const { getErrorQuestions } = await import('@/api/error.js');
+    const { getErrorQuestions } = await import('@/api/error');
     const result = await getErrorQuestions({ page: 1, size: 100 });
     const errors = result?.records || [];
     errorDetail.value = errors.find(e => e.errorId === parseInt(errorId)) || null;

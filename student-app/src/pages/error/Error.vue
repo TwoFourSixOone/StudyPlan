@@ -88,8 +88,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useAppStore } from '@/stores/app';
-import { useAuthGuard } from '@/utils/useAuthGuard.js';
-import { getErrorQuestions, getErrorStatistics } from '@/api/error.js';
+import { useAuthGuard } from '@/utils/useAuthGuard';
+import { getErrorQuestions, getErrorStatistics } from '@/api/error';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
 

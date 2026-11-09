@@ -59,6 +59,7 @@ FROM eclipse-temurin:17-jre
 RUN apt-get update \
  && apt-get install -y --no-install-recommends \
     ca-certificates \
+    ca-certificates-java \
     redis-server \
  && rm -rf /var/lib/apt/lists/*
 
@@ -94,6 +95,9 @@ RUN echo "bind 0.0.0.0" >> /etc/redis/redis.conf \
 #     而不是切换 trustStore 路径
 # 如需保留，请务必先在本地验证 HTTPS 能通（如 curl 访问一个 https 地址）。
 # ------------------------------------------------------------
+
+# 设置 JVM 使用更新后的信任库（包含平台注入的 CA 证书）
+ENV JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts"
 
 # 运行时工作目录
 WORKDIR /app

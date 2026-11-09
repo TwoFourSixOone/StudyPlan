@@ -11,7 +11,8 @@
       "urlCheck": false,
       "es6": true,
       "postcss": true,
-      "minified": true
+      "minified": true,
+      "lazyCodeLoading": "requiredComponents"
     },
     "permission": {
       "scope.userLocation": {
@@ -21,7 +22,8 @@
     "usingComponents": true,
     "optimization": {
       "subPackages": true
-    }
+    },
+    "cloud": true
   },
   "h5": {
     "router": {

@@ -109,9 +109,9 @@
 import { ref, computed } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAppStore } from '@/stores/app';
-import { useAuthGuard } from '@/utils/useAuthGuard.js';
-import { getDashboard, getChangeHistory } from '@/api/mastery.js';
-import { formatDate } from '@/utils/date.js';
+import { useAuthGuard } from '@/utils/useAuthGuard';
+import { getDashboard, getChangeHistory } from '@/api/mastery';
+import { formatDate } from '@/utils/date';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
