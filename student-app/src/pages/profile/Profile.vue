@@ -278,7 +278,7 @@ import { useAuthGuard } from '@/utils/useAuthGuard';
 import { createGoal, getActiveGoals, getGoalList, completeGoal } from '@/api/goal';
 import { EXAM_UPLOAD_PATH } from '@/api/exam';
 import { getRecordList, getRecordDetail } from '@/api/record';
-import { triggerAdjustment, getAdjustmentHistory } from '@/api/plan';
+import { triggerAdjustment, getAdjustmentHistory, getDiffDetail, confirmDiff, rejectDiff } from '@/api/plan';
 import { uploadWithAuth } from '@/utils/upload';
 import { showSuccess, showError, showConfirm } from '@/utils/message';
 import { formatDate } from '@/utils/date';
@@ -614,14 +614,42 @@ async function handleTriggerAdjust() {
   const goal = activeGoalsList.value[0];
   adjustTriggering.value = true;
   try {
-    await triggerAdjustment(goal.goalId);
-    showSuccess('已触发计划调整');
+    const res = await triggerAdjustment(goal.goalId);
+    const diffId = res && (res.diffId || (res.data && res.data.diffId));
+    if (!diffId) {
+      showSuccess('已检查当前学习情况，暂无需要调整的内容');
+      return;
+    }
+
+    // 产品规则 #5：调整方案必须由学生确认后才生效
+    const detail = await getDiffDetail(diffId);
+    const confirmed = await showConfirm(buildAdjustSummary(detail));
+    if (confirmed) {
+      await confirmDiff(diffId);
+      showSuccess('调整已生效');
+    } else {
+      await rejectDiff(diffId);
+    }
     await fetchAdjustHistory();
   } catch (e) {
-    showError('触发失败：' + (e.message || '未知错误'));
+    showError('调整失败：' + (e.message || '未知错误'));
   } finally {
     adjustTriggering.value = false;
   }
+}
+
+/**
+ * 调整方案摘要：策略变更（日题量/暂缓知识点）与重排天数一起展示
+ */
+function buildAdjustSummary(detail) {
+  if (!detail) return '暂无调整内容';
+  const parts = [];
+  if (detail.reason) parts.push(detail.reason);
+  if (detail.dailyQuestionLimit) parts.push(`每日题量调整为 ${detail.dailyQuestionLimit} 题以内`);
+  if (detail.pausedKpIds && detail.pausedKpIds.length) parts.push(`暂缓 ${detail.pausedKpIds.length} 个知识点`);
+  const dateCount = (detail.modifiedDates || []).length;
+  if (dateCount) parts.push(`重排 ${dateCount} 天的作业`);
+  return parts.length ? parts.join('\n') : '暂无调整内容';
 }
 
 function actionLabel(action) {

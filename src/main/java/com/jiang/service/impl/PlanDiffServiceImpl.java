@@ -7,9 +7,11 @@ import com.jiang.dto.PlanDateModification;
 import com.jiang.dto.PlanDiffDTO;
 import com.jiang.dto.TriggerSignalDTO;
 import com.jiang.mapper.DailyPlanMapper;
+import com.jiang.mapper.LearningGoalMapper;
 import com.jiang.mapper.PlanAdjustmentDiffMapper;
 import com.jiang.mapper.PlanAdjustmentLogMapper;
 import com.jiang.model.entity.DailyPlan;
+import com.jiang.model.entity.LearningGoal;
 import com.jiang.model.entity.PlanAdjustmentDiff;
 import com.jiang.model.entity.PlanAdjustmentLog;
 import com.jiang.model.enums.PlanStatus;
@@ -49,6 +51,8 @@ public class PlanDiffServiceImpl implements PlanDiffService {
     private PlanAdjustmentLogMapper logMapper;
     @Autowired
     private DailyPlanMapper planMapper;
+    @Autowired
+    private LearningGoalMapper goalMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -94,29 +98,95 @@ public class PlanDiffServiceImpl implements PlanDiffService {
         // 修复 Sev-3 补充：从 diff 对象获取 tenantId，避免依赖 StudentContext（定时任务场景无 HTTP 上下文）
         String tenantId = diff.getTenantId();
 
-        // 修复 IMP-21：只更新未来日期的计划
-        for (PlanDateModification mod : planDiff.getModifiedDates()) {
+        // 产品规则 #5（B 方案）：策略字段先落到目标上——未来日期此时还没有 daily_plan 行，
+        // 只有目标能跨天承载"日题量上限 / 暂缓知识点"，由 02:00 每日生成读取生效
+        applyGoalStrategy(diff.getGoalId(), planDiff, tenantId);
+
+        // 修复 IMP-21：只更新未来日期、且尚未开始的计划
+        int applied = 0;
+        int skippedNoPlan = 0;
+        int skippedStarted = 0;
+        int skippedPast = 0;
+        List<PlanDateModification> mods = planDiff.getModifiedDates() == null
+                ? List.of() : planDiff.getModifiedDates();
+        for (PlanDateModification mod : mods) {
+            if (mod.getDate() == null) {
+                continue;
+            }
             if (mod.getDate().isBefore(today)) {
+                skippedPast++;
                 log.warn("跳过过去日期的计划修改: date={}", mod.getDate());
                 continue;
             }
             DailyPlan plan = planMapper.selectByGoalIdAndDate(diff.getGoalId(), tenantId, mod.getDate());
-            if (plan != null) {
-                plan.setContent(mod.getNewContent());
-                // v2 模板契约：newContent 为空数组表示该天需安排新知识点，
-                // 标记为 pending_generation 由出题 Agent 重新生成，避免学生看到空作业
-                plan.setStatus(isBlankContent(mod.getNewContent())
-                        ? PlanStatus.PENDING_GENERATION.getCode()
-                        : PlanStatus.PENDING.getCode());
-                planMapper.updateById(plan);
+            if (plan == null) {
+                // 不再静默跳过：该日尚无计划，重排意图由目标策略在生成时承接
+                skippedNoPlan++;
+                log.info("该日期尚无计划，调整意图将在生成时生效: date={}, reason={}",
+                        mod.getDate(), mod.getReason());
+                continue;
             }
+            // 学生已开始/已完成的计划不动（规则 #9：历史只读）
+            String status = plan.getStatus();
+            if (PlanStatus.IN_PROGRESS.getCode().equals(status)
+                    || PlanStatus.COMPLETED.getCode().equals(status)) {
+                skippedStarted++;
+                log.info("跳过已开始/已完成的计划: date={}, status={}", mod.getDate(), status);
+                continue;
+            }
+            plan.setContent(mod.getNewContent());
+            // v2 模板契约：newContent 为空数组表示该天需安排新知识点，
+            // 标记为 pending_generation 由出题 Agent 重新生成，避免学生看到空作业
+            plan.setStatus(isBlankContent(mod.getNewContent())
+                    ? PlanStatus.PENDING_GENERATION.getCode()
+                    : PlanStatus.PENDING.getCode());
+            planMapper.updateById(plan);
+            applied++;
         }
+
+        log.info("调整应用完成: goalId={}, 已更新={}, 无计划跳过={}, 已开始跳过={}, 过去日期跳过={}",
+                diff.getGoalId(), applied, skippedNoPlan, skippedStarted, skippedPast);
 
         diff.setStatus("confirmed");
         diff.setConfirmedAt(LocalDateTime.now());
         diffMapper.updateById(diff);
 
         saveAdjustmentLog(diff, "confirmed");
+    }
+
+    /**
+     * 把策略字段写入目标（产品规则 #5）
+     *
+     * <ul>
+     *   <li>dailyQuestionLimit：1-15，写入后由每日生成作为硬上限</li>
+     *   <li>pausedKpIds：全量替换；空数组表示清空暂缓</li>
+     * </ul>
+     */
+    private void applyGoalStrategy(Long goalId, PlanDiffDTO planDiff, String tenantId) {
+        if (planDiff.getDailyQuestionLimit() == null && planDiff.getPausedKpIds() == null) {
+            return;
+        }
+        LearningGoal goal = goalMapper.selectById(goalId);
+        if (goal == null || !tenantId.equals(goal.getTenantId())) {
+            log.warn("调整目标不存在或租户不匹配，跳过策略写入: goalId={}, tenantId={}", goalId, tenantId);
+            return;
+        }
+        if (planDiff.getDailyQuestionLimit() != null) {
+            goal.setDailyQuestionLimit(planDiff.getDailyQuestionLimit());
+        }
+        if (planDiff.getPausedKpIds() != null) {
+            try {
+                goal.setPausedKpIds(planDiff.getPausedKpIds().isEmpty()
+                        ? null
+                        : OBJECT_MAPPER.writeValueAsString(planDiff.getPausedKpIds()));
+            } catch (Exception e) {
+                throw new RuntimeException("暂缓知识点序列化失败", e);
+            }
+        }
+        goalMapper.updateById(goal);
+        log.info("调整策略已写入目标: goalId={}, dailyQuestionLimit={}, pausedKpCount={}",
+                goalId, planDiff.getDailyQuestionLimit(),
+                planDiff.getPausedKpIds() == null ? 0 : planDiff.getPausedKpIds().size());
     }
 
     /**

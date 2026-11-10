@@ -47,6 +47,19 @@ public class LearningGoal extends BaseEntity {
      * 学习方向描述
      */
     private String direction;
+    /**
+     * 每日题量上限（1-15；NULL = 默认 15）
+     *
+     * <p>产品规则 #5：SIG-3（连续未完成作业）时由计划调整下调，跨天生效。</p>
+     */
+    private Integer dailyQuestionLimit;
+
+    /**
+     * 本轮暂缓的知识点 ID（JSON 数组字符串；NULL = 不暂缓）
+     *
+     * <p>产品规则 #5：SIG-4（周期内覆盖不完）时由计划调整写入，生成新题时排除。</p>
+     */
+    private String pausedKpIds;
 
     /**
      * 开始日期

@@ -40,6 +40,21 @@ public class HomeworkQuotaCalculator {
                                              Set<String> errorKpIds,
                                              Map<String, BigDecimal> kpMasteryMap,
                                              Map<String, Integer> kpErrorCountMap) {
+        return calculate(dueErrorCount, errorKpIds, kpMasteryMap, kpErrorCountMap, DAILY_MAX);
+    }
+
+    /**
+     * 计算配额分配方案（带日题量上限）
+     *
+     * @param dailyQuestionLimit 日题量上限（产品规则 #5 调整策略），将被夹到 [1, DAILY_MAX]
+     */
+    public static QuotaAllocation calculate(int dueErrorCount,
+                                             Set<String> errorKpIds,
+                                             Map<String, BigDecimal> kpMasteryMap,
+                                             Map<String, Integer> kpErrorCountMap,
+                                             int dailyQuestionLimit) {
+        // 产品规则 #5：调整策略可下调日题量（15 → 10 → 8），极端模式同样受该上限约束
+        final int effectiveMax = Math.max(1, Math.min(DAILY_MAX, dailyQuestionLimit));
         // 前置防御（BLOCK-5）：校验 kpErrorCountMap 每个值 ≤ KP_MAX
         for (Map.Entry<String, Integer> entry : kpErrorCountMap.entrySet()) {
             if (entry.getValue() > KP_MAX) {
@@ -57,11 +72,11 @@ public class HomeworkQuotaCalculator {
         boolean degradedMode;
 
         // 1. 判断极端模式
-        if (dueErrorCount >= DAILY_MAX) {
+        if (dueErrorCount >= effectiveMax) {
             // 极端模式：错题独占全部配额
             extremeMode = true;
             degradedMode = true;
-            errorQuota = DAILY_MAX;
+            errorQuota = effectiveMax;
             similarQuota = 0;
             reviewQuota = 0;
             return new QuotaAllocation(errorQuota, similarQuota, reviewQuota,
@@ -70,7 +85,7 @@ public class HomeworkQuotaCalculator {
 
         extremeMode = false;
         errorQuota = dueErrorCount;
-        int remainingQuota = DAILY_MAX - errorQuota;
+        int remainingQuota = effectiveMax - errorQuota;
 
         // 2. P1 — 有错题知识点的举一反三
         // 按掌握度从低到高排序（优先分配薄弱知识点）

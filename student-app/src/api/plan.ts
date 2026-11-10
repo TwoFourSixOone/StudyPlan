@@ -25,3 +25,27 @@ export function triggerAdjustment(goalId: number): Promise<any> {
 export function getAdjustmentHistory(page: number = 1, size: number = 10): Promise<any> {
   return get('/student/plan/adjustments', { page, size });
 }
+
+/**
+ * 获取调整方案详情
+ * @param diffId 调整方案 ID
+ */
+export function getDiffDetail(diffId: number): Promise<any> {
+  return get(`/student/plan/diff/${diffId}`);
+}
+
+/**
+ * 确认调整方案（生效）
+ * @param diffId 调整方案 ID
+ */
+export function confirmDiff(diffId: number): Promise<void> {
+  return post(`/student/plan/diff/${diffId}/confirm`, {});
+}
+
+/**
+ * 忽略调整方案
+ * @param diffId 调整方案 ID
+ */
+export function rejectDiff(diffId: number): Promise<void> {
+  return post(`/student/plan/diff/${diffId}/reject`, {});
+}

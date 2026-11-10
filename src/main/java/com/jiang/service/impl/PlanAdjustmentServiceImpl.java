@@ -371,6 +371,8 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
             PlanDiffDTO planDiff = OBJECT_MAPPER.readValue(
                     diff.getDiffContent(), PlanDiffDTO.class);
             builder.modifiedDates(planDiff.getModifiedDates());
+            builder.dailyQuestionLimit(planDiff.getDailyQuestionLimit());
+            builder.pausedKpIds(planDiff.getPausedKpIds());
             builder.reason(planDiff.getReason());
         } catch (Exception e) {
             log.error("JSON deserialization failed: diffId={}", diff.getId(), e);

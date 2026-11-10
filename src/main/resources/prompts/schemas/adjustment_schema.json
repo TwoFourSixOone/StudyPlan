@@ -35,7 +35,18 @@
       "maxLength": 500,
       "description": "总体调整原因"
     },
-    "criticalErrorQuestionIds": {
+    "dailyQuestionLimit": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 15,
+      "description": "未来每日题量上限（1-15）。仅在学习懈怠或压力过大时下调；不调整则省略"
+    },
+    "pausedKpIds": {
+      "type": "array",
+      "maxItems": 20,
+      "items": { "type": "string" },
+      "description": "本轮暂缓的知识点 ID 列表（仅可来自未覆盖知识点清单）。进度风险时使用；不调整则省略"
+    },    "criticalErrorQuestionIds": {
       "type": "array",
       "items": {
         "type": "string"

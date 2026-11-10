@@ -187,7 +187,7 @@ public class AdjustmentAgentImpl implements AdjustmentAgent {
     private String loadPromptTemplate() {
         try {
             // v2：新增 {goalInfo}/{futurePlans}/{uncoveredKps} 占位符，注入真实数据
-            ClassPathResource resource = new ClassPathResource("prompts/versions/adjustment_v2.txt");
+            ClassPathResource resource = new ClassPathResource("prompts/versions/adjustment_v3.txt");
             try (InputStream is = resource.getInputStream()) {
                 return new String(is.readAllBytes());
             }
@@ -239,7 +239,28 @@ public class AdjustmentAgentImpl implements AdjustmentAgent {
 
             diff.setModifiedDates(modifiedDates);
 
-            log.info("调整 Agent 解析完成: reason={}, modifiedDates={}", diff.getReason(), modifiedDates.size());
+            // 产品规则 #5：策略字段（作用域是目标，跨天生效）
+            if (json.has("dailyQuestionLimit") && json.get("dailyQuestionLimit").isInt()) {
+                int limit = json.get("dailyQuestionLimit").asInt();
+                if (limit >= 1 && limit <= 15) {
+                    diff.setDailyQuestionLimit(limit);
+                } else {
+                    log.warn("dailyQuestionLimit 越界，忽略: {}", limit);
+                }
+            }
+            if (json.has("pausedKpIds") && json.get("pausedKpIds").isArray()) {
+                List<String> paused = new ArrayList<>();
+                for (JsonNode kp : json.get("pausedKpIds")) {
+                    if (kp.isTextual() && !kp.asText().isBlank()) {
+                        paused.add(kp.asText());
+                    }
+                }
+                diff.setPausedKpIds(paused);
+            }
+
+            log.info("调整 Agent 解析完成: reason={}, modifiedDates={}, dailyLimit={}, pausedKpCount={}",
+                    diff.getReason(), modifiedDates.size(), diff.getDailyQuestionLimit(),
+                    diff.getPausedKpIds() == null ? 0 : diff.getPausedKpIds().size());
             return diff;
         } catch (Exception e) {
             log.error("调整 Agent 输出解析失败: {}", e.getMessage(), e);

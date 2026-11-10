@@ -34,6 +34,15 @@ public class PlanDiffDetailVO {
     private List<PlanDateModification> modifiedDates;
 
     /** 调整原因 */
+    /**
+     * 日题量上限调整（null = 未调整；产品规则 #5）
+     */
+    private Integer dailyQuestionLimit;
+
+    /**
+     * 暂缓知识点 ID（null = 未调整；空数组 = 清空暂缓）
+     */
+    private List<String> pausedKpIds;
     private String reason;
 
     /** 过期时间 */
