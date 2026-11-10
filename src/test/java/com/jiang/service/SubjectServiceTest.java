@@ -97,12 +97,8 @@ class SubjectServiceTest {
     void should_returnEmptyList_when_noSubjectHasActiveKp() {
         when(knowledgePointMapper.selectMaps(any(QueryWrapper.class))).thenReturn(Collections.emptyList());
 
-        Subject math = new Subject();
-        math.setSubjectId(1L);
-        math.setName("数学");
-        math.setStage("高中");
-        when(subjectMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(Collections.singletonList(math));
-
+        // 聚合结果为空时 getAvailableSubjects 直接返回空列表，不会查询科目表，
+        // 因此不能再 stub subjectMapper.selectList（否则 Mockito 严格模式报 UnnecessaryStubbing）
         List<SubjectVO> result = subjectService.getAvailableSubjects();
 
         assertNotNull(result);

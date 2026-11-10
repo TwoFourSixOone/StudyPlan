@@ -17,6 +17,7 @@ import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.LearningGoalMapper;
 import com.jiang.mapper.QuestionBankMapper;
 import com.jiang.mapper.StudentKnowledgeStateMapper;
+import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.DailyPlan;
 import com.jiang.model.entity.GeneratedQuestion;
@@ -24,6 +25,7 @@ import com.jiang.model.entity.HomeworkSubmissionDetail;
 import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.LearningGoal;
 import com.jiang.model.entity.QuestionBank;
+import com.jiang.model.entity.Student;
 import com.jiang.model.entity.StudentKnowledgeState;
 import com.jiang.model.entity.Subject;
 import com.jiang.model.enums.PlanStatus;
@@ -52,6 +54,9 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -87,6 +92,8 @@ class HomeworkServiceTest {
     @Mock
     private StudentKnowledgeStateMapper stateMapper;
     @Mock
+    private StudentMapper studentMapper;
+    @Mock
     private QuestionGenAgent questionGenAgent;
     @Mock
     private HomeworkDegradationHandler degradationHandler;
@@ -105,6 +112,9 @@ class HomeworkServiceTest {
     private HomeworkServiceImpl homeworkService;
 
     private MockedStatic<StudentContext> mockedStudentContext;
+
+    /** 批改流程使用 aiExecutor 并行调用 AI，测试中注入真实线程池以覆盖该分支 */
+    private ThreadPoolExecutor aiExecutor;
 
     private static final Long STUDENT_ID = 1L;
     private static final String TENANT_ID = "default";
@@ -125,12 +135,20 @@ class HomeworkServiceTest {
         ReflectionTestUtils.setField(homeworkService, "transactionTemplate", txTemplate);
         // 配置 mock 立即执行回调（模拟事务提交）— lenient 避免非事务测试报 UnnecessaryStubbing
         lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(org.springframework.transaction.TransactionStatus.class));
+
+        // 批改流程通过 aiExecutor 提交并行任务，测试注入真实线程池
+        aiExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
+                new LinkedBlockingQueue<>());
+        ReflectionTestUtils.setField(homeworkService, "aiExecutor", aiExecutor);
     }
 
     @AfterEach
     void tearDown() {
         mockedStudentContext.close();
         StudentContext.clear();
+        if (aiExecutor != null) {
+            aiExecutor.shutdownNow();
+        }
     }
 
     // ==================== generateDailyHomework ====================
@@ -277,8 +295,7 @@ class HomeworkServiceTest {
     @Test
     @DisplayName("查询作业：无计划 → 返回空列表")
     void should_returnEmpty_when_noPlan() {
-        stubActiveGoal();
-        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
 
         List<HomeworkVO> result = homeworkService.getHomeworkByDate(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
         assertTrue(result.isEmpty());
@@ -287,9 +304,8 @@ class HomeworkServiceTest {
     @Test
     @DisplayName("查询作业：有计划 + 题库题 → 正确组装 HomeworkVO")
     void should_returnHomeworkList_when_planExists() {
-        stubActiveGoal();
         DailyPlan plan = buildDailyPlan(PlanStatus.PENDING);
-        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
 
         List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(1L, "bank", "review"));
         when(contentParser.parse(plan.getContent())).thenReturn(refs);
@@ -414,6 +430,7 @@ class HomeworkServiceTest {
     @DisplayName("批改作业：正常批改 → 更新掌握度 + 状态完成")
     void should_gradeSuccessfully_when_allValid() {
         stubActiveGoal();
+        stubStudentGrade();
         DailyPlan plan = buildDailyPlan(PlanStatus.IN_PROGRESS);
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
 
@@ -436,7 +453,6 @@ class HomeworkServiceTest {
         qb.setAnswer("A");
         qb.setKnowledgePointId("kp_001");
         when(questionBankMapper.selectBatchIds(anyCollection())).thenReturn(List.of(qb));
-        when(generatedQuestionMapper.selectBatchIds(anyCollection())).thenReturn(Collections.emptyList());
 
         when(submissionMapper.updateById(any(HomeworkSubmissionDetail.class))).thenReturn(1);
         when(dailyPlanMapper.updateStatusWithCheck(PLAN_ID, PlanStatus.COMPLETED.getCode(),
@@ -460,12 +476,11 @@ class HomeworkServiceTest {
     @DisplayName("批改作业：并发冲突 → 抛 HOMEWORK_CONCURRENT_CONFLICT")
     void should_throwConcurrentConflict_when_statusUpdateFails() {
         stubActiveGoal();
+        stubStudentGrade();
         DailyPlan plan = buildDailyPlan(PlanStatus.IN_PROGRESS);
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
         when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(Collections.emptyList());
         when(contentParser.parse(plan.getContent())).thenReturn(Collections.emptyList());
-        when(questionBankMapper.selectBatchIds(anyCollection())).thenReturn(Collections.emptyList());
-        when(generatedQuestionMapper.selectBatchIds(anyCollection())).thenReturn(Collections.emptyList());
 
         // 状态机校验失败（另一线程已更新）
         when(dailyPlanMapper.updateStatusWithCheck(PLAN_ID, PlanStatus.COMPLETED.getCode(),
@@ -484,6 +499,16 @@ class HomeworkServiceTest {
                 .startDate(LocalDate.now()).endDate(LocalDate.now().plusMonths(3))
                 .build();
         when(goalService.getActiveGoals(SUBJECT_ID)).thenReturn(java.util.List.of(goal));
+    }
+
+    /**
+     * 批改流程需要读取学生年级（用于 AI 解析），未 mock 时 studentMapper 为 null 会 NPE
+     */
+    private void stubStudentGrade() {
+        Student student = new Student();
+        student.setStudentId(STUDENT_ID);
+        student.setGrade("高中");
+        when(studentMapper.selectById(STUDENT_ID)).thenReturn(student);
     }
 
     private void stubSubject() {
