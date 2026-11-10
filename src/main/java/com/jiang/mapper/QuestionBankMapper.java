@@ -50,7 +50,7 @@ public interface QuestionBankMapper extends BaseMapper<QuestionBank> {
      * @return 题目列表（按 difficulty ASC, question_id ASC 排序）
      */
     @Select("SELECT question_id, knowledge_point_id, content, choices, answer, " +
-            "analysis, difficulty, type, tenant_id, create_time, update_time " +
+            "analysis, difficulty, type, grade, tenant_id, create_time, update_time " +
             "FROM question_bank " +
             "WHERE knowledge_point_id = #{kpId} AND tenant_id = #{tenantId} " +
             "ORDER BY difficulty ASC, question_id ASC")

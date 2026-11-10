@@ -54,6 +54,23 @@ public interface HomeworkSubmissionDetailMapper extends BaseMapper<HomeworkSubmi
                                                   @Param("tenantId") String tenantId);
 
     /**
+     * 查询学生已做过的题库题目 ID（产品规则 #3：题库优先抽题时需排除）
+     *
+     * <p>路径：homework_submission_detail → daily_plan → learning_goal → student_id</p>
+     *
+     * @param studentId 学生 ID
+     * @param tenantId  租户 ID
+     * @return 已做过的 question_bank.question_id 列表
+     */
+    @Select("SELECT DISTINCT hsd.question_id FROM homework_submission_detail hsd " +
+            "JOIN daily_plan dp ON dp.plan_id = hsd.plan_id AND dp.tenant_id = hsd.tenant_id " +
+            "JOIN learning_goal lg ON lg.goal_id = dp.goal_id " +
+            "WHERE lg.student_id = #{studentId} AND hsd.tenant_id = #{tenantId} " +
+            "AND hsd.question_source = 'bank'")
+    List<Long> selectAnsweredBankQuestionIds(@Param("studentId") Long studentId,
+                                              @Param("tenantId") String tenantId);
+
+    /**
      * 查询最近 N 天的作业提交正确率（SIG-1 信号检测）
      * 修复 H-5：增加 tenant_id 隔离
      *
