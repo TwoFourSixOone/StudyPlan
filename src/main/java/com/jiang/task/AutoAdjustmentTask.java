@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -49,7 +50,7 @@ public class AutoAdjustmentTask {
      */
     @Scheduled(cron = "0 30 2 * * ?", zone = "Asia/Shanghai")
     public void autoAdjust() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = BusinessDate.today();
         log.info("[AutoAdjust] 开始检测 {} 的计划调整信号", today);
 
         List<LearningGoal> goals;

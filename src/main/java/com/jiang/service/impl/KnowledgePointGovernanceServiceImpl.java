@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -318,7 +319,7 @@ public class KnowledgePointGovernanceServiceImpl implements KnowledgePointGovern
     public List<KnowledgePointOverdueVO> getOverdueKnowledgePoints() {
         String tenantId = StudentContext.getTenantId();
         // IMP-13：统一为 7 个自然日
-        LocalDate overdueDate = LocalDate.now().minusDays(7);
+        LocalDate overdueDate = BusinessDate.today().minusDays(7);
 
         List<KnowledgePoint> overdueList = knowledgePointMapper.selectOverdue(overdueDate, tenantId);
 
@@ -330,7 +331,7 @@ public class KnowledgePointGovernanceServiceImpl implements KnowledgePointGovern
                     // IMP-27：直接取 kp.getSubject()
                     vo.setSubjectName(kp.getSubject());
                     vo.setCreateTime(kp.getCreateTime());
-                    vo.setOverdueDays((int) ChronoUnit.DAYS.between(kp.getCreateTime().toLocalDate(), LocalDate.now()));
+                    vo.setOverdueDays((int) ChronoUnit.DAYS.between(kp.getCreateTime().toLocalDate(), BusinessDate.today()));
                     return vo;
                 })
                 .collect(Collectors.toList());

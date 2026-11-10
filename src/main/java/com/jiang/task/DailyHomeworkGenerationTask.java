@@ -14,6 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -47,7 +48,7 @@ public class DailyHomeworkGenerationTask {
      */
     @Scheduled(cron = "0 0 2 * * ?", zone = "Asia/Shanghai")
     public void generateTodayHomework() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = BusinessDate.today();
         log.info("[DailyHomework] 开始生成 {} 的每日作业", today);
 
         List<LearningGoal> goals;

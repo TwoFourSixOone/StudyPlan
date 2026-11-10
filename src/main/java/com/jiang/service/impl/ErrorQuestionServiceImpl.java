@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -372,7 +373,7 @@ public class ErrorQuestionServiceImpl implements ErrorQuestionService {
 
     @Override
     public ErrorQuestionStatisticsVO getStatistics(Long studentId, String tenantId) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = BusinessDate.today();
 
         // IMP-6: 返回 Map，Service 层转 VO
         Map<String, Object> stats = errorQuestionMapper.selectStatistics(

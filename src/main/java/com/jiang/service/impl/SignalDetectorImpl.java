@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -157,7 +158,7 @@ public class SignalDetectorImpl implements SignalDetector {
             return java.util.Optional.empty();
         }
 
-        long dRemain = ChronoUnit.DAYS.between(LocalDate.now(), goal.getEndDate());
+        long dRemain = ChronoUnit.DAYS.between(BusinessDate.today(), goal.getEndDate());
         if (dRemain <= 0) {
             return java.util.Optional.empty();
         }

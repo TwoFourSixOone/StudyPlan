@@ -43,6 +43,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -122,7 +123,7 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
     
         // 3. 修复 Issue-3：在 Service 层查询超 30 天错题，作为 Agent 输入传入
         List<ErrorQuestion> criticalErrors = errorQuestionMapper.selectCriticalErrors(
-                LocalDate.now().minusDays(30), tenantId);
+                BusinessDate.today().minusDays(30), tenantId);
         List<String> criticalErrorIds = criticalErrors.stream()
                 .map(e -> String.valueOf(e.getQuestionId()))
                 .collect(Collectors.toList());
@@ -177,7 +178,7 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
         }
 
         // 未来 7 天真实计划（含原 content，LLM 调整的唯一基础）
-        LocalDate today = LocalDate.now();
+        LocalDate today = BusinessDate.today();
         List<DailyPlan> plans = planMapper.selectPlansBetween(
                 goalId, tenantId, today, today.plusDays(FUTURE_PLAN_DAYS - 1));
         List<AdjustmentContextDTO.FuturePlanItem> futurePlans = plans.stream()

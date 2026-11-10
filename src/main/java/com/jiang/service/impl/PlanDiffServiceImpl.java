@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -94,7 +95,7 @@ public class PlanDiffServiceImpl implements PlanDiffService {
         } catch (Exception e) {
             throw new RuntimeException("JSON deserialization failed", e);
         }
-        LocalDate today = LocalDate.now();
+        LocalDate today = BusinessDate.today();
         // 修复 Sev-3 补充：从 diff 对象获取 tenantId，避免依赖 StudentContext（定时任务场景无 HTTP 上下文）
         String tenantId = diff.getTenantId();
 

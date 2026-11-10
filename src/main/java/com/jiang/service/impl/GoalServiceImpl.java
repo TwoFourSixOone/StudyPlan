@@ -29,6 +29,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.Collections;
@@ -120,7 +121,7 @@ public class GoalServiceImpl implements GoalService {
         if (!request.getEndDate().isAfter(request.getStartDate())) {
             throw new BusinessException(ErrorCodes.DATE_INVALID);
         }
-        if (request.getStartDate().isBefore(LocalDate.now())) {
+        if (request.getStartDate().isBefore(BusinessDate.today())) {
             throw new BusinessException(ErrorCodes.DATE_INVALID);
         }
 
@@ -230,7 +231,7 @@ public class GoalServiceImpl implements GoalService {
                 .eq(LearningGoal::getStudentId, studentId)
                 .eq(subjectId != null, LearningGoal::getSubjectId, subjectId)
                 .eq(LearningGoal::getStatus, GoalStatus.ACTIVE.getCode())
-                .ge(LearningGoal::getEndDate, LocalDate.now())
+                .ge(LearningGoal::getEndDate, BusinessDate.today())
                 .eq(LearningGoal::getTenantId, tenantId);
 
         wrapper.orderByDesc(LearningGoal::getCreateTime);
@@ -360,7 +361,7 @@ public class GoalServiceImpl implements GoalService {
         if (!GoalStatus.ACTIVE.getCode().equals(goal.getStatus())) {
             throw new BusinessException(ErrorCodes.GOAL_NOT_MODIFIABLE);
         }
-        if (goal.getEndDate().isBefore(LocalDate.now())) {
+        if (goal.getEndDate().isBefore(BusinessDate.today())) {
             throw new BusinessException(ErrorCodes.GOAL_EXPIRED);
         }
         return goal;

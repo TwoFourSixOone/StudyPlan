@@ -37,6 +37,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -569,7 +570,7 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     private void recordWrongAnswers(Long examPaperId, List<ExamQuestion> questions) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
-        LocalDate today = LocalDate.now();
+        LocalDate today = BusinessDate.today();
         for (ExamQuestion q : questions) {
             if (q.getIsCorrect() != null && q.getIsCorrect() == 0 && q.getKnowledgePointId() != null) {
                 // 考试错题入队
