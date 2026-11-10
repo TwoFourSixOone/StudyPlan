@@ -11,6 +11,9 @@ import org.springframework.context.event.EventListener;
  * <p>注意：{@code @MapperScan("com.jiang.mapper")} 统一由 {@code MybatisPlusConfig} 配置，
  * 启动类不重复添加，避免 Mapper 重复扫描产生 WARN。</p>
  *
+ * <p>{@code @EnableScheduling} 放在 {@code SchedulingConfig} 中并排除 test profile，
+ * 避免单元测试启动定时任务（Redis / Agent 外部依赖）。</p>
+ *
  * @author StudyMate Team
  * @since 2026-10-30
  */

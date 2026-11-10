@@ -42,9 +42,9 @@ public class DailyHomeworkGenerationTask {
     private HomeworkService homeworkService;
 
     /**
-     * 每天凌晨 2 点生成当日作业
+     * 每天凌晨 2 点生成当日作业（显式指定时区，避免服务器默认 UTC 导致跑到北京时间 10:00）
      */
-    @Scheduled(cron = "0 0 2 * * ?")
+    @Scheduled(cron = "0 0 2 * * ?", zone = "Asia/Shanghai")
     public void generateTodayHomework() {
         LocalDate today = LocalDate.now();
         log.info("[DailyHomework] 开始生成 {} 的每日作业", today);
