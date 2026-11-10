@@ -9,6 +9,7 @@ import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.util.DailyPlanContentParser;
 import com.jiang.common.util.GradeMatcher;
+import com.jiang.common.util.LlmTextSanitizer;
 import com.jiang.common.util.HomeworkQuotaCalculator;
 import com.jiang.common.util.SimilarityDetector;
 import com.jiang.dto.DailyPlanQuestionRef;
@@ -1257,7 +1258,8 @@ public class HomeworkServiceImpl implements HomeworkService {
                     .replace("{correctAnswer}", correctAnswer != null ? correctAnswer : "暂无")
                     .replace("{studentAnswer}", studentAnswer != null ? studentAnswer : "暂无");
 
-            return agentScopeClient.call(prompt);
+            // 隐性约定 #24：解析以纯文本渲染，需清洗 LaTeX / Markdown 标记
+            return LlmTextSanitizer.sanitize(agentScopeClient.call(prompt));
         } catch (Exception e) {
             log.warn("AI 生成题目解析失败: questionId={}, error={}", questionContent, e.getMessage());
             return null;
