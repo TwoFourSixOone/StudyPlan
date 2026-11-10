@@ -63,15 +63,33 @@ class DailyHomeworkGenerationTaskTest {
     }
 
     @Test
-    @DisplayName("当日计划已存在 → 跳过，不覆盖")
-    void should_skip_when_planAlreadyExists() {
+    @DisplayName("当日计划已生成题目 → 跳过，不覆盖")
+    void should_skip_when_planAlreadyGenerated() {
         when(learningGoalMapper.selectList(any())).thenReturn(List.of(buildGoal(10L, 1L, 100L)));
+        DailyPlan generated = new DailyPlan();
+        generated.setStatus("pending");
+        generated.setContent("[{\"questionId\":1}]");
         when(dailyPlanMapper.selectByGoalIdAndDate(eq(10L), eq(TENANT_ID), any(LocalDate.class)))
-                .thenReturn(new DailyPlan());
+                .thenReturn(generated);
 
         task.generateTodayHomework();
 
         verifyNoInteractions(homeworkService);
+    }
+
+    @Test
+    @DisplayName("当日只有计划骨架（pending_generation）→ 继续出题")
+    void should_generate_when_onlySkeletonExists() {
+        when(learningGoalMapper.selectList(any())).thenReturn(List.of(buildGoal(10L, 1L, 100L)));
+        DailyPlan skeleton = new DailyPlan();
+        skeleton.setStatus("pending_generation");
+        skeleton.setContent("[]");
+        when(dailyPlanMapper.selectByGoalIdAndDate(eq(10L), eq(TENANT_ID), any(LocalDate.class)))
+                .thenReturn(skeleton);
+
+        task.generateTodayHomework();
+
+        verify(homeworkService).generateDailyHomework(eq(1L), eq(TENANT_ID), eq(100L), any(LocalDate.class));
     }
 
     @Test

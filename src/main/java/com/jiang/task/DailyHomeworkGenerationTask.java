@@ -6,6 +6,7 @@ import com.jiang.mapper.LearningGoalMapper;
 import com.jiang.model.entity.DailyPlan;
 import com.jiang.model.entity.LearningGoal;
 import com.jiang.model.enums.GoalStatus;
+import com.jiang.model.enums.PlanStatus;
 import com.jiang.security.StudentContext;
 import com.jiang.service.HomeworkService;
 import lombok.extern.slf4j.Slf4j;
@@ -77,9 +78,11 @@ public class DailyHomeworkGenerationTask {
             Long subjectId = goal.getSubjectId();
 
             try {
-                // 幂等：当日计划已存在则跳过（不覆盖已作答/进行中的作业）
+                // 幂等：当日"已生成题目"的计划才跳过。
+                // 计划骨架（pending_generation，content 为空）必须继续出题，否则骨架会让任务永远跳过
                 DailyPlan existing = dailyPlanMapper.selectByGoalIdAndDate(goal.getGoalId(), tenantId, today);
-                if (existing != null) {
+                if (existing != null
+                        && !PlanStatus.PENDING_GENERATION.getCode().equals(existing.getStatus())) {
                     skipped++;
                     continue;
                 }
