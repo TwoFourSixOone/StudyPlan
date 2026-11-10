@@ -178,20 +178,9 @@ CREATE TABLE IF NOT EXISTS `generated_question` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='Agent 生成新题表';
 
 -- 计划调整日志表（只读不删）
-CREATE TABLE IF NOT EXISTS `plan_adjustment_log` (
-    `adjustment_id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '调整 ID',
-    `goal_id` BIGINT NOT NULL COMMENT '目标 ID',
-    `trigger_signals` JSON DEFAULT NULL COMMENT '触发信号列表',
-    `diff_content` JSON DEFAULT NULL COMMENT '计划 diff 内容',
-    `status` VARCHAR(20) NOT NULL DEFAULT 'pending' COMMENT '状态：pending / confirmed / rejected',
-    `confirmed_at` DATETIME DEFAULT NULL COMMENT '确认时间',
-    `tenant_id` VARCHAR(50) NOT NULL DEFAULT 'default' COMMENT '租户 ID',
-    `create_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
-    `update_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-    PRIMARY KEY (`adjustment_id`),
-    INDEX `idx_goal` (`tenant_id`, `goal_id`),
-    INDEX `idx_status` (`tenant_id`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='计划调整日志表（只读不删）';
+-- 注意：该表最终结构（含 diff_id / action / action_at）由 V7__plan_adjustment.sql 创建。
+-- V1 不再重复建表，否则全新库按 V1→V13 顺序执行时 V7 会因「table already exists」失败。
+-- 对应实体：com.jiang.model.entity.PlanAdjustmentLog
 
 -- =============================================
 -- 5. 学习记录表（规则 #9）— 只读不删
@@ -368,7 +357,6 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- DROP TABLE IF EXISTS `exam_analysis_result`;
 -- DROP TABLE IF EXISTS `assessment_result`;
 -- DROP TABLE IF EXISTS `homework_submission_detail`;
--- DROP TABLE IF EXISTS `plan_adjustment_log`;
 -- DROP TABLE IF EXISTS `generated_question`;
 -- DROP TABLE IF EXISTS `daily_plan`;
 -- DROP TABLE IF EXISTS `learning_goal`;
