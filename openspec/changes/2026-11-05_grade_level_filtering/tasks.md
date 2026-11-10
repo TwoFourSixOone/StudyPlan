@@ -3,7 +3,24 @@
 > **Change 名称**：`2026-11-05_grade_level_filtering`
 > **创建日期**：2026-11-05
 > **版本**：草案 v1
-> **状态**：待确认
+> **状态**：未开始（待确认；截至 2026-11-10 无任何代码落地）
+
+---
+
+## 状态校准（2026-11-10）
+
+本 change 仍停留在草案阶段，未进入 apply。核对当前代码库：
+
+| 本 change 的产出 | 现状 |
+|------|------|
+| `GradeMatcher` 工具类 | 不存在（全库无匹配） |
+| `knowledge_point.grade_range` 列 | 不存在（`V1__init_schema.sql` 无该字段，也无新增脚本） |
+| `question_bank.grade` 列 | 不存在（同上；仅 `student.grade` 存在） |
+| 出题/评测的年级过滤 | 未实现 |
+| 个人中心展示年级 | ✅ 已实现（`Profile.vue` 读取 `studentInfo.grade`） |
+
+> 结论：verify 时除「个人中心展示年级」外，其余任务均无可核对实现，属正常未开工，不是工件与实现偏离。开工前需确认 Task 1 的 DDL 由谁审批（`src/main/resources/db/` 为受保护区域）。
+
 
 ---
 

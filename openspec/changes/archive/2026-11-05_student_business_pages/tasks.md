@@ -3,7 +3,37 @@
 > **Change 名称**：`2026-11-05_student_business_pages`  
 > **创建日期**：2026-11-05  
 > **版本**：草案 v3（二次审查修正版）  
-> **状态**：Task 1-5 已完成，待 Task 6 联调测试
+> **状态**：Task 1-6 全部完成（联调通过，2026-11-10）
+
+---
+
+## 任务完成情况（2026-11-10 联调后校准）
+
+| 任务 | 状态 | 说明 |
+|------|------|------|
+| Task 1 API + Store + 基础设施 | ✅ | 8 个 `api/*.ts`、`stores/{app,auth}.ts`、`utils/upload.ts`、`utils/useAuthGuard.ts` |
+| Task 2a 首页骨架 | ✅ | 范围收窄为「目标总览」（见偏差 5）；proposal 已同步更新 |
+| Task 2b 作答交互 | ✅（改址） | 落在 `pages/homework-detail/HomeworkDetail.vue`，`submitAnswer` |
+| Task 2c 批改结果 | ✅（改址） | 落在 `pages/homework/Homework.vue`，`gradeHomework` |
+| Task 3 作业页 | ✅ | 日期切换、空态生成、批改；比原计划多承担批改职责 |
+| Task 4 掌握度看板 | ✅ | dashboard + 变更历史上拉分页（每页 10） |
+| Task 5 个人中心 | ✅ | 目标增删、试卷上传、学习记录、计划调整、登出 |
+| Task 6 联调测试 | ✅ | 编译通过 + 真机逐页验证（含 401 自动重登、Tab 间 `currentDate` 同步） |
+
+---
+
+## 工件与实现的偏差说明（2026-11-10 校准）
+
+> 本节记录本文件成文后代码的实际走向，供 verify 阶段对照，不覆盖原有任务描述。
+
+1. **文件后缀变更**：Task 1-5 原文按 `.js` 书写（`composables/useAuthGuard.js`、`stores/app.js`、`api/goal.js` 等），实际实现已统一迁移为 TypeScript，对应文件为**同名 `.ts`**（`utils/useAuthGuard.ts`、`stores/app.ts`、`api/*.ts`）。此外 `useAuthGuard` 最终落在 `utils/` 而非 `composables/`，`composables/useAuthGuard.ts` 为未被引用的重复文件，**已于 2026-11-10 删除**（评审项 R3）。
+2. **范围内实际超出 3 个页面**：实现过程中新增了错题本（`pages/error`）、错题详情（`pages/error-detail`）、学习记录列表（`pages/record-list`），以及答题详情（`pages/homework-detail`）。这 4 个页面**不在本 change 的 proposal 范围内**，已由 `archive/2026-11-09_error_detail_and_record_pages` 承接（已归档），本 change 的验收范围仍为 4 个 TabBar 页面 + 登录页。
+3. **隐性约定编号更正**：原文引用的「隐性约定 #7 JWT 登录态」在 `docs/architecture/implicit-contracts.md` 中不存在（该文件编号缺 #5–#8）。正确出处为**产品规则 #7**（学生登录态与数据隔离）与**隐性约定 #15**（管理端 JWT 鉴权）。
+4. **接口参数以代码为准**：`GET /api/homework/by-date`、`POST /api/homework/grade` 实际均需 `subjectId` 入参，proposal §3 的接口清单未体现该参数。
+5. **首页职责收窄（2026-11-10 决策）**：Task 2a/2b/2c 原计划让首页承载「作业列表 + 逐题作答 + 提交 + 批改」，实现时拆到了「作业 Tab（列表 + 生成 + 批改）」与「答题详情页（逐题作答 + 提交）」。经评审确认**接受现状**：首页只做目标总览，proposal §2/§3 已同步更新。理由：首页首屏放作业会与「作业」Tab 重复，且答题需独立页面承载进度与题号。
+6. **环境地址去硬编码（R4）**：`utils/request.ts` 的本地后端地址与云托管地址改由 `.env.development` / `.env.production` 注入（模板见 `.env.example`），`VITE_USE_LOCAL` 从此真正生效（此前注释写了但代码未读取）。
+7. **首页目标查询口径（R6）**：由 `getGoalList(1, 50)` + 前端过滤 `status === 'active'`，改为直接调 `getActiveGoals()`，避免目标超过 50 条时漏数据。
+
 
 ---
 

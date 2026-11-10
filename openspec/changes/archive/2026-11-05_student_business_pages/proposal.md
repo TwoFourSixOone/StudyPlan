@@ -17,7 +17,7 @@
 ## 2. 核心目标
 
 1. 学生登录后能设定学习目标（选科目 + 设目标）
-2. 首页展示每日计划与作业，支持逐题作答与提交
+2. 首页做目标总览；作业 Tab 展示每日作业并触发批改，答题详情页完成逐题作答与提交
 3. 掌握度看板展示知识点掌握度与变更历史
 4. 个人中心展示用户信息、试卷上传入口、学习记录、计划调整
 5. 所有页面复用已建好的 `utils/request.js`（JWT 注入、401 重登、错误去重）
@@ -30,8 +30,9 @@
 
 | 页面 | Tab | 功能点 | 后端 API |
 |------|-----|--------|----------|
-| **首页 Index** | 首页 | 活跃目标展示（目标名、科目、剩余天数）、每日作业列表、逐题作答、提交答案、批改结果 | `GET /api/student/goal/active`、`GET /api/homework/by-date`、`POST /api/homework/submit`、`POST /api/homework/grade` |
-| **作业 Homework** | 作业 | 按日期浏览作业、题目详情（含已答/已批改状态）、生成每日作业 | `GET /api/homework/by-date`、`POST /api/homework/generate` |
+| **首页 Index** | 首页 | 活跃目标总览（目标名、科目、剩余天数）。**首页不承载作业作答**，作业相关交互在「作业」Tab 与答题详情页 | `GET /api/student/goal/active` |
+| **作业 Homework** | 作业 | 按日期浏览作业、生成每日作业、触发批改并展示批改结果 | `GET /api/homework/by-date`、`POST /api/homework/generate`、`POST /api/homework/grade` |
+| **答题详情 HomeworkDetail** | 作业子页 | 逐题作答、提交单题答案 | `GET /api/homework/by-date`、`POST /api/homework/submit` |
 | **看板 Mastery** | 看板 | 掌握度列表（按科目筛选）、知识点变更历史（分页） | `GET /api/student/mastery/dashboard`、`GET /api/student/mastery/history/{kpId}` |
 | **我的 Profile** | 我的 | 用户信息、科目列表、学习目标管理（创建/列表/结束）、试卷上传、学习记录（列表+详情）、计划调整（触发+历史）、登出 | `GET /api/auth/current`、`GET /api/student/subject`、`POST/GET /api/student/goal`、`POST /api/student/exam/upload`、`GET /api/student/records`、`GET /api/student/records/{type}/{id}`、`POST /api/student/plan/adjust`、`GET /api/student/plan/adjustments`、`authStore.logout()` |
 

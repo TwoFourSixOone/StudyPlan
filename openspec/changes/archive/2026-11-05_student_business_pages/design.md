@@ -31,8 +31,9 @@ student-app/src/
 │   └── app.js              # 新增，全局状态（选中科目、日期等）
 ├── pages/
 │   ├── login/Login.vue     # 已有，登录页
-│   ├── index/Index.vue     # 改造，首页（目标+作业）
-│   ├── homework/Homework.vue  # 改造，作业页
+│   ├── index/Index.vue     # 改造，首页（活跃目标总览）
+│   ├── homework/Homework.vue  # 改造，作业页（列表 + 生成 + 批改）
+│   ├── homework-detail/HomeworkDetail.vue  # 新增，答题详情（逐题作答 + 提交）
 │   ├── mastery/Mastery.vue    # 改造，掌握度看板
 │   └── profile/Profile.vue    # 改造，个人中心
 └── components/             # 已有通用组件
@@ -81,7 +82,7 @@ export function useAuthGuard() {
 
 **原则：只共享筛选参数（currentDate、currentSubjectId），不共享业务数据对象。**
 
-- 首页和作业页都读取 app store 的 `currentDate` 和 `currentSubjectId`，但各自调用 `GET /api/homework/by-date` 获取数据
+- 作业页与答题详情页都读取 app store 的 `currentDate` 和 `currentSubjectId`，各自调用 `GET /api/homework/by-date` 获取数据；首页只查活跃目标，不参与作业数据流
 - 好处：避免缓存一致性问题（提交答案后无需手动同步两份数据）
 - 代价：切换 Tab 时多一次请求（可接受，数据量小）
 
@@ -94,7 +95,10 @@ export function useAuthGuard() {
 import { useAuthStore } from '@/stores/auth';
 import { showError } from '@/utils/message.js';
 
-const BASE_URL = 'http://localhost:80/api';
+// 与 request.ts 共用同一套环境变量（.env.development / .env.production）
+const UPLOAD_BASE_URL = USE_LOCAL
+  ? import.meta.env.VITE_API_BASE_URL
+  : import.meta.env.VITE_CLOUD_BASE_URL + '/api';
 
 /**
  * 带 JWT 认证的文件上传（含 401 自动重登 + 单次重试）
@@ -112,7 +116,7 @@ function _doUpload(url, filePath, name, formData, isRetry) {
   return new Promise((resolve, reject) => {
     const authStore = useAuthStore();
     uni.uploadFile({
-      url: BASE_URL + url,
+      url: UPLOAD_BASE_URL + url,
       filePath,
       name,
       formData,
@@ -180,7 +184,7 @@ function _doUpload(url, filePath, name, formData, isRetry) {
 | 隐性约定 #1 统一响应结构 | 所有 API 通过 `request.js` 调用，自动解析 `Result<T>` |
 | 隐性约定 #7 JWT 登录态 | 所有页面通过 `useAuthGuard()` composable 统一校验 |
 | 隐性约定 #18 `api/` 目录异常 | API 文件放 `src/api/` 目录；若编译报错则移至 `utils/`（同 request.js 处理） |
-| 隐性约定 #19 完整 URL | `request.js` BASE_URL = `http://localhost:80/api` |
+| 隐性约定 #19 完整 URL | 请求与上传均拼完整 URL；地址由 `.env.*` 注入（`VITE_API_BASE_URL` / `VITE_CLOUD_BASE_URL`），源码不再硬编码 |
 | 产品规则 #3 分页参数从 1 开始 | 列表页分页默认 `page=1` |
 
 ---
