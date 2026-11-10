@@ -30,6 +30,7 @@ import com.jiang.model.entity.StudentKnowledgeState;
 import com.jiang.model.entity.Subject;
 import com.jiang.model.enums.PlanStatus;
 import com.jiang.security.StudentContext;
+import com.jiang.service.impl.BankQuestionPicker;
 import com.jiang.service.impl.HomeworkServiceImpl;
 import com.jiang.vo.GradeResultVO;
 import com.jiang.vo.GoalVO;
@@ -104,6 +105,8 @@ class HomeworkServiceTest {
     private ErrorQuestionService errorQuestionService;
     @Mock
     private SimilarQuestionService similarQuestionService;
+    @Mock
+    private BankQuestionPicker bankQuestionPicker;
     @Mock
     private ErrorQuestionMapper errorQuestionMapper;
     @Mock
@@ -213,6 +216,123 @@ class HomeworkServiceTest {
         verify(dailyPlanMapper).updateContentAndStatus(
                 eq(PLAN_ID), anyString(), eq(PlanStatus.PENDING.getCode()),
                 eq(PlanStatus.PENDING_GENERATION.getCode()), eq(TENANT_ID));
+    }
+
+    @Test
+    @DisplayName("生成作业：科目无已启用知识点 → SUBJECT_NO_ACTIVE_KP，且不写空作业")
+    void should_throwNoActiveKp_when_noActiveKnowledgePoint() {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of());
+        // 知识点全部处于 pending_review（未校对）→ 查询已启用知识点返回空
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class))).thenReturn(List.of());
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
+        assertEquals(ErrorCodes.SUBJECT_NO_ACTIVE_KP.getCode(), ex.getCode());
+        verify(dailyPlanMapper, never()).insert(any(DailyPlan.class));
+    }
+
+    // ==================== 题库优先（产品规则 #3） ====================
+    @Test
+    @DisplayName("题库优先：知识回顾命中 1 道题库题，Agent 只补剩余数量")
+    void should_preferBankQuestions_when_reviewQuotaPartiallyFilled() {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of(buildStudentState("kp_001", new BigDecimal("0.5"))));
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(List.of(buildKnowledgePoint("kp_001")));
+        when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
+                .thenReturn(Collections.emptyMap());
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(Collections.emptyList());
+
+        // 题库命中 1 道
+        QuestionBank bankQuestion = new QuestionBank();
+        bankQuestion.setQuestionId(99L);
+        bankQuestion.setKnowledgePointId("kp_001");
+        when(bankQuestionPicker.pick(eq("kp_001"), eq(TENANT_ID), eq(15),
+                nullable(Integer.class), nullable(String.class), anySet()))
+                .thenReturn(List.of(bankQuestion));
+
+        // Agent 只补 14 道
+        List<DailyPlanQuestionRef> agentRefs = List.of(new DailyPlanQuestionRef(2L, "bank", "review"));
+        when(questionGenAgent.generate(anyList(), eq(14)))
+                .thenReturn(new QuestionGenAgent.QuestionGenResult(agentRefs, Collections.emptyList()));
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DailyPlanQuestionRef>> refsCaptor = ArgumentCaptor.forClass(List.class);
+        when(contentParser.serialize(refsCaptor.capture())).thenReturn("[]");
+
+        doAnswer(invocation -> {
+            DailyPlan p = invocation.getArgument(0);
+            p.setPlanId(PLAN_ID);
+            return 1;
+        }).when(dailyPlanMapper).insert(any(DailyPlan.class));
+        when(dailyPlanMapper.updateContentAndStatus(eq(PLAN_ID), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(1);
+
+        assertDoesNotThrow(() -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
+
+        verify(questionGenAgent).generate(anyList(), eq(14));
+        List<DailyPlanQuestionRef> serialized = refsCaptor.getValue();
+        assertTrue(serialized.stream().anyMatch(r -> Long.valueOf(99L).equals(r.getQuestionId())
+                        && "bank".equals(r.getQuestionSource())
+                        && "review".equals(r.getTaskType())),
+                "题库命中的题目应以 bank/review 写入计划");
+    }
+
+    // ==================== 调整策略（产品规则 #5） ====================
+
+    @Test
+    @DisplayName("调整策略：暂缓知识点不参与新题，其余知识点正常出题")
+    void should_excludePausedKp_when_goalHasPausedKps() {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+
+        LearningGoal goal = new LearningGoal();
+        goal.setGoalId(GOAL_ID);
+        goal.setTenantId(TENANT_ID);
+        goal.setPausedKpIds("[\"kp_002\"]");
+        when(learningGoalMapper.selectById(GOAL_ID)).thenReturn(goal);
+
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of(
+                        buildStudentState("kp_001", new BigDecimal("0.5")),
+                        buildStudentState("kp_002", new BigDecimal("0.5"))));
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(List.of(buildKnowledgePoint("kp_001"), buildKnowledgePoint("kp_002")));
+        when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
+                .thenReturn(Collections.emptyMap());
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(Collections.emptyList());
+
+        QuestionGenAgent.QuestionGenResult agentResult = new QuestionGenAgent.QuestionGenResult(
+                List.of(new DailyPlanQuestionRef(1L, "bank", "review")), Collections.emptyList());
+        when(questionGenAgent.generate(anyList(), anyInt())).thenReturn(agentResult);
+        when(contentParser.serialize(anyList())).thenReturn("[]");
+
+        doAnswer(invocation -> {
+            DailyPlan p = invocation.getArgument(0);
+            p.setPlanId(PLAN_ID);
+            return 1;
+        }).when(dailyPlanMapper).insert(any(DailyPlan.class));
+        when(dailyPlanMapper.updateContentAndStatus(eq(PLAN_ID), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(1);
+
+        homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<KnowledgePointWithMastery>> kpCaptor = ArgumentCaptor.forClass(List.class);
+        verify(questionGenAgent).generate(kpCaptor.capture(), anyInt());
+        List<KnowledgePointWithMastery> passed = kpCaptor.getValue();
+        assertEquals(1, passed.size(), "暂缓知识点不应传给出题 Agent");
+        assertEquals("kp_001", passed.get(0).getKnowledgePointId());
     }
 
     // ==================== 年级过滤（产品规则 #11） ====================

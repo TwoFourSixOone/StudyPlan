@@ -19,7 +19,7 @@
 | # | 步骤 | 入口 | 主要落库 | 规则 |
 |---|------|------|---------|------|
 | 1 | 设定目标 | `POST /api/student/goal`（`GoalServiceImpl`） | `learning_goal` | #1；**前置：已设置年级**（规则 #11，未设置返回 `GRADE_NOT_SET`） |
-| 2 | 生成每日作业 | `POST /api/homework/generate`（`HomeworkServiceImpl.generateDailyHomework`） | `daily_plan`、`generated_question` | #3 |
+| 2 | 生成每日作业 | `POST /api/homework/generate`（`HomeworkServiceImpl.generateDailyHomework`） | `daily_plan`、`generated_question`（题库题引用 `question_bank`） | #3（题目**题库优先**，不足由 Agent 补足） |
 | 3 | 逐题作答 | `POST /api/homework/submit`（`submitAnswer`） | `homework_submission_detail` | #9 |
 | 4 | 批改 | `POST /api/homework/grade`（`gradeHomework`） | 同上 + `error_question` + 掌握度 | #2/#3 |
 | 5 | 专项评测 | `AssessmentController`（`AssessmentServiceImpl`） | `assessment_result`、`assessment_submission_detail` | #9 |
@@ -30,7 +30,7 @@
 
 ## 2. 每日作业生成
 
-`generateDailyHomework(studentId, tenantId, subjectId, planDate)` 的顺序：
+**触发方式**：① 每天 02:00 定时任务 `DailyHomeworkGenerationTask` 为所有进行中目标自动生成（幂等：当日计划已存在则跳过）；② 学生手动 `POST /api/homework/generate` 兜底。`generateDailyHomework(studentId, tenantId, subjectId, planDate)` 的顺序：
 
 1. 取该科目活跃目标（无目标 → `LEARNING_GOAL_NOT_FOUND`）
 2. 查当日计划：已是 `in_progress` / `completed` → `HOMEWORK_ALREADY_EXISTS`
@@ -45,9 +45,10 @@
    - 到期错题 ≥ 15 → **极端模式**：错题独占全部配额，举一反三与知识回顾当日全部暂停
    - 有错题的知识点至少 1 道举一反三；配额不足按掌握度从低到高分配
    - 无错题知识点按掌握度从低到高分配常规新题
-6. 调用 `QuestionGenAgent.generate(kpList, quota)`（`kpList` 为过滤后的集合）；失败重试 2 次后走 `HomeworkDegradationHandler` 生成默认题单，降级取题同样按年级过滤
-7. 举一反三新题写 `generated_question`（题干相似度 > 0.8 触发重试，最多 2 次）
-8. 序列化题目引用到 `daily_plan.content`，状态 `pending_generation` → `pending`（`updateContentAndStatus` 带状态机校验）
+6. **题库优先抽题**（`BankQuestionPicker`，产品规则 #3）：举一反三与知识回顾先按"同知识点 + 年级匹配 + 排除该学生已做过"从 `question_bank` 抽题；命中题以 `questionSource=bank` 直接引用，**不足部分**再走 Agent
+7. 调用 `QuestionGenAgent.generate(kpList, 剩余配额)`（`kpList` 为过滤后的集合）；失败重试 2 次后走 `HomeworkDegradationHandler` 生成默认题单，降级取题同样按年级过滤
+8. Agent 补足的新题写 `generated_question`（题干相似度 > 0.8 触发重试，最多 2 次）
+9. 序列化题目引用到 `daily_plan.content`，状态 `pending_generation` → `pending`（`updateContentAndStatus` 带状态机校验）
 
 > `daily_plan` 按 `goal_id + plan_date + tenant_id` 唯一，并发插入靠唯一索引 + 捕获 `DuplicateKeyException` 兜底（隐性约定 #11）。
 

@@ -64,6 +64,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -89,6 +90,12 @@ import java.util.stream.Collectors;
 public class HomeworkServiceImpl implements HomeworkService {
 
     private static final int MAX_AGENT_RETRIES = 2;
+
+    /**
+     * 题库抽题的跨天去重窗口（天）：排除近 N 天已排入计划的题库题。
+     * 题库每知识点仅 4 道题，窗口过大会让第二天起几乎无题可抽。
+     */
+    private static final int BANK_DEDUPE_WINDOW_DAYS = 7;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private TransactionTemplate transactionTemplate;
@@ -107,6 +114,12 @@ public class HomeworkServiceImpl implements HomeworkService {
 
     @Autowired
     private HomeworkSubmissionDetailMapper submissionMapper;
+
+    /**
+     * 题库抽题器（产品规则 #3：题库优先，不足由 Agent 补足）
+     */
+    @Autowired
+    private BankQuestionPicker bankQuestionPicker;
 
     @Autowired
     private GeneratedQuestionMapper generatedQuestionMapper;
@@ -188,6 +201,14 @@ public class HomeworkServiceImpl implements HomeworkService {
                         .eq(KnowledgePoint::getTenantId, tenantId)
         );
 
+        // 产品规则 #1 边界 / #8：待校对的知识点不参与出题。
+        // 若该科目没有已启用知识点，必须显式报错——否则会静默写入一条 content=[] 的空作业
+        if (activeKps.isEmpty()) {
+            log.warn("科目无已启用知识点，无法生成作业: subjectId={}, subjectName={}, tenantId={}",
+                    subjectId, subjectName, tenantId);
+            throw new BusinessException(ErrorCodes.SUBJECT_NO_ACTIVE_KP);
+        }
+
         // 5. 构造 Agent 输入：合并掌握度状态 + 知识点信息
         Map<String, StudentKnowledgeState> stateMap = states.stream()
                 .collect(Collectors.toMap(StudentKnowledgeState::getKnowledgePointId, s -> s, (a, b) -> a));
@@ -221,9 +242,75 @@ public class HomeworkServiceImpl implements HomeworkService {
                 kpList = gradeFiltered;
             }
         }
+        // 5.2 调整策略（产品规则 #5）：目标上的"暂缓知识点"与"日题量上限"
+        LearningGoal goalEntity = learningGoalMapper.selectById(goalId);
+        Integer dailyQuestionLimit = goalEntity == null ? null : goalEntity.getDailyQuestionLimit();
+        List<String> pausedKpIds = parsePausedKpIds(goalEntity == null ? null : goalEntity.getPausedKpIds());
+        if (!pausedKpIds.isEmpty()) {
+            List<KnowledgePointWithMastery> afterPaused = kpList.stream()
+                    .filter(kp -> !pausedKpIds.contains(kp.getKnowledgePointId()))
+                    .collect(Collectors.toList());
+            if (afterPaused.isEmpty()) {
+                // 暂缓后无题可出 → 忽略暂缓（与年级过滤的整体降级策略一致）
+                log.warn("暂缓知识点导致无可出题知识点，忽略暂缓: goalId={}, paused={}", goalId, pausedKpIds);
+            } else {
+                log.info("暂缓知识点生效: goalId={}, 知识点 {} -> {}", goalId, kpList.size(), afterPaused.size());
+                kpList = afterPaused;
+            }
+        }
+
         Set<String> gradeKpIds = kpList.stream()
                 .map(KnowledgePointWithMastery::getKnowledgePointId)
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        // 5.2 题库优先（产品规则 #3）：准备知识点年级范围映射 + 学生已做过的题库题
+        Map<String, String> kpGradeRangeMap = new HashMap<>();
+        for (KnowledgePointWithMastery kp : kpList) {
+            kpGradeRangeMap.put(kp.getKnowledgePointId(), kp.getGradeRange());
+        }
+        Set<Long> usedBankQuestionIds = new LinkedHashSet<>();
+        try {
+            List<Long> answered = submissionMapper.selectAnsweredBankQuestionIds(studentId, tenantId);
+            if (answered != null) {
+                usedBankQuestionIds.addAll(answered);
+            }
+        } catch (Exception e) {
+            // 查询失败不阻塞出题：退化为仅本次计划内去重
+            log.error("查询学生已做题库题失败，仅按本次计划去重: studentId={}, error={}", studentId, e.getMessage());
+        }
+
+        // 5.3 排除近 7 天已排进计划、但还未作答的题库题
+        // 否则连续两天生成（中间没做作业）会抽到同一道题
+        try {
+            LocalDate windowStart = planDate.minusDays(BANK_DEDUPE_WINDOW_DAYS);
+            List<DailyPlan> recentPlans = dailyPlanMapper.selectList(
+                    new LambdaQueryWrapper<DailyPlan>()
+                            .eq(DailyPlan::getTenantId, tenantId)
+                            .eq(DailyPlan::getGoalId, goalId)
+                            .ge(DailyPlan::getPlanDate, windowStart)
+            );
+            int parsedPlans = 0;
+            for (DailyPlan recent : recentPlans) {
+                if (recent.getContent() == null || recent.getContent().isEmpty()) {
+                    continue;
+                }
+                List<DailyPlanQuestionRef> refs = contentParser.parse(recent.getContent());
+                if (refs == null) {
+                    continue;
+                }
+                for (DailyPlanQuestionRef ref : refs) {
+                    if ("bank".equals(ref.getQuestionSource()) && ref.getQuestionId() != null) {
+                        usedBankQuestionIds.add(ref.getQuestionId());
+                    }
+                }
+                parsedPlans++;
+            }
+            if (parsedPlans > 0) {
+                log.info("近 {} 天计划已占用 {} 道题库题，本次抽题将排除", BANK_DEDUPE_WINDOW_DAYS, usedBankQuestionIds.size());
+            }
+        } catch (Exception e) {
+            log.warn("查询近 {} 天计划失败，题库去重退化为仅按已作答题目: {}", BANK_DEDUPE_WINDOW_DAYS, e.getMessage());
+        }
 
         // 6. T-06 Part A: 查询到期错题（在 Agent 调用前）
         // BLOCK-H: 内部已按 knowledge_point_id 分组，每组 ≤ 3 道
@@ -270,7 +357,8 @@ public class HomeworkServiceImpl implements HomeworkService {
 
         HomeworkQuotaCalculator.QuotaAllocation quota;
         try {
-            quota = HomeworkQuotaCalculator.calculate(dueErrorCount, quotaErrorKpIds, kpMasteryMap, kpErrorCountMap);
+            int dailyLimit = dailyQuestionLimit == null ? HomeworkQuotaCalculator.DAILY_MAX : dailyQuestionLimit;
+         quota = HomeworkQuotaCalculator.calculate(dueErrorCount, quotaErrorKpIds, kpMasteryMap, kpErrorCountMap, dailyLimit);
         } catch (IllegalArgumentException e) {
             log.error("配额计算入参非法: {}", e.getMessage());
             throw new BusinessException(ErrorCodes.BAD_REQUEST,
@@ -309,6 +397,20 @@ public class HomeworkServiceImpl implements HomeworkService {
                     continue;
                 }
 
+                // 产品规则 #3：优先从题库抽题（排除本次已选 + 历史已做），不足部分再由 Agent 生成
+                List<QuestionBank> bankPicked = bankQuestionPicker.pick(
+                        kpId, tenantId, targetCount, studentGrade,
+                        kpGradeRangeMap.get(kpId), usedBankQuestionIds);
+                for (QuestionBank picked : bankPicked) {
+                    similarRefs.add(new DailyPlanQuestionRef(picked.getQuestionId(), "bank", "similar"));
+                    usedBankQuestionIds.add(picked.getQuestionId());
+                }
+                int remaining = targetCount - bankPicked.size();
+                if (remaining <= 0) {
+                    log.info("知识点 {} 举一反三全部命中题库（{} 道）", kpId, bankPicked.size());
+                    continue;
+                }
+
                 // 查询代表错题（最早到期的 1 道）
                 QuestionBank sourceQuestion = errorQuestionMapper.selectSourceQuestionForSimilar(
                         studentId, tenantId, kpId, planDate);
@@ -324,7 +426,7 @@ public class HomeworkServiceImpl implements HomeworkService {
                     List<GeneratedQuestion> similarQuestions = similarQuestionService.generateWithValidation(
                             studentId, tenantId, kpId,
                             kpMasteryMap.getOrDefault(kpId, BigDecimal.ZERO),
-                            sourceQuestion, targetCount,
+                            sourceQuestion, remaining,
                             sourceQuestion.getContent(), existingContents);
 
                     for (GeneratedQuestion gq : similarQuestions) {
@@ -346,17 +448,43 @@ public class HomeworkServiceImpl implements HomeworkService {
                         kp -> kp.getMasteryScore() != null ? kp.getMasteryScore() : BigDecimal.ZERO))
                 .collect(Collectors.toList());
 
-        List<DailyPlanQuestionRef> reviewRefs = null;
-        List<GeneratedQuestion> reviewGeneratedQuestions = null;
+        List<DailyPlanQuestionRef> reviewRefs;
+        List<GeneratedQuestion> reviewGeneratedQuestions;
         int reviewQuota = quota.getReviewQuota();
 
+        // 产品规则 #3：知识回顾同样题库优先——按掌握度升序逐知识点取题，直到配额用尽
+        List<DailyPlanQuestionRef> reviewBankRefs = new ArrayList<>();
         if (!reviewKpList.isEmpty() && reviewQuota > 0) {
+            int remainingReviewQuota = reviewQuota;
+            for (KnowledgePointWithMastery kp : reviewKpList) {
+                if (remainingReviewQuota <= 0) {
+                    break;
+                }
+                List<QuestionBank> picked = bankQuestionPicker.pick(
+                        kp.getKnowledgePointId(), tenantId, remainingReviewQuota, studentGrade,
+                        kp.getGradeRange(), usedBankQuestionIds);
+                for (QuestionBank qb : picked) {
+                    reviewBankRefs.add(new DailyPlanQuestionRef(qb.getQuestionId(), "bank", "review"));
+                    usedBankQuestionIds.add(qb.getQuestionId());
+                    remainingReviewQuota--;
+                }
+            }
+            if (!reviewBankRefs.isEmpty()) {
+                log.info("知识回顾题库命中 {} 道，剩余 {} 道由 Agent 生成",
+                        reviewBankRefs.size(), Math.max(0, reviewQuota - reviewBankRefs.size()));
+            }
+        }
+
+        int agentReviewQuota = reviewQuota - reviewBankRefs.size();
+        if (!reviewKpList.isEmpty() && reviewQuota > 0 && agentReviewQuota > 0) {
             Exception lastAgentException = null;
+            List<DailyPlanQuestionRef> agentRefs = null;
+            List<GeneratedQuestion> agentGenerated = null;
             for (int attempt = 0; attempt < MAX_AGENT_RETRIES; attempt++) {
                 try {
-                    QuestionGenAgent.QuestionGenResult result = questionGenAgent.generate(reviewKpList, reviewQuota);
-                    reviewRefs = result.getRefs();
-                    reviewGeneratedQuestions = result.getGeneratedQuestions();
+                    QuestionGenAgent.QuestionGenResult result = questionGenAgent.generate(reviewKpList, agentReviewQuota);
+                    agentRefs = result.getRefs();
+                    agentGenerated = result.getGeneratedQuestions();
                     break;
                 } catch (Exception e) {
                     log.warn("知识回顾 Agent 出题失败 (attempt {}/{}): {}", attempt + 1, MAX_AGENT_RETRIES, e.getMessage());
@@ -364,7 +492,7 @@ public class HomeworkServiceImpl implements HomeworkService {
                 }
             }
 
-            if (reviewRefs == null) {
+            if (agentRefs == null) {
                 log.info("知识回顾 Agent 重试耗尽，触发降级策略");
                 degradationHandler.logDegradation(
                         "subjectId=" + subjectId + ", date=" + planDate + ", type=review",
@@ -372,16 +500,20 @@ public class HomeworkServiceImpl implements HomeworkService {
                                 + ": " + lastAgentException.getMessage() : "unknown",
                         tenantId);
                 try {
-                    reviewRefs = degradationHandler.generateDefaultPlan(reviewKpList, tenantId, studentGrade);
-                    reviewGeneratedQuestions = List.of();
+                    agentRefs = degradationHandler.generateDefaultPlan(reviewKpList, tenantId, studentGrade);
+                    agentGenerated = List.of();
                 } catch (Exception e) {
                     log.error("知识回顾降级也失败: {}", e.getMessage());
-                    reviewRefs = List.of();
-                    reviewGeneratedQuestions = List.of();
+                    agentRefs = List.of();
+                    agentGenerated = List.of();
                 }
             }
+
+            reviewRefs = new ArrayList<>(reviewBankRefs);
+            reviewRefs.addAll(agentRefs);
+            reviewGeneratedQuestions = new ArrayList<>(agentGenerated);
         } else {
-            reviewRefs = List.of();
+            reviewRefs = new ArrayList<>(reviewBankRefs);
             reviewGeneratedQuestions = List.of();
         }
 
@@ -1040,6 +1172,24 @@ public class HomeworkServiceImpl implements HomeworkService {
     private String getStudentGrade(Long studentId) {
         Student student = studentMapper.selectById(studentId);
         return student != null ? student.getGrade() : null;
+    }
+
+    /**
+     * 解析目标上的暂缓知识点 JSON 数组（产品规则 #5）
+     *
+     * <p>解析失败时返回空列表：暂缓是优化项，不能因此阻塞出题。</p>
+     */
+    private List<String> parsePausedKpIds(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> ids = OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {});
+            return ids == null ? List.of() : ids;
+        } catch (Exception e) {
+            log.warn("解析暂缓知识点失败，忽略: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /**
