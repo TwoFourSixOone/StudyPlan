@@ -91,13 +91,21 @@ public class SignalDetectorImpl implements SignalDetector {
     private java.util.Optional<TriggerSignalDTO> detectSIG2(Long goalId, String tenantId) {
         double masteryDropThreshold = signalConfig.getSig2().getMasteryDrop();
 
-        // 查询最近一次考试导致的掌握度下降
-        Double maxDrop = changeLogMapper.selectMaxMasteryDropByGoalId(goalId, tenantId);
+        // 修复 BadSqlGrammar：考试与目标无直接外键关联（exam_paper 无 goal_id 列），
+        // 从 goal 取学生 + 科目维度查询考试导致的掌握度下降
+        LearningGoal goal = goalMapper.selectById(goalId);
+        if (goal == null || goal.getStudentId() == null || goal.getSubjectId() == null) {
+            return java.util.Optional.empty();
+        }
 
-        if (maxDrop != null && maxDrop > masteryDropThreshold) {
+        // MIN(delta) 返回负数（如 -0.3），需取绝对值与阈值比较，否则信号永不触发
+        Double maxDrop = changeLogMapper.selectMaxMasteryDropByStudentAndSubject(
+                goal.getStudentId(), goal.getSubjectId(), tenantId);
+
+        if (maxDrop != null && Math.abs(maxDrop) > masteryDropThreshold) {
             TriggerSignalDTO signal = new TriggerSignalDTO();
             signal.setSignalType("SIG-2");
-            signal.setDescription(String.format("掌握度单次下降 %.2f，超过阈值 %.2f", maxDrop, masteryDropThreshold));
+            signal.setDescription(String.format("掌握度单次下降 %.2f，超过阈值 %.2f", Math.abs(maxDrop), masteryDropThreshold));
             return java.util.Optional.of(signal);
         }
         return java.util.Optional.empty();
@@ -145,7 +153,7 @@ public class SignalDetectorImpl implements SignalDetector {
      */
     private java.util.Optional<TriggerSignalDTO> detectSIG4(Long goalId, String tenantId) {
         LearningGoal goal = goalMapper.selectById(goalId);
-        if (goal == null) {
+        if (goal == null || goal.getStudentId() == null || goal.getSubjectId() == null) {
             return java.util.Optional.empty();
         }
 
@@ -158,8 +166,10 @@ public class SignalDetectorImpl implements SignalDetector {
         double capDay = signalConfig.getSig4().getCapDay();
         double eff = signalConfig.getSig4().getEfficiency();
 
+        // 修复 BadSqlGrammar：goal 与知识点无直接关联表，按学生 + 科目维度统计未覆盖知识点
         // 修复 BLOCK-14：kUncovered = 从未学习过（masteryScore IS NULL）
-        long kUncovered = knowledgeStateMapper.countUncoveredByGoalId(goalId, tenantId);
+        long kUncovered = knowledgeStateMapper.countUncoveredByStudentAndSubject(
+                goal.getStudentId(), goal.getSubjectId(), tenantId);
 
         if (dRemain * capDay * eff < kUncovered) {
             TriggerSignalDTO signal = new TriggerSignalDTO();

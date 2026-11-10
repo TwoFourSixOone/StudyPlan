@@ -140,5 +140,5 @@ agent:
     model: qwen3.8-flash
     api-key: ${AGENT_API_KEY}
     endpoint: ${AGENT_ENDPOINT:https://ws-bvy3j3i349eo1sjs.cn-beijing.maas.aliyuncs.com}
-    timeout: 30s
+    timeout: 120s
     max-retries: 2

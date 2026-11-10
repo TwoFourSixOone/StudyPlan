@@ -1,6 +1,8 @@
 package com.jiang.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.jiang.dto.PlanDateModification;
 import com.jiang.dto.PlanDiffDTO;
 import com.jiang.dto.TriggerSignalDTO;
@@ -10,6 +12,7 @@ import com.jiang.mapper.PlanAdjustmentLogMapper;
 import com.jiang.model.entity.DailyPlan;
 import com.jiang.model.entity.PlanAdjustmentDiff;
 import com.jiang.model.entity.PlanAdjustmentLog;
+import com.jiang.model.enums.PlanStatus;
 import com.jiang.service.PlanDiffService;
 import com.jiang.security.StudentContext;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +36,10 @@ import java.util.stream.Collectors;
 @Slf4j
 public class PlanDiffServiceImpl implements PlanDiffService {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
+            // 修复序列化失败：PlanDiffDTO 含 LocalDate，裸 ObjectMapper 缺 JSR310 模块
+            .registerModule(new JavaTimeModule())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
     // 修复 Issue-5：定时任务无 StudentContext，使用显式常量（Demo 阶段固定租户）
     private static final String DEFAULT_TENANT_ID = "default";
 
@@ -97,7 +103,11 @@ public class PlanDiffServiceImpl implements PlanDiffService {
             DailyPlan plan = planMapper.selectByGoalIdAndDate(diff.getGoalId(), tenantId, mod.getDate());
             if (plan != null) {
                 plan.setContent(mod.getNewContent());
-                plan.setStatus("pending");
+                // v2 模板契约：newContent 为空数组表示该天需安排新知识点，
+                // 标记为 pending_generation 由出题 Agent 重新生成，避免学生看到空作业
+                plan.setStatus(isBlankContent(mod.getNewContent())
+                        ? PlanStatus.PENDING_GENERATION.getCode()
+                        : PlanStatus.PENDING.getCode());
                 planMapper.updateById(plan);
             }
         }
@@ -107,6 +117,13 @@ public class PlanDiffServiceImpl implements PlanDiffService {
         diffMapper.updateById(diff);
 
         saveAdjustmentLog(diff, "confirmed");
+    }
+
+    /**
+     * 判断 newContent 是否为空（null / 空白 / 空数组），表示该天无可复用题目引用
+     */
+    private boolean isBlankContent(String newContent) {
+        return newContent == null || newContent.isBlank() || "[]".equals(newContent.trim());
     }
 
     /**

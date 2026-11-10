@@ -89,19 +89,28 @@ public interface MasteryChangeLogMapper extends BaseMapper<MasteryChangeLog> {
             @Param("kpIds") List<String> kpIds);
 
     /**
-     * 查询指定目标的最大掌握度下降值（SIG-2 信号检测）
-     * 修复 H-3：增加 tenant_id 隔离
+     * 查询学生指定科目考试导致的最大掌握度下降值（SIG-2 信号检测）
+     * <p>
+     * 修复 BadSqlGrammar：原 SQL 引用 exam_paper 表不存在的 exam_paper_id/goal_id 列。
+     * 实际表结构：exam_paper 主键为 id，无 goal_id，与目标无直接关联；
+     * 改为按目标所属学生 + 科目维度关联（source_id = exam_paper.id），
+     * change_type = 'exam' 限定考试来源，保持 tenant_id 隔离。
      *
-     * @param goalId   目标 ID
-     * @param tenantId 租户 ID
-     * @return 最大下降值（负数表示下降）
+     * @param studentId 学生 ID
+     * @param subjectId 科目 ID
+     * @param tenantId  租户 ID
+     * @return 最大下降值（负数表示下降，如 -0.3；无记录时返回 null）
      */
     @Select("SELECT MIN(delta) FROM mastery_change_log " +
-            "WHERE source_id IN (" +
-            "  SELECT exam_paper_id FROM exam_paper WHERE goal_id = #{goalId} AND tenant_id = #{tenantId}" +
-            ") AND delta < 0 AND tenant_id = #{tenantId}")
-    Double selectMaxMasteryDropByGoalId(@Param("goalId") Long goalId,
-                                        @Param("tenantId") String tenantId);
+            "WHERE change_type = 'exam' AND delta < 0 " +
+            "AND student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "AND source_id IN (" +
+            "  SELECT id FROM exam_paper WHERE student_id = #{studentId} " +
+            "  AND subject_id = #{subjectId} AND tenant_id = #{tenantId}" +
+            ")")
+    Double selectMaxMasteryDropByStudentAndSubject(@Param("studentId") Long studentId,
+                                                   @Param("subjectId") Long subjectId,
+                                                   @Param("tenantId") String tenantId);
 
     /**
      * 按知识点查询掌握度变更历史（学习记录-掌握度变更）

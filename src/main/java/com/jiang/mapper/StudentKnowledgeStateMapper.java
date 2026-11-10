@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 学生知识点掌握度状态 Mapper 接口
@@ -50,21 +51,56 @@ public interface StudentKnowledgeStateMapper extends BaseMapper<StudentKnowledge
             @Param("includeDisabled") boolean includeDisabled);
 
     /**
-     * 统计指定目标下从未学习过的知识点数量（SIG-4 信号检测）
-     * 修复 BLOCK-14：kUncovered = masteryScore IS NULL（从未学习）
-     * 修复 H-4：增加 tenant_id 隔离
+     * 统计学生指定科目下从未学习过的知识点数量（SIG-4 信号检测）
+     * <p>
+     * 修复 BadSqlGrammar：原 SQL 引用不存在的 learning_goal_knowledge 表。
+     * 实际关联链：goal.subject_id → subject.name → knowledge_point.subject（名称关联）；
+     * kUncovered 修复 BLOCK-14：LEFT JOIN 状态表后取 mastery_score IS NULL（无记录）或 0（未学）
      *
-     * @param goalId   目标 ID
-     * @param tenantId 租户 ID
+     * @param studentId 学生 ID
+     * @param subjectId 科目 ID（goal 的科目）
+     * @param tenantId  租户 ID
      * @return 未覆盖知识点数量
      */
-    @Select("SELECT COUNT(*) FROM student_knowledge_state s " +
-            "JOIN learning_goal_knowledge g ON s.knowledge_point_id = g.knowledge_point_id " +
-            "WHERE g.goal_id = #{goalId} " +
-            "AND s.tenant_id = #{tenantId} " +
+    @Select("SELECT COUNT(*) FROM knowledge_point kp " +
+            "JOIN subject sub ON sub.subject_id = #{subjectId} " +
+            "AND sub.name = kp.subject AND sub.tenant_id = #{tenantId} " +
+            "LEFT JOIN student_knowledge_state s " +
+            "ON s.knowledge_point_id = kp.knowledge_point_id " +
+            "AND s.student_id = #{studentId} AND s.tenant_id = #{tenantId} " +
+            "WHERE kp.status = 'active' AND kp.tenant_id = #{tenantId} " +
             "AND (s.mastery_score IS NULL OR s.mastery_score = 0)")
-    long countUncoveredByGoalId(@Param("goalId") Long goalId,
-                                 @Param("tenantId") String tenantId);
+    long countUncoveredByStudentAndSubject(@Param("studentId") Long studentId,
+                                          @Param("subjectId") Long subjectId,
+                                          @Param("tenantId") String tenantId);
+
+    /**
+     * 查询学生指定科目下未覆盖知识点清单（ID + 名称，计划调整 Agent 上下文）
+     * <p>
+     * 与 countUncoveredByStudentAndSubject 同一关联链，LIMIT 截断到最近需要覆盖的数量，
+     * 避免未覆盖知识点过多（如 269 个）导致 Prompt 膨胀。
+     *
+     * @param studentId 学生 ID
+     * @param subjectId 科目 ID
+     * @param tenantId  租户 ID
+     * @param limit     截断条数
+     * @return 未覆盖知识点 ID + 名称列表
+     */
+    @Select("SELECT kp.knowledge_point_id AS kpId, kp.name AS kpName " +
+            "FROM knowledge_point kp " +
+            "JOIN subject sub ON sub.subject_id = #{subjectId} " +
+            "AND sub.name = kp.subject AND sub.tenant_id = #{tenantId} " +
+            "LEFT JOIN student_knowledge_state s " +
+            "ON s.knowledge_point_id = kp.knowledge_point_id " +
+            "AND s.student_id = #{studentId} AND s.tenant_id = #{tenantId} " +
+            "WHERE kp.status = 'active' AND kp.tenant_id = #{tenantId} " +
+            "AND (s.mastery_score IS NULL OR s.mastery_score = 0) " +
+            "ORDER BY kp.knowledge_point_id ASC " +
+            "LIMIT #{limit}")
+    List<Map<String, Object>> selectUncoveredKpList(@Param("studentId") Long studentId,
+                                                   @Param("subjectId") Long subjectId,
+                                                   @Param("tenantId") String tenantId,
+                                                   @Param("limit") int limit);
 
     /**
      * 按学生和科目查询掌握度状态（用于停用知识点展示规则）

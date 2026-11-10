@@ -72,8 +72,30 @@ public interface DailyPlanMapper extends BaseMapper<DailyPlan> {
                                @Param("tenantId") String tenantId);
 
     /**
+     * 查询指定日期范围内目标下的计划列表（计划调整 Agent 上下文）
+     *
+     * @param goalId    目标 ID
+     * @param tenantId 租户 ID
+     * @param startDate 开始日期（含）
+     * @param endDate   结束日期（含）
+     * @return 计划列表（按日期升序）
+     */
+    @Select("SELECT plan_id, goal_id, plan_date, content, status, " +
+            "tenant_id, create_time, update_time " +
+            "FROM daily_plan " +
+            "WHERE goal_id = #{goalId} AND tenant_id = #{tenantId} " +
+            "AND plan_date BETWEEN #{startDate} AND #{endDate} " +
+            "ORDER BY plan_date ASC")
+    List<DailyPlan> selectPlansBetween(@Param("goalId") Long goalId,
+                                      @Param("tenantId") String tenantId,
+                                      @Param("startDate") LocalDate startDate,
+                                      @Param("endDate") LocalDate endDate);
+
+    /**
      * 查询最近 30 天内未完成作业的日期列表（SIG-3 信号检测）
      * 修复 Sev-6：返回日期列表，由 Service 层计算最大连续天数
+     * 修复值域错误：PlanStatus 无 'incomplete' 值（实际为 pending/pending_generation/in_progress/completed/cancelled），
+     * 未完成 = 已过去且状态仍非 completed/cancelled；今天的计划进行中不算未完成
      *
      * @param goalId   目标 ID
      * @param tenantId 租户 ID
@@ -82,7 +104,8 @@ public interface DailyPlanMapper extends BaseMapper<DailyPlan> {
     @Select("SELECT plan_date FROM daily_plan " +
             "WHERE goal_id = #{goalId} " +
             "AND tenant_id = #{tenantId} " +
-            "AND status = 'incomplete' " +
+            "AND status IN ('pending', 'pending_generation', 'in_progress') " +
+            "AND plan_date < CURDATE() " +
             "AND plan_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY) " +
             "ORDER BY plan_date ASC")
     List<LocalDate> selectIncompleteDays(@Param("goalId") Long goalId,

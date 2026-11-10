@@ -106,6 +106,7 @@ public class AgentScopeClient {
                 .build();
 
         log.debug("Agent API 调用开始: promptLength={}", prompt.length());
+        log.debug("Agent API 完整 Prompt:\n{}", prompt);
 
         Flux<ChatResponse> responseFlux = model.stream(List.of(userMsg), null, null);
         List<ChatResponse> responses = responseFlux.collectList().block();
