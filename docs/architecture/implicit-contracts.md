@@ -172,12 +172,23 @@
 - **发现时间**：2026-11-10（规划细化线程池最初建在独立的 `PlanningConfig` 中，被要求合并回 `ThreadPoolConfig`）
 - **正确做法**：在 `ThreadPoolConfig` 中加一段 `@Bean(name = "xxxExecutor", destroyMethod = "")` + `createExecutor(...)`，并在 `executorShutdownManager` 的 `Map.of(...)` 中登记
 
+---
 
+### 约定 #23：送给 LLM 的年级必须用中文名称
+
+- **约定内容**：
+    - 落库与接口仍用 **1–12 数字编码**（产品规则 #11）
+    - 拼 Prompt 时**必须转成中文年级名**（"高三"），统一走 `GradeMatcher.displayName(raw)`，**禁止**把 `"12"` 直接塞进 Prompt
+    - 未设置年级时传"当前"，不要传空串或 `null`
+- **影响范围**：`analysis_gen_v1.txt`、`grading_v1.txt` 及后续任何含 `{grade}` 占位符的 Prompt
+- **违反后果**：模型对 `"12"` 易按"12 年级"（美式学制）理解，解析/批改可能按错误学段生成，偏离 K12 语境
+- **发现时间**：2026-11-10（联调时 Prompt 显示"学生当前年级：12"）
+- **正确做法**：`prompt.replace("{grade}", GradeMatcher.displayName(grade))`，空值用"当前"兜底
 
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #22 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #23 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充

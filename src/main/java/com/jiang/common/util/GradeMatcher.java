@@ -274,6 +274,34 @@ public final class GradeMatcher {
         return String.valueOf(grade).equals(gradeRange.trim());
     }
 
+    /**
+     * 年级 → 面向 LLM / 用户展示的中文名称
+     *
+     * <p>Prompt 里传数字（{@code "12"}）会让模型按"12 年级"（美式）理解，
+     * 传中文（{@code "高三"}）更准确。无法识别时原样返回，空值返回空串。</p>
+     *
+     * @param raw 原始年级（"12" / "高三" / "12年级" 等）
+     * @return 中文年级名（"高三"），或原值
+     */
+    public static String displayName(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return "";
+        }
+        Integer grade = normalizeStudentGrade(raw);
+        if (grade == null) {
+            return raw.trim();
+        }
+        return GRADE_LABELS[grade - 1];
+    }
+
+    /**
+     * 1–12 对应的中文年级名
+     */
+    private static final String[] GRADE_LABELS = {
+            "一年级", "二年级", "三年级", "四年级", "五年级", "六年级",
+            "初一", "初二", "初三", "高一", "高二", "高三"
+    };
+
     // ==================== 内部工具 ====================
 
     private static boolean inRange(int grade) {

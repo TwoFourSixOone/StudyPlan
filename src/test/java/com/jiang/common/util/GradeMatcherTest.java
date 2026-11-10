@@ -291,6 +291,33 @@ class GradeMatcherTest {
         }
     }
 
+    @Nested
+    @DisplayName("displayName（面向 LLM 的中文年级）")
+    class GradeDisplayName {
+
+        @Test
+        @DisplayName("数字编码转中文名")
+        void should_mapCodeToChinese() {
+            assertEquals("高三", GradeMatcher.displayName("12"));
+            assertEquals("初三", GradeMatcher.displayName("9"));
+            assertEquals("三年级", GradeMatcher.displayName("3"));
+        }
+
+        @Test
+        @DisplayName("已是中文或无法识别时原样返回")
+        void should_keepRaw_when_notNumeric() {
+            assertEquals("高三", GradeMatcher.displayName("高三"));
+            assertEquals("初中", GradeMatcher.displayName("初中"));
+        }
+
+        @Test
+        @DisplayName("空值返回空串")
+        void should_returnEmpty_when_blank() {
+            assertEquals("", GradeMatcher.displayName(null));
+            assertEquals("", GradeMatcher.displayName(""));
+        }
+    }
+
     // ==================== 辅助方法 ====================
 
     private int grade(String raw) {

@@ -1231,16 +1231,28 @@ public class HomeworkServiceImpl implements HomeworkService {
      * AI 生成题目解析
      * 根据学生年级生成适合其理解能力的解析，失败时返回 null 不影响批改流程
      */
+    /**
+     * Prompt 中展示的年级：转成中文名（"12" → "高三"），未设置时返回"当前"
+     *
+     * <p>LLM 对"12"可能按"12 年级"（美式学制）理解，中文名称更准确（隐性约定 #23）。</p>
+     */
+    private String analysisGradeLabel(String grade) {
+        if (grade == null || grade.isBlank()) {
+            return "当前";
+        }
+        String label = GradeMatcher.displayName(grade);
+        return label.isEmpty() ? grade : label;
+    }
+
     private String generateAnalysis(String questionContent, String correctAnswer,
-                                     String studentAnswer, String subject, String grade) {
-        if (questionContent == null || questionContent.isBlank()) {
+                                     String studentAnswer, String subject, String grade) {        if (questionContent == null || questionContent.isBlank()) {
             return null;
         }
         try {
             String promptTemplate = loadAnalysisPromptTemplate();
             String prompt = promptTemplate
                     .replace("{subject}", subject != null ? subject : "")
-                    .replace("{grade}", grade != null && !grade.isBlank() ? grade : "当前")
+                    .replace("{grade}", analysisGradeLabel(grade))
                     .replace("{questionContent}", questionContent)
                     .replace("{correctAnswer}", correctAnswer != null ? correctAnswer : "暂无")
                     .replace("{studentAnswer}", studentAnswer != null ? studentAnswer : "暂无");
@@ -1295,7 +1307,7 @@ public class HomeworkServiceImpl implements HomeworkService {
             String promptTemplate = loadGradingPromptTemplate();
             String prompt = promptTemplate
                     .replace("{subject}", subject != null ? subject : "")
-                    .replace("{grade}", grade != null && !grade.isBlank() ? grade : "当前")
+                    .replace("{grade}", analysisGradeLabel(grade))
                     .replace("{questionContent}", questionContent)
                     .replace("{correctAnswer}", correctAnswer)
                     .replace("{studentAnswer}", studentAnswer);
