@@ -286,6 +286,18 @@ class HomeworkServiceTest {
                 "题库命中的题目应以 bank/review 写入计划");
     }
 
+    @Test
+    @DisplayName("生成作业：日期不在目标周期内 → HOMEWORK_DATE_OUT_OF_RANGE，且不写计划")
+    void should_throwOutOfRange_when_planDateOutsideGoal() {
+        stubActiveGoal();
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID,
+                        PLAN_DATE.minusDays(30)));
+        assertEquals(ErrorCodes.HOMEWORK_DATE_OUT_OF_RANGE.getCode(), ex.getCode());
+        verify(dailyPlanMapper, never()).insert(any(DailyPlan.class));
+    }
+
     // ==================== 调整策略（产品规则 #5） ====================
 
     @Test
@@ -735,7 +747,7 @@ class HomeworkServiceTest {
         GoalVO goal = GoalVO.builder()
                 .goalId(GOAL_ID).studentId(STUDENT_ID).subjectId(SUBJECT_ID)
                 .subjectName(SUBJECT_NAME).status("active")
-                .startDate(LocalDate.now()).endDate(LocalDate.now().plusMonths(3))
+                .startDate(PLAN_DATE.minusDays(10)).endDate(PLAN_DATE.plusMonths(3))
                 .build();
         when(goalService.getActiveGoals(SUBJECT_ID)).thenReturn(java.util.List.of(goal));
     }

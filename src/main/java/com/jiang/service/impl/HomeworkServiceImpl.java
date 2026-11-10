@@ -180,6 +180,14 @@ public class HomeworkServiceImpl implements HomeworkService {
         GoalVO goal = getActiveGoalOrThrow(subjectId);
         Long goalId = goal.getGoalId();
 
+        // 1.1 日期必须在目标周期内：避免手动生成周期外的作业（产品规则 #1）
+        if (goal.getStartDate() != null && planDate.isBefore(goal.getStartDate())
+                || goal.getEndDate() != null && planDate.isAfter(goal.getEndDate())) {
+            log.warn("作业日期不在目标周期内: goalId={}, planDate={}, 周期={} ~ {}",
+                    goalId, planDate, goal.getStartDate(), goal.getEndDate());
+            throw new BusinessException(ErrorCodes.HOMEWORK_DATE_OUT_OF_RANGE);
+        }
+
         // 2. 查询 daily_plan
         DailyPlan existingPlan = dailyPlanMapper.selectByGoalIdAndDate(goalId, tenantId, planDate);
         if (existingPlan != null) {

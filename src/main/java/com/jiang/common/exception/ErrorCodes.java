@@ -59,6 +59,7 @@ public enum ErrorCodes {
     HOMEWORK_NOT_SUBMITTED(1054, "作业未提交，无法批改"),
     HOMEWORK_ALREADY_GRADED(1055, "作业已批改，请勿重复批改"),
     HOMEWORK_CONCURRENT_CONFLICT(1056, "作业状态更新冲突，请重试"),
+    HOMEWORK_DATE_OUT_OF_RANGE(1062, "作业日期不在目标周期内"),
     LEARNING_GOAL_NOT_FOUND(1057, "无有效学习目标，请先设定学习目标"),
     CONTENT_PARSE_ERROR(1058, "作业内容 JSON 解析失败"),
     CONTENT_SERIALIZE_ERROR(1059, "作业内容 JSON 序列化失败"),
