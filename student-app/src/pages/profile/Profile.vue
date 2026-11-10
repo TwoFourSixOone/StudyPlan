@@ -14,7 +14,18 @@
       </view>
       <view class="user-info">
         <text class="user-name">{{ displayName }}</text>
-        <text class="user-grade" v-if="studentGrade">{{ studentGrade }}</text>
+        <picker
+          class="grade-picker"
+          mode="selector"
+          :range="gradeOptions"
+          :value="gradePickerIndex"
+          @change="onGradeChange"
+        >
+          <view class="grade-row">
+            <text class="user-grade" :class="{ 'user-grade--unset': !studentGrade }">{{ studentGradeText }}</text>
+            <text class="grade-arrow">›</text>
+          </view>
+        </picker>
         <text class="user-id">ID: {{ displayId }}</text>
       </view>
     </view>
@@ -83,7 +94,10 @@
               </view>
             </picker>
           </view>
-          <button class="btn-create-goal" size="mini" @click="handleCreateGoal" :disabled="goalSubmitting">
+          <view class="goal-grade-tip" v-if="!studentGrade">
+            <text>请先设置年级，才能创建学习目标</text>
+          </view>
+          <button class="btn-create-goal" size="mini" @click="handleCreateGoal" :disabled="goalSubmitting || !studentGrade">
             {{ goalSubmitting ? '创建中...' : '创建目标' }}
           </button>
         </view>
@@ -268,6 +282,7 @@ import { triggerAdjustment, getAdjustmentHistory } from '@/api/plan';
 import { uploadWithAuth } from '@/utils/upload';
 import { showSuccess, showError, showConfirm } from '@/utils/message';
 import { formatDate } from '@/utils/date';
+import { updateGrade } from '@/api/auth';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
@@ -342,6 +357,40 @@ const studentGrade = computed(() => {
   return authStore.studentInfo?.grade || '';
 });
 
+// 年级展示：未设置时显示"未设置年级"（产品规则 #11）
+// 注意：年级名称表直接内联在本页，不新建 utils 模块——mp-weixin 对运行期新增模块不友好（隐性约定 #18）
+const gradeOptions = ['一年级', '二年级', '三年级', '四年级', '五年级', '六年级', '初一', '初二', '初三', '高一', '高二', '高三'];
+
+function parseGrade(raw) {
+  if (raw === null || raw === undefined || raw === '') return 0;
+  const n = Number(raw);
+  return Number.isInteger(n) && n >= 1 && n <= 12 ? n : 0;
+}
+
+const studentGradeText = computed(() => {
+  const n = parseGrade(studentGrade.value);
+  return n === 0 ? '未设置年级' : gradeOptions[n - 1];
+});
+const gradePickerIndex = computed(() => {
+  const n = parseGrade(studentGrade.value);
+  return n === 0 ? 0 : n - 1;
+});
+
+/**
+ * 年级选择回调：调接口 → 同步本地 store（避免需要重新登录）
+ */
+async function onGradeChange(e) {
+  const idx = Number(e.detail.value);
+  const grade = idx + 1;
+  try {
+    await updateGrade(grade);
+    authStore.setGrade(String(grade));
+    showSuccess('年级已设置');
+  } catch (err) {
+    showError(err.message || '年级设置失败');
+  }
+}
+
 const displayId = computed(() => {
   return authStore.studentInfo?.openid || authStore.studentInfo?.studentId || '--';
 });
@@ -392,6 +441,11 @@ function onGoalSubjectChange(e) {
 }
 
 async function handleCreateGoal() {
+  // 产品规则 #11：未设置年级不允许创建目标（按钮已禁用，这里兜底防状态不同步）
+  if (!studentGrade.value) {
+    showError('请先在个人中心设置年级');
+    return;
+  }
   const subject = appStore.subjectList[goalSubjectIndex.value];
   if (!subject) {
     showError('请先选择科目');
@@ -674,6 +728,27 @@ watch(activeSection, (val) => {
   font-size: $font-sm;
   color: $primary-color;
   margin-bottom: 4rpx;
+}
+/* 年级设置（产品规则 #11） */
+.grade-picker {
+  display: inline-block;
+}
+.grade-row {
+  display: flex;
+  align-items: center;
+}
+.grade-arrow {
+  margin-left: 8rpx;
+  font-size: $font-sm;
+  color: $text-secondary;
+}
+.user-grade--unset {
+  color: $text-secondary;
+}
+.goal-grade-tip {
+  font-size: $font-sm;
+  color: #e6a23c;
+  margin-bottom: 12rpx;
 }
 .user-id {
   font-size: $font-sm;

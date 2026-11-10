@@ -9,9 +9,11 @@ import com.jiang.dto.CreateGoalRequest;
 import com.jiang.dto.UpdateGoalRequest;
 import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.LearningGoalMapper;
+import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.LearningGoal;
+import com.jiang.model.entity.Student;
 import com.jiang.model.entity.Subject;
 import com.jiang.model.enums.GoalStatus;
 import com.jiang.security.StudentContext;
@@ -53,6 +55,9 @@ class GoalServiceTest {
     @Mock
     private KnowledgePointMapper knowledgePointMapper;
 
+    @Mock
+    private StudentMapper studentMapper;
+
     @InjectMocks
     private GoalServiceImpl goalService;
 
@@ -79,6 +84,43 @@ class GoalServiceTest {
     }
 
     // ==================== 创建目标 ====================
+
+    @Test
+    void should_throwGradeNotSet_when_studentHasNoGrade() {
+        // 产品规则 #11：未设置年级不允许创建目标
+        Student student = new Student();
+        student.setStudentId(TEST_STUDENT_ID);
+        student.setGrade(null);
+        when(studentMapper.selectById(TEST_STUDENT_ID)).thenReturn(student);
+
+        CreateGoalRequest request = buildCreateRequest();
+        BusinessException ex = assertThrows(BusinessException.class, () -> goalService.createGoal(request));
+        assertEquals(ErrorCodes.GRADE_NOT_SET.getCode(), ex.getCode());
+    }
+
+    @Test
+    void should_createGoal_when_studentHasGrade() {
+        Student student = new Student();
+        student.setStudentId(TEST_STUDENT_ID);
+        student.setGrade("9");
+        when(studentMapper.selectById(TEST_STUDENT_ID)).thenReturn(student);
+
+        Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
+        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+        when(knowledgePointMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(5L);
+        when(learningGoalMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(learningGoalMapper.insert(any(LearningGoal.class))).thenAnswer(inv -> {
+            LearningGoal g = inv.getArgument(0);
+            g.setGoalId(TEST_GOAL_ID);
+            g.setCreateTime(LocalDateTime.now());
+            g.setUpdateTime(LocalDateTime.now());
+            return 1;
+        });
+
+        GoalVO result = goalService.createGoal(buildCreateRequest());
+        assertNotNull(result);
+        assertEquals(TEST_GOAL_ID, result.getGoalId());
+    }
 
     @Test
     void should_createGoal_when_allValidationsPass() {

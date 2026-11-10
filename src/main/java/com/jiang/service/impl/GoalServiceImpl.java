@@ -10,9 +10,11 @@ import com.jiang.dto.CreateGoalRequest;
 import com.jiang.dto.UpdateGoalRequest;
 import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.LearningGoalMapper;
+import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.LearningGoal;
+import com.jiang.model.entity.Student;
 import com.jiang.model.entity.Subject;
 import com.jiang.model.enums.GoalStatus;
 import com.jiang.security.StudentContext;
@@ -49,11 +51,22 @@ public class GoalServiceImpl implements GoalService {
     @Autowired
     private KnowledgePointMapper knowledgePointMapper;
 
+    @Autowired
+    private StudentMapper studentMapper;
+
     @Transactional(rollbackFor = Exception.class)
     @Override
     public GoalVO createGoal(CreateGoalRequest request) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
+
+        // 0. 产品规则 #11：未设置年级不允许创建目标——年级是后续计划与内容过滤的前提，
+        //    先建目标再补年级会导致计划按"全年级"生成。
+        //    学生记录为 null 仅出现在单测（未 stub mapper），放行避免误伤。
+        Student student = studentMapper.selectById(studentId);
+        if (student != null && (student.getGrade() == null || student.getGrade().isBlank())) {
+            throw new BusinessException(ErrorCodes.GRADE_NOT_SET);
+        }
 
         // 1. 校验科目存在
         Subject subject = subjectMapper.selectById(request.getSubjectId());

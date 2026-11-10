@@ -69,6 +69,16 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 更新本地年级（产品规则 #11：设置成功后立即同步，避免需要重新登录）
+   */
+  function setGrade(grade: string): void {
+    if (!studentInfo.value) {
+      return;
+    }
+    _saveStudentInfo({ ...studentInfo.value, grade });
+  }
+
+  /**
    * 公共登录核心（R-1：_doLogin 本身不加锁，锁在 request.ts 401 路径控制）
    * @param silent true=静默重登（不跳转），false=用户主动登录（跳转首页）
    */
@@ -203,6 +213,7 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     silentReLogin,
     logout,
+    setGrade,
     _doLogin,
     _saveToken
   };

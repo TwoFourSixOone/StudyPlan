@@ -135,7 +135,16 @@ public enum ErrorCodes {
 
     // 管理后端列表相关（1170-1179）
     IMPORT_LOG_NOT_FOUND(1170, "导入日志不存在"),
-    IMPORT_ERROR_LOG_NOT_FOUND(1171, "导入错误记录不存在");
+    IMPORT_ERROR_LOG_NOT_FOUND(1171, "导入错误记录不存在"),
+
+    /**
+     * 学生未设置年级（产品规则 #11）：年级是内容过滤依据，未设置时不允许创建学习目标
+     */
+    GRADE_NOT_SET(1180, "请先设置年级后再创建学习目标"),
+    /**
+     * 年级取值非法，合法范围 1-12
+     */
+    GRADE_INVALID(1181, "年级需为 1-12 的整数");
 
     private final Integer code;
     private final String message;
