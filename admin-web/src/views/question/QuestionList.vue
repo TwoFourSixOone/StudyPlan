@@ -5,7 +5,7 @@
     <!-- 搜索表单 -->
     <SearchForm
       :fields="searchFields"
-      v-model="searchParams"
+      :model-value="searchParams"
       @search="handleSearch"
       @reset="handleReset"
     />
@@ -31,6 +31,9 @@
       </template>
       <template #questionType="{ row }">
         {{ getQuestionTypeLabel(row.questionType) }}
+      </template>
+      <template #grade="{ row }">
+        <span :style="row.grade || row.gradeRange ? '' : 'color: #909399'">{{ gradeText(row) }}</span>
       </template>
     </DataTable>
 
@@ -58,6 +61,7 @@ import FileUploader from '@/components/FileUploader.vue';
 import { getQuestionList } from '@/api/question';
 import { importData } from '@/api/import';
 import { getKnowledgePointList } from '@/api/knowledgePoint';
+import { GRADE_OPTIONS, gradeLabel, gradeRangeText } from '@/utils/grade';
 
 const router = useRouter();
 
@@ -93,10 +97,19 @@ const searchFields = ref([
     placeholder: '请选择学段'
   },
   {
+    label: '年级',
+    prop: 'grade',
+    type: 'select',
+    options: GRADE_OPTIONS,
+    placeholder: '精确匹配年级'
+  },
+  {
     label: '知识点',
     prop: 'knowledgePointId',
     type: 'select',
     options: [],
+    filterable: true,
+    width: 200,
     placeholder: '请选择知识点'
   },
   {
@@ -126,6 +139,7 @@ const searchFields = ref([
 const searchParams = reactive({
   subject: '',
   stage: '',
+  grade: '',
   knowledgePointId: '',
   difficulty: '',
   questionType: ''
@@ -142,6 +156,7 @@ const columns = ref([
   { prop: 'analysis', label: '解析', showOverflowTooltip: true },
   { prop: 'difficulty', label: '难度', width: 100, slot: 'difficulty' },
   { prop: 'questionType', label: '题型', width: 100, slot: 'questionType' },
+  { prop: 'grade', label: '年级', width: 140, slot: 'grade' },
   { prop: 'createTime', label: '创建时间', width: 180 }
 ]);
 
@@ -161,14 +176,27 @@ const showImportDialog = ref(false);
 const importLoading = ref(false);
 
 // 加载知识点列表（作为下拉选项）
+// 注意：按 prop 定位字段，不要用数组下标——字段增删会让下标错位（曾导致年级下拉被塞入知识点）
 async function loadKnowledgePointOptions() {
   try {
-    const data = await getKnowledgePointList({ size: 100 });
-    const options = data.records.map((item) => ({
-      label: item.name,
-      value: item.id
-    }));
-    searchFields.value[2].options = options;
+    const options = [];
+    const size = 500;
+    let page = 1;
+    let total = 0;
+    // 分页拉全量（数据集约 3000+ 知识点，单页拉不完）
+    do {
+      const data = await getKnowledgePointList({ page, size });
+      const records = data?.records || [];
+      total = data?.total || 0;
+      options.push(...records.map((item) => ({ label: item.name, value: item.id })));
+      if (records.length < size) break;
+      page += 1;
+    } while (options.length < total && page <= 20);
+
+    const kpField = searchFields.value.find((f) => f.prop === 'knowledgePointId');
+    if (kpField) {
+      kpField.options = options;
+    }
   } catch (error) {
     ElMessage.error('加载知识点列表失败：' + error.message);
   }
@@ -183,6 +211,10 @@ async function loadData() {
       page: pagination.page,
       size: pagination.size
     };
+    // 年级为下拉筛选，未选择时不传参（后端 Integer 类型不接受空串）
+    if (params.grade === '' || params.grade === null || params.grade === undefined) {
+      delete params.grade;
+    }
     const data = await getQuestionList(params);
     tableData.value = data.records;
     pagination.total = data.total;
@@ -194,7 +226,11 @@ async function loadData() {
 }
 
 // 搜索
-function handleSearch() {
+function handleSearch(params) {
+  // SearchForm 通过事件回传筛选条件；不依赖 v-model 的父级赋值（searchParams 是 const reactive，赋值会抛错）
+  if (params) {
+    Object.assign(searchParams, params);
+  }
   pagination.page = 1;
   loadData();
 }
@@ -204,6 +240,7 @@ function handleReset() {
   Object.assign(searchParams, {
     subject: '',
     stage: '',
+    grade: '',
     knowledgePointId: '',
     difficulty: '',
     questionType: ''
@@ -275,6 +312,17 @@ function getQuestionTypeLabel(questionType) {
     choice: '选择题'
   };
   return map[questionType] || questionType;
+}
+
+// 年级展示：优先题目自身年级，其次展示从知识点继承的实际年级（统一中文名，不出现裸数字）
+function gradeText(row) {
+  if (row.grade) {
+    return gradeLabel(row.grade);
+  }
+  if (!row.gradeRange) {
+    return '全年级';
+  }
+  return `${gradeRangeText(row.gradeRange)}（继承）`;
 }
 
 // 生命周期

@@ -51,7 +51,7 @@ public interface KnowledgePointMapper extends BaseMapper<KnowledgePoint> {
      * 返回 Map 结构：knowledge_point_id, subject, standards
      */
     @Select("<script>" +
-            "SELECT knowledge_point_id, subject, standards FROM knowledge_point WHERE tenant_id = #{tenantId} AND knowledge_point_id IN " +
+            "SELECT knowledge_point_id, subject, standards, grade_range FROM knowledge_point WHERE tenant_id = #{tenantId} AND knowledge_point_id IN " +
             "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
             "#{id}" +
             "</foreach>" +

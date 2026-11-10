@@ -84,6 +84,7 @@ class KnowledgePointGovernanceServiceTest {
     void should_returnList_when_validFilters() {
         // 准备数据
         KnowledgePoint kp = buildKnowledgePoint(KP_ID, KP_NAME, SUBJECT, "active");
+        kp.setGradeRange("7-9");
         Page<KnowledgePoint> page = new Page<>(1, 10);
         page.setRecords(Arrays.asList(kp));
         page.setTotal(1);
@@ -95,7 +96,7 @@ class KnowledgePointGovernanceServiceTest {
 
         // 执行
         PageResult<KnowledgePointListVO> result = governanceService.getKnowledgePointList(
-                SUBJECT, "active", null, 1, 10);
+                SUBJECT, "active", null, null, 1, 10);
 
         // 验证
         assertNotNull(result);
@@ -104,6 +105,8 @@ class KnowledgePointGovernanceServiceTest {
         assertEquals(KP_NAME, result.getRecords().get(0).getName());
         assertEquals(SUBJECT, result.getRecords().get(0).getSubjectName());
         assertEquals("active", result.getRecords().get(0).getStatus());
+        // 产品规则 #11：年级范围随列表返回（仅展示）
+        assertEquals("7-9", result.getRecords().get(0).getGradeRange());
     }
 
     @Test

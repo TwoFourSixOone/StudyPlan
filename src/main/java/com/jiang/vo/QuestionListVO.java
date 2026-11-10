@@ -41,6 +41,19 @@ public class QuestionListVO {
     /** 学段：小学 / 初中 / 高中（从课程标准关联获取） */
     private String stage;
 
+    /**
+     * 题目所属年级（1-12；null 表示继承知识点 grade_range）
+     * 产品规则 #11
+     */
+    private Integer grade;
+
+    /**
+     * 所属知识点的年级范围（如 "9" / "7-9"，null 表示全年级通用）
+     *
+     * <p>仅用于展示"继承后的实际年级"：题目未显式标注时，前端按它展示。</p>
+     */
+    private String gradeRange;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 }

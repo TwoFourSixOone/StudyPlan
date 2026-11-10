@@ -21,6 +21,7 @@ public interface AdminListQueryService {
     PageResult<QuestionListVO> getQuestionList(String knowledgePointId, String difficulty,
                                                  String questionType, String keyword,
                                                  String subject, String stage,
+                                                 Integer grade,
                                                  Integer page, Integer size);
 
     /**

@@ -34,10 +34,11 @@ public class AdminKnowledgePointController {
             @RequestParam(value = "subject", required = false) String subject,
             @RequestParam(value = "status", required = false) String status,
             @RequestParam(value = "keyword", required = false) String keyword,
+            @RequestParam(value = "grade", required = false) Integer grade,
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "size", defaultValue = "10") Integer size) {
         return Result.success(knowledgePointGovernanceService.getKnowledgePointList(
-                subject, status, keyword, page, size));
+                subject, status, keyword, grade, page, size));
     }
 
     @GetMapping("/{id}")

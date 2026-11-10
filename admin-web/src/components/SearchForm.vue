@@ -16,8 +16,9 @@
         v-else-if="field.type === 'select'"
         v-model="formData[field.prop]"
         :placeholder="field.placeholder || `请选择${field.label}`"
+        :filterable="!!field.filterable"
         clearable
-        style="width: 120px"
+        :style="{ width: (field.width || 120) + 'px' }"
         @change="handleSearch"
       >
         <el-option
@@ -111,9 +112,9 @@ function handleDateRangeChange(val) {
 }
 
 function handleSearch() {
-  // 同步 formData 到父组件
-  emit('update:modelValue', { ...formData });
-  // 过滤空值后传递给父组件用于 API 请求
+  // 先抛出用于请求的筛选参数，再同步表单值：
+  // 父组件若用 v-model 绑定 const reactive 对象，update:modelValue 的赋值会抛错，
+  // 放在后面可保证 search 事件一定送达。
   const params = {};
   Object.keys(formData).forEach((key) => {
     if (formData[key] !== null && formData[key] !== undefined && formData[key] !== '') {
@@ -121,6 +122,8 @@ function handleSearch() {
     }
   });
   emit('search', params);
+  // 同步 formData 到父组件
+  emit('update:modelValue', { ...formData });
 }
 
 function handleReset() {

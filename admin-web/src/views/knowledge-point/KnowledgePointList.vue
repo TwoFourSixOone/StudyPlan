@@ -5,7 +5,7 @@
     <!-- 搜索表单 -->
     <SearchForm
       :fields="searchFields"
-      v-model="searchParams"
+      :model-value="searchParams"
       @search="handleSearch"
       @reset="handleReset"
     />
@@ -35,6 +35,9 @@
         <el-tag :type="getStatusType(row.status)">
           {{ getStatusLabel(row.status) }}
         </el-tag>
+      </template>
+      <template #gradeRange="{ row }">
+        <span :style="row.gradeRange ? '' : 'color: #909399'">{{ gradeRangeText(row.gradeRange) }}</span>
       </template>
       <template #action="{ row }">
         <el-button
@@ -95,6 +98,7 @@ import {
   batchReviewKnowledgePoints
 } from '@/api/knowledgePoint';
 import { importData } from '@/api/import';
+import { GRADE_OPTIONS, gradeRangeText } from '@/utils/grade';
 
 const router = useRouter();
 
@@ -123,6 +127,13 @@ const searchFields = ref([
     type: 'select',
     options: [],
     placeholder: '请选择学科'
+  },
+  {
+    label: '年级',
+    prop: 'grade',
+    type: 'select',
+    options: GRADE_OPTIONS,
+    placeholder: '精确匹配年级'
   }
 ]);
 
@@ -130,7 +141,8 @@ const searchFields = ref([
 const searchParams = reactive({
   keyword: '',
   status: '',
-  subject: ''
+  subject: '',
+  grade: ''
 });
 
 // 表格列配置
@@ -140,6 +152,7 @@ const columns = ref([
   { prop: 'status', label: '状态', width: 100, slot: 'status' },
   { prop: 'dependencyCount', label: '先修关系数量', width: 120 },
   { prop: 'questionCount', label: '关联题目数量', width: 120 },
+  { prop: 'gradeRange', label: '年级', width: 150, slot: 'gradeRange' },
   { prop: 'createTime', label: '创建时间', width: 180 },
   { prop: 'action', label: '操作', width: 280, slot: 'action' }
 ]);
@@ -187,6 +200,10 @@ async function loadData() {
       page: pagination.page,
       size: pagination.size
     };
+    // 年级为下拉筛选，未选择时不传参（后端 Integer 类型不接受空串）
+    if (params.grade === '' || params.grade === null || params.grade === undefined) {
+      delete params.grade;
+    }
     const data = await getKnowledgePointList(params);
     tableData.value = data.records;
     pagination.total = data.total;
@@ -198,7 +215,11 @@ async function loadData() {
 }
 
 // 搜索
-function handleSearch() {
+function handleSearch(params) {
+  // SearchForm 通过事件回传筛选条件；不依赖 v-model 的父级赋值（searchParams 是 const reactive，赋值会抛错）
+  if (params) {
+    Object.assign(searchParams, params);
+  }
   pagination.page = 1;
   loadData();
 }
@@ -208,7 +229,8 @@ function handleReset() {
   Object.assign(searchParams, {
     keyword: '',
     status: '',
-    subject: ''
+    subject: '',
+    grade: ''
   });
   handleSearch();
 }

@@ -5,7 +5,7 @@
     <!-- 搜索表单 -->
     <SearchForm
       :fields="searchFields"
-      v-model="searchParams"
+      :model-value="searchParams"
       @search="handleSearch"
       @reset="handleReset"
     />
@@ -112,7 +112,11 @@ async function loadData() {
 }
 
 // 搜索
-function handleSearch() {
+function handleSearch(params) {
+  // SearchForm 通过事件回传筛选条件；不依赖 v-model 的父级赋值（searchParams 是 const reactive，赋值会抛错）
+  if (params) {
+    Object.assign(searchParams, params);
+  }
   pagination.page = 1;
   loadData();
 }

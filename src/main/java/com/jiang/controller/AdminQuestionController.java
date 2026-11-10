@@ -33,11 +33,12 @@ public class AdminQuestionController {
             @RequestParam(value = "keyword", required = false) String keyword,
             @RequestParam(value = "subject", required = false) String subject,
             @RequestParam(value = "stage", required = false) String stage,
+            @RequestParam(value = "grade", required = false) Integer grade,
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "size", defaultValue = "20") Integer size) {
         // 修复 IMP-4：size 最大限制 100（Service 层已处理，Controller 也做防御）
         size = Math.min(size, 100);
         return Result.success(adminListQueryService.getQuestionList(
-                knowledgePointId, difficulty, questionType, keyword, subject, stage, page, size));
+                knowledgePointId, difficulty, questionType, keyword, subject, stage, grade, page, size));
     }
 }

@@ -13,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -80,13 +81,91 @@ class AdminListQueryServiceTest {
                 .thenReturn(List.of(Map.of("knowledge_point_id", "kp_001", "name", "二次函数")));
 
         PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
-                null, null, null, null, null, null, 1, 20);
+                null, null, null, null, null, null, null, 1, 20);
 
         assertNotNull(result);
         assertEquals(1, result.getRecords().size());
         // 修复 IMP-1：验证 questionType 来自 type 字段
         assertEquals("choice", result.getRecords().get(0).getQuestionType());
         assertEquals("二次函数", result.getRecords().get(0).getKnowledgePointName());
+    }
+
+    @Test
+    @DisplayName("题目列表：按年级筛选 → SQL 条件带 grade，VO 回填年级")
+    void should_applyGradeFilter_when_gradeProvided() {
+        QuestionBank q = buildQuestion(1L, "题干内容", "kp_001", "basic", "choice");
+        q.setGrade(3);
+        Page<QuestionBank> page = new Page<>(1, 20);
+        page.setRecords(List.of(q));
+        page.setTotal(1);
+
+        when(questionBankMapper.selectPage(any(Page.class), any(QueryWrapper.class))).thenReturn(page);
+        when(knowledgePointMapper.selectNamesByIds(anyList(), eq(TENANT_ID))).thenReturn(List.of());
+
+        ArgumentCaptor<QueryWrapper> captor = ArgumentCaptor.forClass(QueryWrapper.class);
+        PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
+                null, null, null, null, null, null, 3, 1, 20);
+
+        verify(questionBankMapper).selectPage(any(Page.class), captor.capture());
+        QueryWrapper<?> wrapper = captor.getValue();
+        assertTrue(wrapper.getSqlSegment().contains("grade"), "wrapper 应带 grade 条件");
+        assertTrue(wrapper.getParamNameValuePairs().containsValue(3), "grade 参数应为 3");
+        // 产品规则 #11：VO 回填年级
+        assertEquals(3, result.getRecords().get(0).getGrade());
+    }
+
+    @Test
+    @DisplayName("题目列表：年级筛选命中「题目未标注但知识点年级恰好是该年级」的题目")
+    void should_matchInheritedGrade_when_questionGradeIsNull() {
+        QuestionBank q = buildQuestion(1L, "题干内容", "kp_001", "basic", "choice"); // grade 为空
+        Page<QuestionBank> page = new Page<>(1, 20);
+        page.setRecords(List.of(q));
+        page.setTotal(1);
+
+        KnowledgePoint kp = new KnowledgePoint();
+        kp.setKnowledgePointId("kp_001");
+        kp.setGradeRange("12");
+        when(knowledgePointMapper.selectList(any(QueryWrapper.class))).thenReturn(List.of(kp));
+        when(questionBankMapper.selectPage(any(Page.class), any(QueryWrapper.class))).thenReturn(page);
+        when(knowledgePointMapper.selectNamesByIds(anyList(), eq(TENANT_ID))).thenReturn(List.of());
+
+        ArgumentCaptor<QueryWrapper> captor = ArgumentCaptor.forClass(QueryWrapper.class);
+        adminListQueryService.getQuestionList(null, null, null, null, null, null, 12, 1, 20);
+
+        verify(questionBankMapper).selectPage(any(Page.class), captor.capture());
+        QueryWrapper<?> wrapper = captor.getValue();
+        String sql = wrapper.getSqlSegment();
+        assertTrue(sql.contains("grade"), "应包含题目自身 grade 条件");
+        assertTrue(sql.contains("knowledge_point_id"), "应包含继承知识点的 IN 条件");
+        assertTrue(wrapper.getParamNameValuePairs().containsValue("kp_001"));
+    }
+
+    @Test
+    @DisplayName("题目列表：学段优先由知识点年级派生，不依赖课标表")
+    void should_deriveStageFromGradeRange_when_gradePresent() {
+        QuestionBank q = buildQuestion(1L, "题干内容", "kp_001", "basic", "choice");
+        Page<QuestionBank> page = new Page<>(1, 20);
+        page.setRecords(List.of(q));
+        page.setTotal(1);
+
+        when(questionBankMapper.selectPage(any(Page.class), any(QueryWrapper.class))).thenReturn(page);
+        when(knowledgePointMapper.selectNamesByIds(anyList(), eq(TENANT_ID))).thenReturn(List.of());
+        Map<String, Object> kpRow = new HashMap<>();
+        kpRow.put("knowledge_point_id", "kp_001");
+        kpRow.put("subject", "数学");
+        kpRow.put("standards", null);
+        kpRow.put("grade_range", "7-9");
+        when(knowledgePointMapper.selectSubjectAndStandardsByIds(anyList(), eq(TENANT_ID)))
+                .thenReturn(List.of(kpRow));
+
+        PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
+                null, null, null, null, null, null, null, 1, 20);
+
+        assertEquals("初中", result.getRecords().get(0).getStage());
+        // 题目未标注年级时，VO 带回知识点年级用于前端展示"继承"
+        assertEquals("7-9", result.getRecords().get(0).getGradeRange());
+        // 年级可派生学段时不应再查课标表
+        verify(standardMapper, never()).selectList(any());
     }
 
     @Test
@@ -102,7 +181,7 @@ class AdminListQueryServiceTest {
 
         // 不应抛异常
         assertDoesNotThrow(() -> adminListQueryService.getQuestionList(
-                null, null, null, "100%_难", null, null, 1, 20));
+                null, null, null, "100%_难", null, null, null, 1, 20));
     }
 
     @Test
@@ -117,7 +196,7 @@ class AdminListQueryServiceTest {
                 .thenReturn(page);
 
         PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
-                null, null, null, null, null, null, 1, 500);
+                null, null, null, null, null, null, null, 1, 500);
 
         // 验证 size 被限制为 100
         assertEquals(100, result.getSize());
@@ -243,7 +322,7 @@ class AdminListQueryServiceTest {
                 .thenReturn(page);
 
         PageResult<QuestionListVO> result = adminListQueryService.getQuestionList(
-                null, null, null, null, null, null, 1, 20);
+                null, null, null, null, null, null, null, 1, 20);
 
         assertNotNull(result);
         assertTrue(result.getRecords().isEmpty());

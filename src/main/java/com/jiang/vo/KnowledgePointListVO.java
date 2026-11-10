@@ -32,6 +32,12 @@ public class KnowledgePointListVO {
     /** 先修关系数量 */
     private Integer dependencyCount;
 
+    /**
+     * 适用年级范围（原样展示，如 "7-9"；null 表示全年级通用）
+     * 产品规则 #11
+     */
+    private String gradeRange;
+
     /** 创建时间 */
     private LocalDateTime createTime;
 }

@@ -19,7 +19,8 @@ public interface KnowledgePointGovernanceService {
      * 知识点列表查询（BLOCK-8：使用 selectPage + QueryWrapper）
      */
     PageResult<KnowledgePointListVO> getKnowledgePointList(String subject, String status,
-                                                             String keyword, Integer page, Integer size);
+                                                             String keyword, Integer grade,
+                                                             Integer page, Integer size);
 
     /**
      * 知识点详情查看

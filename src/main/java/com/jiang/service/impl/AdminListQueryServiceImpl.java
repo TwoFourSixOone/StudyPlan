@@ -3,6 +3,7 @@ package com.jiang.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiang.common.result.PageResult;
+import com.jiang.common.util.GradeMatcher;
 import com.jiang.mapper.*;
 import com.jiang.model.entity.*;
 import com.jiang.security.StudentContext;
@@ -48,6 +49,7 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
     public PageResult<QuestionListVO> getQuestionList(String knowledgePointId, String difficulty,
                                                         String questionType, String keyword,
                                                         String subject, String stage,
+                                                        Integer grade,
                                                         Integer page, Integer size) {
         String tenantId = StudentContext.getTenantId();
         // 修复 IMP-4：size 最大限制 100
@@ -66,6 +68,25 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
         // 修复 IMP-1：列名为 type 而非 question_type
         if (questionType != null && !questionType.isEmpty()) {
             wrapper.eq("type", questionType);
+        }
+        // 产品规则 #11：按年级精确筛选
+        // 题目自身 grade 可能为空（继承知识点），因此需同时命中"所属知识点年级恰好等于该年级"的题目
+        if (grade != null) {
+            List<String> exactKpIds = knowledgePointMapper.selectList(
+                            new QueryWrapper<KnowledgePoint>()
+                                    .eq("tenant_id", tenantId)
+                                    .eq("grade_range", String.valueOf(grade))
+                                    .select("knowledge_point_id"))
+                    .stream()
+                    .map(KnowledgePoint::getKnowledgePointId)
+                    .collect(Collectors.toList());
+            String gradeValue = String.valueOf(grade);
+            if (exactKpIds.isEmpty()) {
+                wrapper.eq("grade", grade);
+            } else {
+                wrapper.and(w -> w.eq("grade", grade).or().in("knowledge_point_id", exactKpIds));
+            }
+            log.debug("题目年级筛选: grade={}, 命中知识点数={}", gradeValue, exactKpIds.size());
         }
         if (keyword != null && !keyword.isEmpty()) {
             // 修复 IMP-3：转义 % 和 _
@@ -98,6 +119,7 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
 
         // 批量查询学科和课程标准（用于获取 subjectName 和 stage）
         Map<String, String> kpSubjectMap = new HashMap<>();
+        Map<String, String> kpGradeRangeMap = new HashMap<>();
         Map<String, String> kpStageMap;
         if (!kpIds.isEmpty()) {
             List<Map<String, Object>> kpDetails = knowledgePointMapper.selectSubjectAndStandardsByIds(kpIds, tenantId);
@@ -105,13 +127,15 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
                 String kpId = (String) row.get("knowledge_point_id");
                 String subjectVal = (String) row.get("subject");
                 kpSubjectMap.put(kpId, subjectVal);
+                // 产品规则 #11：题目未标注年级时展示知识点继承的年级
+                kpGradeRangeMap.put(kpId, (String) row.get("grade_range"));
             }
 
             // 通过 knowledge_point 关联的 standards 查询学段
             // standards 存储的是 curriculum_standard 的 code（如 cms-2022:1.NA.01）
             // 需要通过 code 查询 curriculum_standard 表获取 stage
             if (!kpDetails.isEmpty()) {
-                kpStageMap = getStageMapByKpDetails(kpDetails, tenantId);
+                kpStageMap = buildStageMap(kpDetails, tenantId);
             } else {
                 kpStageMap = Collections.emptyMap();
             }
@@ -132,6 +156,8 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
                     vo.setAnalysis(q.getAnalysis());
                     vo.setSubjectName(kpSubjectMap.getOrDefault(q.getKnowledgePointId(), ""));
                     vo.setStage(kpStageMap.getOrDefault(q.getKnowledgePointId(), ""));
+                    vo.setGrade(q.getGrade());
+                    vo.setGradeRange(kpGradeRangeMap.get(q.getKnowledgePointId()));
                     vo.setCreateTime(q.getCreateTime());
                     return vo;
                 })
@@ -335,6 +361,31 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
     }
 
     /**
+     * 知识点 → 学段（规则 #11：优先用年级派生）
+     *
+     * <p>数据集中知识点自带 {@code grade}（导入后落在 {@code grade_range}），可直接派生学段；
+     * 只有拿不到年级（历史数据 / 未标注）时才回退到解析课标 code，避免物理这类
+     * "按主题编码"的学科被误判。</p>
+     */
+    private Map<String, String> buildStageMap(List<Map<String, Object>> kpDetails, String tenantId) {
+        Map<String, String> result = new HashMap<>();
+        List<Map<String, Object>> unresolved = new ArrayList<>();
+        for (Map<String, Object> row : kpDetails) {
+            String kpId = (String) row.get("knowledge_point_id");
+            String stage = GradeMatcher.stageOfRange((String) row.get("grade_range"));
+            if (stage != null) {
+                result.put(kpId, stage);
+            } else {
+                unresolved.add(row);
+            }
+        }
+        if (!unresolved.isEmpty()) {
+            result.putAll(getStageMapByKpDetails(unresolved, tenantId));
+        }
+        return result;
+    }
+
+    /**
      * 根据知识点的 standards JSON 批量查询学段
      * standards 存储格式：[{"id": "cms-2022:1.NA.01", "confidence": "exact"}]
      * 通过 code 查询 curriculum_standard 表获取 stage
@@ -466,6 +517,14 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
             List<String> result = new ArrayList<>();
             for (Map<String, Object> row : kpDetails) {
                 String kpId = (String) row.get("knowledge_point_id");
+                // 规则 #11：优先用年级派生学段；无可派生年级时才回退课标 code 解析
+                String stageByGrade = GradeMatcher.stageOfRange((String) row.get("grade_range"));
+                if (stageByGrade != null) {
+                    if (stage.equals(stageByGrade)) {
+                        result.add(kpId);
+                    }
+                    continue;
+                }
                 String standardsJson = (String) row.get("standards");
                 if (standardsJson != null && !standardsJson.isEmpty()) {
                     List<Map<String, Object>> standardsList = parseStandardsJson(standardsJson, kpId);
@@ -488,37 +547,27 @@ public class AdminListQueryServiceImpl implements AdminListQueryService {
             // 仅按学科过滤
             return knowledgePointMapper.selectIdsBySubject(subject, tenantId);
         } else {
-            // 仅按学段过滤：需要查询所有学科但匹配特定学段的知识点
-            // 由于没有单独的按学段查询方法，这里通过查询所有知识点然后在内存中过滤
-            // 但更高效的方式是查询 curriculum_standard 表获取该学段的所有 code，
-            // 然后反查知识点
+            // 仅按学段过滤：优先用年级派生（规则 #11），拿不到年级才回退课标 code 解析
             List<String> stageKpIds = new ArrayList<>();
-            // 查询该学段的所有课程标准 code
-            List<CurriculumStandard> standards = standardMapper.selectList(
-                    new QueryWrapper<CurriculumStandard>()
-                            .eq("tenant_id", tenantId)
-                            .eq("stage", stage)
-                            .select("code")
-            );
-            if (standards.isEmpty()) {
-                return stageKpIds;
-            }
-            Set<String> codes = standards.stream()
-                    .map(CurriculumStandard::getCode)
-                    .collect(Collectors.toSet());
-            // 查询所有知识点，过滤出 standards 中包含该学段 code 的知识点
             List<KnowledgePoint> allKps = knowledgePointMapper.selectList(
                     new QueryWrapper<KnowledgePoint>()
                             .eq("tenant_id", tenantId)
-                            .select("knowledge_point_id", "standards")
+                            .select("knowledge_point_id", "grade_range", "standards")
             );
             for (KnowledgePoint kp : allKps) {
+                String stageByGrade = GradeMatcher.stageOfRange(kp.getGradeRange());
+                if (stageByGrade != null) {
+                    if (stage.equals(stageByGrade)) {
+                        stageKpIds.add(kp.getKnowledgePointId());
+                    }
+                    continue;
+                }
                 if (kp.getStandards() != null && !kp.getStandards().isEmpty()) {
                     List<Map<String, Object>> stdList = parseStandardsJson(kp.getStandards(), kp.getKnowledgePointId());
                     if (stdList == null) continue;
                     for (Map<String, Object> std : stdList) {
                         Object idObj = std.get("id");
-                        if (idObj != null && codes.contains(idObj.toString())) {
+                        if (idObj != null && stage.equals(deriveStageFromCode(idObj.toString()))) {
                             stageKpIds.add(kp.getKnowledgePointId());
                             break;
                         }

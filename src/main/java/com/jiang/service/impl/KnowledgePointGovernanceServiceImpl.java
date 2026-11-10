@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
+import com.jiang.common.util.GradeMatcher;
 import com.jiang.mapper.*;
 import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.KnowledgePointDependency;
@@ -47,7 +48,8 @@ public class KnowledgePointGovernanceServiceImpl implements KnowledgePointGovern
 
     @Override
     public PageResult<KnowledgePointListVO> getKnowledgePointList(String subject, String status,
-                                                                    String keyword, Integer page, Integer size) {
+                                                                    String keyword, Integer grade,
+                                                                    Integer page, Integer size) {
         // BLOCK-1/N1：Demo 阶段复用 StudentContext
         String tenantId = StudentContext.getTenantId();
 
@@ -67,6 +69,24 @@ public class KnowledgePointGovernanceServiceImpl implements KnowledgePointGovern
             // IMP-3：转义 % 和 _
             String escaped = keyword.replace("%", "\\%").replace("_", "\\_");
             wrapper.like("name", escaped);
+        }
+
+        // 产品规则 #11：按年级筛选（管理端语义 = 核对标注，精确匹配）
+        // grade_range 为 "7-9"/"1,2,3" 形式，SQL 层无法可靠匹配，
+        // 先在内存中筛出命中的知识点 ID，再交给分页查询（保持 total 正确）
+        if (grade != null) {
+            List<String> matchedKpIds = knowledgePointMapper.selectList(
+                            new QueryWrapper<KnowledgePoint>()
+                                    .eq("tenant_id", tenantId)
+                                    .select("knowledge_point_id", "grade_range"))
+                    .stream()
+                    .filter(kp -> GradeMatcher.matchesExactGrade(grade, kp.getGradeRange()))
+                    .map(KnowledgePoint::getKnowledgePointId)
+                    .collect(Collectors.toList());
+            if (matchedKpIds.isEmpty()) {
+                return PageResult.of(0L, page, size, Collections.emptyList());
+            }
+            wrapper.in("knowledge_point_id", matchedKpIds);
         }
 
         wrapper.orderByDesc("create_time");
@@ -91,6 +111,8 @@ public class KnowledgePointGovernanceServiceImpl implements KnowledgePointGovern
                     vo.setStatus(kp.getStatus());
                     vo.setQuestionCount(questionCountMap.getOrDefault(kp.getKnowledgePointId(), 0));
                     vo.setDependencyCount(dependencyCountMap.getOrDefault(kp.getKnowledgePointId(), 0));
+                    // 产品规则 #11：年级范围仅展示，不支持按 range 筛选（SQL 层无法可靠匹配 "7-9"）
+                    vo.setGradeRange(kp.getGradeRange());
                     vo.setCreateTime(kp.getCreateTime());
                     return vo;
                 })

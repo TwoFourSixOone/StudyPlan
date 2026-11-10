@@ -105,7 +105,7 @@ class AdminKnowledgePointControllerTest {
     void should_returnList_when_validRequest() throws Exception {
         stubJwtAuth();
         PageResult<KnowledgePointListVO> pageResult = PageResult.of(1L, 1, 10, Arrays.asList(buildListVO()));
-        when(governanceService.getKnowledgePointList(any(), any(), any(), eq(1), eq(10)))
+        when(governanceService.getKnowledgePointList(any(), any(), any(), any(), eq(1), eq(10)))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/api/admin/knowledge-points")
@@ -122,7 +122,7 @@ class AdminKnowledgePointControllerTest {
     void should_returnListWithFilters_when_subjectAndStatusProvided() throws Exception {
         stubJwtAuth();
         PageResult<KnowledgePointListVO> pageResult = PageResult.of(1L, 1, 10, Arrays.asList(buildListVO()));
-        when(governanceService.getKnowledgePointList(eq("数学"), eq("active"), any(), eq(1), eq(10)))
+        when(governanceService.getKnowledgePointList(eq("数学"), eq("active"), any(), any(), eq(1), eq(10)))
                 .thenReturn(pageResult);
 
         mockMvc.perform(get("/api/admin/knowledge-points")
