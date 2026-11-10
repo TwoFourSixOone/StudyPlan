@@ -3,6 +3,7 @@ package com.jiang.service;
 import com.jiang.common.result.PageResult;
 import com.jiang.model.enums.ErrorQuestionSourceType;
 import com.jiang.vo.DueErrorQuestionVO;
+import com.jiang.vo.ErrorQuestionDetailVO;
 import com.jiang.vo.ErrorQuestionStatisticsVO;
 import com.jiang.vo.ErrorQuestionVO;
 
@@ -133,6 +134,17 @@ public interface ErrorQuestionService {
     PageResult<ErrorQuestionVO> getErrorQuestions(Long studentId, String tenantId,
                                                   String knowledgePointId, String status,
                                                   int page, int size);
+
+    /**
+     * 按 ID 查询单条错题详情（含题目选项、正确答案、解析）
+     *
+     * @param studentId       学生 ID（越权校验）
+     * @param tenantId        租户 ID
+     * @param errorQuestionId 错题 ID
+     * @return 详情 VO
+     * @throws com.jiang.common.exception.BusinessException ERROR_QUESTION_NOT_FOUND 不存在或不属于当前学生
+     */
+    ErrorQuestionDetailVO getErrorQuestionDetail(Long studentId, String tenantId, Long errorQuestionId);
 
     /**
      * 错题统计

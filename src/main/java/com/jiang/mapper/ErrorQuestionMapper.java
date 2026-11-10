@@ -99,6 +99,30 @@ public interface ErrorQuestionMapper extends BaseMapper<ErrorQuestion> {
                                                     @Param("size") int size);
 
     /**
+     * 按 ID 查询单条错题详情（JOIN knowledge_point + question_bank，含选项/答案/解析）
+     * 索引命中：PRIMARY KEY (error_question_id)；student_id/tenant_id 仅作越权校验
+     */
+    @Select("SELECT eq.error_question_id, eq.question_id, eq.knowledge_point_id, " +
+            "kp.name AS kp_name, eq.source_type, eq.first_wrong_date, eq.last_wrong_date, " +
+            "eq.current_stage, eq.next_due_date, eq.status, " +
+            "COALESCE(qb.content, '[题目已删除]') AS question_content, " +
+            "COALESCE(qb.difficulty, 'unknown') AS question_difficulty, " +
+            "qb.type AS question_type, " +
+            "qb.choices AS question_choices, " +
+            "qb.answer AS correct_answer, " +
+            "qb.analysis AS question_analysis " +
+            "FROM error_question eq " +
+            "LEFT JOIN knowledge_point kp ON eq.knowledge_point_id = kp.knowledge_point_id " +
+            "  AND kp.tenant_id = eq.tenant_id " +
+            "LEFT JOIN question_bank qb ON eq.question_id = qb.question_id " +
+            "  AND qb.tenant_id = eq.tenant_id " +
+            "WHERE eq.error_question_id = #{errorQuestionId} " +
+            "AND eq.student_id = #{studentId} AND eq.tenant_id = #{tenantId}")
+    Map<String, Object> selectDetailById(@Param("studentId") Long studentId,
+                                         @Param("tenantId") String tenantId,
+                                         @Param("errorQuestionId") Long errorQuestionId);
+
+    /**
      * 统计总数（配合分页）
      * 索引命中：idx_student_kp_status (student_id, tenant_id, knowledge_point_id, status)
      */

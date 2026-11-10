@@ -4,12 +4,14 @@ import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
 import com.jiang.security.StudentContext;
 import com.jiang.service.ErrorQuestionService;
+import com.jiang.vo.ErrorQuestionDetailVO;
 import com.jiang.vo.ErrorQuestionStatisticsVO;
 import com.jiang.vo.ErrorQuestionVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -59,6 +61,24 @@ public class ErrorQuestionController {
         PageResult<ErrorQuestionVO> result = errorQuestionService.getErrorQuestions(
                 studentId, tenantId, knowledgePointId, status, page, size);
         return Result.success(result);
+    }
+
+    /**
+     * 单条错题详情（含题目选项、正确答案、解析）
+     * GET /api/error-questions/{errorQuestionId}
+     *
+     * <p>student_id/tenant_id 在 SQL WHERE 中作越权校验，
+     * 查不到时抛 ERROR_QUESTION_NOT_FOUND。</p>
+     */
+    @GetMapping("/{errorQuestionId}")
+    @Operation(summary = "查询单条错题详情")
+    public Result<ErrorQuestionDetailVO> getErrorQuestionDetail(
+            @PathVariable Long errorQuestionId) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+        ErrorQuestionDetailVO detail = errorQuestionService.getErrorQuestionDetail(
+                studentId, tenantId, errorQuestionId);
+        return Result.success(detail);
     }
 
     /**

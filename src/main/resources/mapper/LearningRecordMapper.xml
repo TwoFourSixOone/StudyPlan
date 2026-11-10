@@ -9,7 +9,7 @@
             <!-- NOTE-2 修复：使用 LEFT JOIN 防御性编程，避免孤儿记录丢失 -->
             SELECT
                 s.submission_id AS recordId,
-                'homework'      AS recordType,
+                'HOMEWORK'     AS recordType,
                 s.create_time   AS createTime,
                 g.subject_id    AS subjectId,
                 '每日作业'       AS title,
@@ -27,7 +27,7 @@
             <!-- 评测记录：直接有 subject_id -->
             SELECT
                 a.assessment_id AS recordId,
-                'assessment'    AS recordType,
+                'ASSESSMENT'    AS recordType,
                 a.create_time   AS createTime,
                 a.subject_id    AS subjectId,
                 '专项评测'       AS title,
@@ -44,7 +44,7 @@
             <!-- 考试记录：直接有 subject_id -->
             SELECT
                 e.analysis_id   AS recordId,
-                'exam'          AS recordType,
+                'EXAM'          AS recordType,
                 e.create_time   AS createTime,
                 e.subject_id    AS subjectId,
                 e.exam_name     AS title,

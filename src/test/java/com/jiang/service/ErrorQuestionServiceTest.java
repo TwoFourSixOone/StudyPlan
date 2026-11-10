@@ -8,6 +8,7 @@ import com.jiang.model.entity.ErrorQuestion;
 import com.jiang.model.enums.ErrorQuestionSourceType;
 import com.jiang.service.impl.ErrorQuestionServiceImpl;
 import com.jiang.vo.DueErrorQuestionVO;
+import com.jiang.vo.ErrorQuestionDetailVO;
 import com.jiang.vo.ErrorQuestionStatisticsVO;
 import com.jiang.vo.ErrorQuestionVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -549,6 +550,98 @@ class ErrorQuestionServiceTest {
             assertEquals(0, result.getActiveAndPausedCount());
             assertEquals(0, result.getDueCount());
             assertEquals(0, result.getPausedCount());
+        }
+    }
+
+    // ==================== getErrorQuestionDetail ====================
+
+    @Nested
+    @DisplayName("getErrorQuestionDetail")
+    class GetDetailTests {
+
+        @Test
+        @DisplayName("正常返回：题干、选项、正确答案、解析齐全")
+        void should_returnDetail_when_rowExists() {
+            when(errorQuestionMapper.selectDetailById(STUDENT_ID, TENANT_ID, 1L))
+                    .thenReturn(buildDetailRow(1L, "题干内容", "A"));
+
+            ErrorQuestionDetailVO detail =
+                    errorQuestionService.getErrorQuestionDetail(STUDENT_ID, TENANT_ID, 1L);
+
+            assertNotNull(detail);
+            assertEquals(1L, detail.getErrorQuestionId());
+            assertEquals(QUESTION_ID, detail.getQuestionId());
+            assertEquals(KP_ID, detail.getKnowledgePointId());
+            assertEquals("一元二次方程", detail.getKnowledgePointName());
+            assertEquals("homework", detail.getSourceType());
+            assertEquals(TODAY.minusDays(7), detail.getFirstWrongDate());
+            assertEquals(TODAY, detail.getLastWrongDate());
+            assertEquals(2, detail.getCurrentStage());
+            assertEquals("active", detail.getStatus());
+            assertEquals("题干内容", detail.getQuestionContent());
+            assertEquals("standard", detail.getQuestionDifficulty());
+            assertEquals("choice", detail.getQuestionType());
+            assertEquals("[{\"key\":\"A\",\"text\":\"选项A\"}]", detail.getOptions());
+            assertEquals("A", detail.getCorrectAnswer());
+            assertEquals("解析内容", detail.getAnalysis());
+        }
+
+        @Test
+        @DisplayName("查不到（不存在或非本人）→ 抛 ERROR_QUESTION_NOT_FOUND")
+        void should_throwNotFound_when_rowMissing() {
+            when(errorQuestionMapper.selectDetailById(STUDENT_ID, TENANT_ID, 999L)).thenReturn(null);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> errorQuestionService.getErrorQuestionDetail(STUDENT_ID, TENANT_ID, 999L));
+
+            assertEquals(ErrorCodes.ERROR_QUESTION_NOT_FOUND.getCode(), ex.getCode());
+        }
+
+        @Test
+        @DisplayName("关联题目被删除 → 题干与难度走 COALESCE 兜底")
+        void should_fallbackDefaults_when_joinedQuestionMissing() {
+            Map<String, Object> row = buildDetailRow(1L, null, null);
+            row.put("question_difficulty", null);
+            when(errorQuestionMapper.selectDetailById(STUDENT_ID, TENANT_ID, 1L)).thenReturn(row);
+
+            ErrorQuestionDetailVO detail =
+                    errorQuestionService.getErrorQuestionDetail(STUDENT_ID, TENANT_ID, 1L);
+
+            assertEquals("[题目已删除]", detail.getQuestionContent());
+            assertEquals("unknown", detail.getQuestionDifficulty());
+            assertNull(detail.getCorrectAnswer());
+        }
+
+        @Test
+        @DisplayName("越权校验：查询必须携带当前 studentId + tenantId")
+        void should_scopeQueryByStudentAndTenant() {
+            when(errorQuestionMapper.selectDetailById(STUDENT_ID, TENANT_ID, 1L))
+                    .thenReturn(buildDetailRow(1L, "题干内容", "A"));
+
+            errorQuestionService.getErrorQuestionDetail(STUDENT_ID, TENANT_ID, 1L);
+
+            verify(errorQuestionMapper).selectDetailById(STUDENT_ID, TENANT_ID, 1L);
+        }
+
+        private Map<String, Object> buildDetailRow(Long id, String content, String answer) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("error_question_id", id);
+            row.put("question_id", QUESTION_ID);
+            row.put("knowledge_point_id", KP_ID);
+            row.put("kp_name", "一元二次方程");
+            row.put("source_type", "homework");
+            row.put("first_wrong_date", TODAY.minusDays(7));
+            row.put("last_wrong_date", TODAY);
+            row.put("current_stage", 2);
+            row.put("next_due_date", TODAY.plusDays(1));
+            row.put("status", "active");
+            row.put("question_content", content);
+            row.put("question_difficulty", "standard");
+            row.put("question_type", "choice");
+            row.put("question_choices", "[{\"key\":\"A\",\"text\":\"选项A\"}]");
+            row.put("correct_answer", answer);
+            row.put("question_analysis", "解析内容");
+            return row;
         }
     }
 

@@ -5,6 +5,7 @@ import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
 import com.jiang.security.JwtUtil;
 import com.jiang.service.ErrorQuestionService;
+import com.jiang.vo.ErrorQuestionDetailVO;
 import com.jiang.vo.ErrorQuestionStatisticsVO;
 import com.jiang.vo.ErrorQuestionVO;
 import io.jsonwebtoken.Claims;
@@ -237,5 +238,48 @@ class ErrorQuestionControllerTest {
     void should_return401_when_noAuthForStats() throws Exception {
         mockMvc.perform(get("/api/error-questions/statistics"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ==================== 错题详情 ====================
+
+    @Test
+    @DisplayName("错题详情：正常返回题干、正确答案与解析")
+    void should_returnDetail_when_errorQuestionExists() throws Exception {
+        stubJwtAuth();
+        ErrorQuestionDetailVO detail = ErrorQuestionDetailVO.builder()
+                .errorQuestionId(1L)
+                .questionId(100L)
+                .knowledgePointId("kp_001")
+                .knowledgePointName("一元二次方程")
+                .sourceType("homework")
+                .questionContent("题干内容")
+                .questionType("choice")
+                .correctAnswer("A")
+                .analysis("解析内容")
+                .build();
+        when(errorQuestionService.getErrorQuestionDetail(anyLong(), anyString(), eq(1L)))
+                .thenReturn(detail);
+
+        mockMvc.perform(get("/api/error-questions/1")
+                        .header("Authorization", AUTH_HEADER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200))
+                .andExpect(jsonPath("$.data.errorQuestionId").value(1))
+                .andExpect(jsonPath("$.data.questionContent").value("题干内容"))
+                .andExpect(jsonPath("$.data.correctAnswer").value("A"))
+                .andExpect(jsonPath("$.data.analysis").value("解析内容"));
+    }
+
+    @Test
+    @DisplayName("错题详情：不存在或非本人 → 返回业务码 1100")
+    void should_returnNotFoundCode_when_detailMissing() throws Exception {
+        stubJwtAuth();
+        when(errorQuestionService.getErrorQuestionDetail(anyLong(), anyString(), eq(999L)))
+                .thenThrow(new BusinessException(ErrorCodes.ERROR_QUESTION_NOT_FOUND));
+
+        mockMvc.perform(get("/api/error-questions/999")
+                        .header("Authorization", AUTH_HEADER))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(1100));
     }
 }

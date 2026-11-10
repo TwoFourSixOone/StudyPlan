@@ -11,6 +11,7 @@ import com.jiang.model.enums.EbbinghausStage;
 import com.jiang.model.enums.ErrorQuestionSourceType;
 import com.jiang.service.ErrorQuestionService;
 import com.jiang.vo.DueErrorQuestionVO;
+import com.jiang.vo.ErrorQuestionDetailVO;
 import com.jiang.vo.ErrorQuestionStatisticsVO;
 import com.jiang.vo.ErrorQuestionVO;
 import lombok.extern.slf4j.Slf4j;
@@ -334,6 +335,39 @@ public class ErrorQuestionServiceImpl implements ErrorQuestionService {
         }
 
         return PageResult.of((long) total, page, size, voList);
+    }
+
+    @Override
+    public ErrorQuestionDetailVO getErrorQuestionDetail(Long studentId, String tenantId,
+                                                          Long errorQuestionId) {
+        // 按 ID 查询，student_id/tenant_id 作越权校验（查不到即视为不存在）
+        Map<String, Object> row = errorQuestionMapper.selectDetailById(
+                studentId, tenantId, errorQuestionId);
+        if (row == null) {
+            throw new BusinessException(ErrorCodes.ERROR_QUESTION_NOT_FOUND);
+        }
+
+        return ErrorQuestionDetailVO.builder()
+                .errorQuestionId(toLong(row.get("error_question_id")))
+                .questionId(toLong(row.get("question_id")))
+                .knowledgePointId((String) row.get("knowledge_point_id"))
+                .knowledgePointName((String) row.get("kp_name"))
+                .sourceType((String) row.get("source_type"))
+                .firstWrongDate(toLocalDate(row.get("first_wrong_date")))
+                .lastWrongDate(toLocalDate(row.get("last_wrong_date")))
+                .currentStage(toInt(row.get("current_stage")))
+                .nextDueDate(toLocalDate(row.get("next_due_date")))
+                .status((String) row.get("status"))
+                // IMP-G 同款防御性兑底（COALESCE + 二次判空）
+                .questionContent(row.get("question_content") != null
+                        ? (String) row.get("question_content") : "[题目已删除]")
+                .questionDifficulty(row.get("question_difficulty") != null
+                        ? (String) row.get("question_difficulty") : "unknown")
+                .questionType((String) row.get("question_type"))
+                .options((String) row.get("question_choices"))
+                .correctAnswer((String) row.get("correct_answer"))
+                .analysis((String) row.get("question_analysis"))
+                .build();
     }
 
     @Override
