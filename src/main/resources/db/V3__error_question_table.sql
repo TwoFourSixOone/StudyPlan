@@ -29,7 +29,7 @@ CREATE TABLE `error_question` (
     INDEX `idx_student_status_due` (`student_id`, `tenant_id`, `status`, `next_due_date`),
     -- 支撑 batchPause/batchReactivate + selectPageWithDetail WHERE 筛选
     INDEX `idx_student_kp_status` (`student_id`, `tenant_id`, `knowledge_point_id`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='错题队列表（艾宾浩斯周期调度）';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci COMMENT='错题队列表（艾宾浩斯周期调度）';
 
 -- IMP-U 说明：selectPageWithDetail 的 ORDER BY first_wrong_date 无法被索引覆盖，会触发 filesort
 -- 预估单学生错题上限 2000 条，filesort < 20ms 可接受
