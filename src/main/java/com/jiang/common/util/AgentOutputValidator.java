@@ -30,6 +30,7 @@ public class AgentOutputValidator {
     private JsonNode questionGenSchema;
     private JsonNode attributionSchema;
     private JsonNode adjustmentSchema;
+    private JsonNode planningSchema;
 
     @PostConstruct
     public void init() {
@@ -37,6 +38,7 @@ public class AgentOutputValidator {
             questionGenSchema = loadSchema("prompts/schemas/question_gen_schema.json");
             attributionSchema = loadSchema("prompts/schemas/attribution_schema.json");
             adjustmentSchema = loadSchema("prompts/schemas/adjustment_schema.json");
+            planningSchema = loadSchema("prompts/schemas/planning_schema.json");
         } catch (IOException e) {
             log.error("加载 JSON Schema 失败: {}", e.getMessage());
         }
@@ -193,6 +195,63 @@ public class AgentOutputValidator {
      * @param agentOutput Agent 返回的 JSON 字符串
      * @return 校验结果
      */
+    /**
+     * 校验规划 Agent 输出（产品规则 #6）
+     *
+     * <p>结构：{@code days[{date, kpIds[], questionCount, focus?}], reason}</p>
+     */
+    public ValidationResult validatePlanning(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+
+        if (!jsonNode.isObject()) {
+            return ValidationResult.fail("输出必须是 JSON 对象");
+        }
+
+        List<String> errors = new ArrayList<>();
+
+        if (!jsonNode.has("days") || !jsonNode.get("days").isArray()
+                || jsonNode.get("days").isEmpty()) {
+            errors.add("缺少或非法字段 days（必须为非空数组）");
+        } else {
+            JsonNode days = jsonNode.get("days");
+            for (int i = 0; i < days.size(); i++) {
+                JsonNode day = days.get(i);
+                String prefix = "days[" + i + "]";
+
+                if (!day.has("date") || !day.get("date").isTextual()
+                        || !day.get("date").asText().matches("\\d{4}-\\d{2}-\\d{2}")) {
+                    errors.add(prefix + ": 缺少或非法字段 date（YYYY-MM-DD）");
+                }
+
+                if (!day.has("kpIds") || !day.get("kpIds").isArray() || day.get("kpIds").isEmpty()) {
+                    errors.add(prefix + ": 缺少或非法字段 kpIds（必须为非空数组）");
+                } else if (day.get("kpIds").size() > 4) {
+                    errors.add(prefix + ": 单日知识点不得超过 4 个");
+                }
+
+                if (!day.has("questionCount") || !day.get("questionCount").isInt()) {
+                    errors.add(prefix + ": 缺少或非法字段 questionCount");
+                } else {
+                    int count = day.get("questionCount").asInt();
+                    if (count < 1 || count > 15) {
+                        errors.add(prefix + ": questionCount 必须在 1-15 之间，实际 " + count);
+                    }
+                }
+            }
+        }
+
+        if (!jsonNode.has("reason") || !jsonNode.get("reason").isTextual()) {
+            errors.add("缺少或非法字段 reason");
+        }
+
+        return errors.isEmpty() ? ValidationResult.success() : ValidationResult.fail(String.join("; ", errors));
+    }
+
     public ValidationResult validateAdjustment(String agentOutput) {
         JsonNode jsonNode;
         try {

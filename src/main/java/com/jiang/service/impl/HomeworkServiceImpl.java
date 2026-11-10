@@ -242,6 +242,21 @@ public class HomeworkServiceImpl implements HomeworkService {
                 kpList = gradeFiltered;
             }
         }
+        // 5.1.1 计划骨架（产品规则 #1）：当天若已有规划知识点，按其收窄
+        List<String> plannedKpIds = parsePlannedKpIds(existingPlan);
+        if (!plannedKpIds.isEmpty()) {
+            List<KnowledgePointWithMastery> plannedFiltered = kpList.stream()
+                    .filter(kp -> plannedKpIds.contains(kp.getKnowledgePointId()))
+                    .collect(Collectors.toList());
+            if (plannedFiltered.isEmpty()) {
+                log.warn("骨架知识点与当前可用知识点无交集，忽略骨架: goalId={}, plannedCount={}",
+                        goalId, plannedKpIds.size());
+            } else {
+                log.info("按计划骨架收窄知识点: goalId={}, {} -> {}", goalId, kpList.size(), plannedFiltered.size());
+                kpList = plannedFiltered;
+            }
+        }
+
         // 5.2 调整策略（产品规则 #5）：目标上的"暂缓知识点"与"日题量上限"
         LearningGoal goalEntity = learningGoalMapper.selectById(goalId);
         Integer dailyQuestionLimit = goalEntity == null ? null : goalEntity.getDailyQuestionLimit();
@@ -357,7 +372,10 @@ public class HomeworkServiceImpl implements HomeworkService {
 
         HomeworkQuotaCalculator.QuotaAllocation quota;
         try {
-            int dailyLimit = dailyQuestionLimit == null ? HomeworkQuotaCalculator.DAILY_MAX : dailyQuestionLimit;
+            Integer plannedCount = existingPlan == null ? null : existingPlan.getPlannedQuestionCount();
+         int dailyLimit = plannedCount != null
+                 ? plannedCount
+                 : (dailyQuestionLimit == null ? HomeworkQuotaCalculator.DAILY_MAX : dailyQuestionLimit);
          quota = HomeworkQuotaCalculator.calculate(dueErrorCount, quotaErrorKpIds, kpMasteryMap, kpErrorCountMap, dailyLimit);
         } catch (IllegalArgumentException e) {
             log.error("配额计算入参非法: {}", e.getMessage());
@@ -1172,6 +1190,23 @@ public class HomeworkServiceImpl implements HomeworkService {
     private String getStudentGrade(Long studentId) {
         Student student = studentMapper.selectById(studentId);
         return student != null ? student.getGrade() : null;
+    }
+
+    /**
+     * 解析计划骨架指定的知识点（产品规则 #1）
+     */
+    private List<String> parsePlannedKpIds(DailyPlan plan) {
+        if (plan == null || plan.getPlannedKpIds() == null || plan.getPlannedKpIds().isBlank()) {
+            return List.of();
+        }
+        try {
+            List<String> ids = OBJECT_MAPPER.readValue(plan.getPlannedKpIds(),
+                    new TypeReference<List<String>>() {});
+            return ids == null ? List.of() : ids;
+        } catch (Exception e) {
+            log.warn("解析计划骨架知识点失败，忽略: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /**

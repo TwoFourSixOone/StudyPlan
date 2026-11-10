@@ -50,4 +50,17 @@ public class DailyPlan extends BaseEntity {
      * 状态：pending / in_progress / completed / cancelled
      */
     private String status;
+
+    /**
+     * 规划 Agent 指定的知识点 ID（JSON 数组；NULL = 未规划，按掌握度现算）
+     *
+     * <p>产品规则 #1：创建目标时生成整段计划骨架，02:00 出题按骨架执行。</p>
+     */
+    @TableField(typeHandler = JsonStringTypeHandler.class)
+    private String plannedKpIds;
+
+    /**
+     * 规划 Agent 指定的当日题量（NULL = 按配额计算）
+     */
+    private Integer plannedQuestionCount;
 }

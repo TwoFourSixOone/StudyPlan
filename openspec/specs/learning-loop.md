@@ -18,7 +18,7 @@
 
 | # | 步骤 | 入口 | 主要落库 | 规则 |
 |---|------|------|---------|------|
-| 1 | 设定目标 | `POST /api/student/goal`（`GoalServiceImpl`） | `learning_goal` | #1；**前置：已设置年级**（规则 #11，未设置返回 `GRADE_NOT_SET`） |
+| 1 | 设定目标 | `POST /api/student/goal`（`GoalServiceImpl`） | `learning_goal`、`daily_plan`（骨架） | #1；**前置：已设置年级**；创建后由**规划 Agent** 生成整段计划骨架 |
 | 2 | 生成每日作业 | `POST /api/homework/generate`（`HomeworkServiceImpl.generateDailyHomework`） | `daily_plan`、`generated_question`（题库题引用 `question_bank`） | #3（题目**题库优先**，不足由 Agent 补足） |
 | 3 | 逐题作答 | `POST /api/homework/submit`（`submitAnswer`） | `homework_submission_detail` | #9 |
 | 4 | 批改 | `POST /api/homework/grade`（`gradeHomework`） | 同上 + `error_question` + 掌握度 | #2/#3 |
@@ -30,7 +30,7 @@
 
 ## 2. 每日作业生成
 
-**触发方式**：① 每天 02:00 定时任务 `DailyHomeworkGenerationTask` 为所有进行中目标自动生成（幂等：当日计划已存在则跳过）；② 学生手动 `POST /api/homework/generate` 兜底。`generateDailyHomework(studentId, tenantId, subjectId, planDate)` 的顺序：
+**触发方式**：① 每天 02:00 定时任务 `DailyHomeworkGenerationTask` 为所有进行中目标自动生成（幂等：当日计划已存在则跳过）；② 学生手动 `POST /api/homework/generate` 兜底。**知识点来源**：优先读取当日计划骨架（`planned_kp_ids`），骨架缺失才按掌握度现算。`generateDailyHomework(studentId, tenantId, subjectId, planDate)` 的顺序：
 
 1. 取该科目活跃目标（无目标 → `LEARNING_GOAL_NOT_FOUND`）
 2. 查当日计划：已是 `in_progress` / `completed` → `HOMEWORK_ALREADY_EXISTS`

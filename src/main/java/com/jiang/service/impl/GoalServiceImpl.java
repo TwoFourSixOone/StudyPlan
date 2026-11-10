@@ -19,6 +19,7 @@ import com.jiang.model.entity.Subject;
 import com.jiang.model.enums.GoalStatus;
 import com.jiang.security.StudentContext;
 import com.jiang.service.GoalService;
+import com.jiang.service.PlanSkeletonService;
 import com.jiang.vo.GoalVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -53,6 +54,12 @@ public class GoalServiceImpl implements GoalService {
 
     @Autowired
     private StudentMapper studentMapper;
+
+    /**
+     * 计划骨架服务（产品规则 #1：创建目标时由规划 Agent 拆出整段计划）
+     */
+    @Autowired
+    private PlanSkeletonService planSkeletonService;
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -118,6 +125,14 @@ public class GoalServiceImpl implements GoalService {
         goal.setTenantId(tenantId);
 
         learningGoalMapper.insert(goal);
+
+        // 产品规则 #1：创建目标后立即生成整段计划骨架（每日作业按骨架执行）
+        // 骨架生成失败不阻塞目标创建——02:00 生成时会按掌握度兜底
+        try {
+            planSkeletonService.generateSkeleton(goal.getGoalId(), tenantId);
+        } catch (Exception e) {
+            log.warn("计划骨架生成失败，将在每日生成时兜底: goalId={}, error={}", goal.getGoalId(), e.getMessage());
+        }
 
         return toGoalVO(goal, subject.getName());
     }

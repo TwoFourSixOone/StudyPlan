@@ -57,6 +57,8 @@ class GoalServiceTest {
 
     @Mock
     private StudentMapper studentMapper;
+    @Mock
+    private PlanSkeletonService planSkeletonService;
 
     @InjectMocks
     private GoalServiceImpl goalService;
