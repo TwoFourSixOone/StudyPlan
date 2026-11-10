@@ -47,7 +47,11 @@
 | `daily_plan.planned_kp_ids` | TEXT | 骨架知识点 JSON 数组；NULL = 未规划 |
 | `daily_plan.planned_question_count` | TINYINT | 骨架题量；NULL = 按配额算 |
 
-## 4. 幂等与降级
+'## 4. 线程池（隐性约定 #22）
+
+异步细化使用 `planningExecutor`，声明在 `ThreadPoolConfig`（统一工厂 `createExecutor`：有界队列 + CallerRunsPolicy + 命名 + 未捕获异常处理 + 关闭管理器注册），**不单独新建配置类**。参数：`thread-pool.planning.core-size / queue-capacity / await-terminate-seconds`。
+
+## 5. 幂等与降级'
 
 | 场景 | 行为 |
 |------|------|
@@ -56,14 +60,14 @@
 | 无 active 知识点 | 不生成骨架（出题时也会报 1091） |
 | 骨架与实时可用知识点无交集 | 忽略骨架，按掌握度现算 |
 
-## 5. 自动调整
+## 6. 自动调整
 
 - 时间：02:30（在 02:00 出题之后，避免调整刚落库就被出题覆盖判断）
 - 范围：`status=active` 且日期覆盖今天的目标
 - 幂等：无信号直接跳过；`triggerAdjustment` 内部还有 pending diff 防重
 - 隔离：逐目标 try/catch，`StudentContext` finally 清理
 
-## 6. 测试
+## 7. 测试
 
 - `PlanSkeletonServiceTest`：Agent 成功落骨架 / Agent 失败回退模板 / 已存在跳过 / 无可用知识点跳过
 - `AutoAdjustmentTaskTest`：无目标 / 无信号 / 命中自动应用 / 单目标失败隔离

@@ -76,6 +76,28 @@ public class ThreadPoolConfig {
                 examAnalysisQueueCapacity);
     }
 
+    // ==================== 规划细化任务线程池 ====================
+
+    @Value("${thread-pool.planning.core-size:1}")
+    private int planningCoreSize;
+
+    @Value("${thread-pool.planning.queue-capacity:20}")
+    private int planningQueueCapacity;
+
+    /**
+     * 规划细化线程池
+     * 用于创建目标后异步调用规划 Agent 细化每日计划骨架
+     * （LLM 可能耗时 1~2 分钟甚至超时，不能阻塞目标创建接口）
+     * <p>
+     * 拒绝策略：CallerRunsPolicy
+     * - 队列满时由提交线程（Tomcat 请求线程）同步执行，极端情况下会拖慢创建目标
+     * - 但队列容量 20，同一时刻极少有这么多目标并发创建，可接受
+     */
+    @Bean(name = "planningExecutor", destroyMethod = "")
+    public ThreadPoolExecutor planningExecutor() {
+        return createExecutor("planning-refine", planningCoreSize, planningCoreSize, planningQueueCapacity);
+    }
+
     // ==================== 优雅关闭管理器 ====================
 
     /**
@@ -86,11 +108,14 @@ public class ThreadPoolConfig {
     public ExecutorShutdownManager executorShutdownManager(
             @Qualifier("aiExecutor") ThreadPoolExecutor aiExecutor,
             @Qualifier("examAnalysisExecutor") ThreadPoolExecutor examAnalysisExecutor,
+            @Qualifier("planningExecutor") ThreadPoolExecutor planningExecutor,
             @Value("${thread-pool.ai.await-terminate-seconds:30}") int aiWaitSec,
-            @Value("${thread-pool.exam-analysis.await-terminate-seconds:60}") int examWaitSec) {
+            @Value("${thread-pool.exam-analysis.await-terminate-seconds:60}") int examWaitSec,
+            @Value("${thread-pool.planning.await-terminate-seconds:60}") int planningWaitSec) {
         return new ExecutorShutdownManager(Map.of(
                 "aiExecutor", new PoolRef(aiExecutor, aiWaitSec),
-                "examAnalysisExecutor", new PoolRef(examAnalysisExecutor, examWaitSec)));
+                "examAnalysisExecutor", new PoolRef(examAnalysisExecutor, examWaitSec),
+                "planningExecutor", new PoolRef(planningExecutor, planningWaitSec)));
     }
 
     // ==================== 工厂方法 ====================

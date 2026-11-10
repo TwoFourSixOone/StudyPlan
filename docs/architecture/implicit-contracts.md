@@ -157,10 +157,27 @@
 
 ---
 
+### 约定 #22：线程池统一在 `ThreadPoolConfig` 中声明
+
+- **约定内容**：
+    - 所有业务线程池**只在** `com.jiang.config.ThreadPoolConfig` 中通过 `@Bean` 声明，**禁止**在新的 `@Configuration` 类里另建线程池
+    - 一律使用工厂方法 `createExecutor(namePrefix, coreSize, maxSize, queueCapacity)`，从而统一获得：有界队列 + `CallerRunsPolicy` 背压 + 线程命名 + `UncaughtExceptionHandler` + 创建日志
+    - 池大小、队列容量、关闭等待秒数走配置项 `thread-pool.<pool>.core-size / queue-capacity / await-terminate-seconds`，**不得硬编码**
+    - 新增线程池必须同步注册到 `executorShutdownManager(...)`，否则容器关闭时不会优雅终止
+- **影响范围**：`aiExecutor`、`examAnalysisExecutor`、`planningExecutor` 及后续新增线程池
+- **违反后果**：
+    - 分散创建的线程池没有 `UncaughtExceptionHandler`，任务异常被静默吞掉
+    - 未注册到关闭管理器 → 停机时任务被强杀，可能丢任务或留下半写数据
+    - 使用无界队列或缺省拒绝策略 → 高负载下 OOM 或任务静默丢弃
+- **发现时间**：2026-11-10（规划细化线程池最初建在独立的 `PlanningConfig` 中，被要求合并回 `ThreadPoolConfig`）
+- **正确做法**：在 `ThreadPoolConfig` 中加一段 `@Bean(name = "xxxExecutor", destroyMethod = "")` + `createExecutor(...)`，并在 `executorShutdownManager` 的 `Map.of(...)` 中登记
+
+
+
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #21 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #22 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充
