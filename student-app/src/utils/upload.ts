@@ -7,9 +7,22 @@
 import { useAuthStore } from '@/stores/auth';
 import { showError } from '@/utils/message';
 
-// 环境判断：默认云托管，VITE_USE_LOCAL=1 时切换本地
-const USE_LOCAL = import.meta.env.VITE_USE_LOCAL === '1';
-const BASE_URL = USE_LOCAL ? 'http://localhost:80/api' : 'https://springboot-0kxz-337659-13-1520028634.sh.run.tcloudbase.com/api';
+// 上传地址与 request.ts 使用同一套环境变量（见 student-app/.env.example）
+const USE_LOCAL = resolveUseLocal();
+const LOCAL_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:80/api';
+const CLOUD_BASE_URL = import.meta.env.VITE_CLOUD_BASE_URL || '';
+
+/** 含 /api 前缀的上传基地址；未配置云托管地址时为空字符串 */
+const UPLOAD_BASE_URL = USE_LOCAL
+  ? LOCAL_BASE_URL
+  : (CLOUD_BASE_URL ? CLOUD_BASE_URL + '/api' : '');
+
+function resolveUseLocal(): boolean {
+  const flag = import.meta.env.VITE_USE_LOCAL;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  return import.meta.env.DEV;
+}
 
 /**
  * 带 JWT 认证的文件上传（含 401 自动重登 + 单次重试）
@@ -37,8 +50,13 @@ function _doUpload(
 ): Promise<any> {
   return new Promise((resolve, reject) => {
     const authStore = useAuthStore();
+    if (!UPLOAD_BASE_URL) {
+      showError('上传地址未配置，请检查 .env 中的 VITE_CLOUD_BASE_URL');
+      reject(new Error('UPLOAD_BASE_URL_NOT_CONFIGURED'));
+      return;
+    }
     uni.uploadFile({
-      url: BASE_URL + url,
+      url: UPLOAD_BASE_URL + url,
       filePath,
       name,
       formData,

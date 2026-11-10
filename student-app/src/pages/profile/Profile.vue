@@ -162,18 +162,23 @@
             </view>
           </picker>
         </view>
-        <!-- 记录列表 -->
+        <!-- 记录列表（仅展示最近5条） -->
         <view class="record-list" v-if="recordList.length > 0">
           <view class="record-item" v-for="r in recordList" :key="r.recordId" @click="viewRecordDetail(r)">
             <view class="record-info">
               <text class="record-title">{{ r.title }}</text>
-              <text class="record-type-tag">{{ r.recordType }}</text>
+              <text class="record-type-tag">{{ recordTypeLabel(r.recordType) }}</text>
             </view>
             <view class="record-meta">
               <text class="record-subject">{{ r.subjectName }}</text>
               <text class="record-score" v-if="r.score != null">{{ r.score }}分</text>
               <text class="record-time">{{ formatRecordTime(r.createTime) }}</text>
             </view>
+          </view>
+          <!-- 超过5条时显示更多入口，跳转完整列表页 -->
+          <view class="more-entry" v-if="recordTotal > recordList.length" @click="goToRecordList">
+            <text>查看更多（共{{ recordTotal }}条）</text>
+            <text class="more-arrow">›</text>
           </view>
         </view>
         <EmptyState v-else-if="!recordLoading" text="暂无学习记录" />
@@ -192,7 +197,7 @@
               </view>
               <view class="detail-row" v-if="recordDetail.recordType">
                 <text class="detail-label">类型</text>
-                <text class="detail-value">{{ recordDetail.recordType }}</text>
+                <text class="detail-value">{{ recordTypeLabel(recordDetail.recordType) }}</text>
               </view>
               <view class="detail-row" v-if="recordDetail.subjectName">
                 <text class="detail-label">科目</text>
@@ -316,6 +321,7 @@ function onPaperTypeChange(e) {
 
 // ========== 学习记录 ==========
 const recordList = ref([]);
+const recordTotal = ref(0); // 当前筛选下的记录总数，用于判断是否显示“查看更多”
 const recordLoading = ref(false);
 const recordDetail = ref(null);
 const recordTypeIndex = ref(0);
@@ -494,14 +500,17 @@ async function handleChooseAndUpload() {
 async function fetchRecords() {
   recordLoading.value = true;
   try {
-    const params = { page: 1, size: 20 };
+    // Profile 内嵌列表仅展示最近 5 条，完整列表在“学习记录列表页”分页加载
+    const params = { page: 1, size: 5 };
     const typeVal = recordTypes[recordTypeIndex.value];
     if (typeVal) params.recordType = typeVal;
     const result = await getRecordList(params);
     recordList.value = result?.records || [];
+    recordTotal.value = result?.total || 0;
   } catch (e) {
     console.warn('[Profile] 获取记录失败:', e.message);
     recordList.value = [];
+    recordTotal.value = 0;
   } finally {
     recordLoading.value = false;
   }
@@ -519,6 +528,12 @@ async function viewRecordDetail(record) {
     showError('获取详情失败');
     console.warn('[Profile] 获取记录详情失败:', e.message);
   }
+}
+
+// 记录类型 code → 中文标签
+function recordTypeLabel(type) {
+  const map = { homework: '作业', assessment: '评测', exam: '考试' };
+  return map[type] || type;
 }
 
 function formatRecordTime(dt) {
@@ -571,6 +586,18 @@ async function handleLogout() {
 function goToErrorBook() {
   uni.navigateTo({
     url: '/pages/error/Error'
+  });
+}
+
+// ========== 学习记录完整列表页 ==========
+function goToRecordList() {
+  uni.navigateTo({
+    url: '/pages/record-list/RecordList',
+    fail: (err) => {
+      // 页面未注册或开发者工具未重新编译时给出明确提示
+      console.error('[Profile] 跳转学习记录列表失败:', err);
+      showError('跳转失败，请在开发者工具中重新编译后重试');
+    }
   });
 }
 
@@ -902,6 +929,20 @@ watch(activeSection, (val) => {
 .record-score {
   color: $warning-color;
   font-weight: 500;
+}
+/* 查看更多入口 */
+.more-entry {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-sm;
+  padding: $spacing-md 0;
+  font-size: $font-sm;
+  color: $primary-color;
+}
+.more-arrow {
+  font-size: $font-lg;
+  line-height: 1;
 }
 
 /* 记录详情弹窗 */

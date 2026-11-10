@@ -6,7 +6,16 @@
 interface ImportMetaEnv {
   readonly DEV: boolean;
   readonly PROD: boolean;
+  /** 是否强制使用本地后端：'true' / 'false'，不配置则按 DEV 推断 */
   readonly VITE_USE_LOCAL?: string;
+  /** 本地后端地址（含 /api 前缀） */
+  readonly VITE_API_BASE_URL?: string;
+  /** 微信云托管环境 ID */
+  readonly VITE_CLOUD_ENV?: string;
+  /** 微信云托管服务名（X-WX-SERVICE） */
+  readonly VITE_CLOUD_SERVICE?: string;
+  /** 云托管公网地址（不含 /api 前缀） */
+  readonly VITE_CLOUD_BASE_URL?: string;
 }
 
 interface ImportMeta {

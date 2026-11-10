@@ -95,12 +95,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
 
     // 使用 request.ts 的 post 方法，自动支持云托管/本地切换
+    // 注意：post() 返回的是 body.data（已解包），不是整个 response
     const response: any = await post('/auth/login', { code }, { showError: false });
 
-    if (response?.code === 200 && response?.data?.token) {
-      _saveToken(response.data.token);
-      if (response.data.studentInfo) {
-        _saveStudentInfo(response.data.studentInfo);
+    // response 结构：{ token: string, studentInfo: {...} }
+    if (response?.token) {
+      _saveToken(response.token);
+      if (response.studentInfo) {
+        _saveStudentInfo(response.studentInfo);
       }
 
       if (!silent) {

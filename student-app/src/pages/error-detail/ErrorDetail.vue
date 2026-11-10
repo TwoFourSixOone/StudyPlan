@@ -3,7 +3,9 @@
     <!-- 顶部导航栏 -->
     <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-bar-inner">
-        <button class="btn-back" @click="goBack">← 返回</button>
+        <button class="btn-back" @click="goBack" aria-label="返回">
+          <view class="back-icon"></view>
+        </button>
         <text class="nav-title">错题详情</text>
         <view class="nav-placeholder"></view>
       </view>
@@ -17,16 +19,16 @@
       <!-- 基本信息 -->
       <view class="info-section">
         <view class="info-row">
-          <text class="label">科目：</text>
-          <text class="value">{{ errorDetail.subjectName }}</text>
+          <text class="label">来源：</text>
+          <text class="value">{{ formatSourceLabel(errorDetail.sourceType) }}</text>
         </view>
         <view class="info-row">
           <text class="label">题型：</text>
-          <text class="value">{{ formatTypeLabel(errorDetail.taskType) }}</text>
+          <text class="value">{{ formatTypeLabel(errorDetail.questionType) }}</text>
         </view>
         <view class="info-row">
           <text class="label">难度：</text>
-          <text class="value">{{ difficultyLabel(errorDetail.difficulty) }}</text>
+          <text class="value">{{ difficultyLabel(errorDetail.questionDifficulty) }}</text>
         </view>
         <view class="info-row">
           <text class="label">知识点：</text>
@@ -34,15 +36,19 @@
         </view>
         <view class="info-row">
           <text class="label">当前阶段：</text>
-          <text class="value stage-badge" :class="'stage-' + errorDetail.stage">第{{ errorDetail.stage }}阶段</text>
+          <text class="value stage-badge" :class="'stage-' + errorDetail.currentStage">第{{ errorDetail.currentStage }}阶段</text>
         </view>
         <view class="info-row">
-          <text class="label">错误时间：</text>
-          <text class="value">{{ formatDate(errorDetail.createTime) }}</text>
+          <text class="label">首次答错：</text>
+          <text class="value">{{ errorDetail.firstWrongDate || '—' }}</text>
         </view>
         <view class="info-row">
-          <text class="label">重做次数：</text>
-          <text class="value">{{ errorDetail.reviewCount }} 次</text>
+          <text class="label">最近答错：</text>
+          <text class="value">{{ errorDetail.lastWrongDate || '—' }}</text>
+        </view>
+        <view class="info-row">
+          <text class="label">下次复习：</text>
+          <text class="value">{{ errorDetail.nextDueDate || '—' }}</text>
         </view>
       </view>
 
@@ -65,13 +71,13 @@
       </view>
 
       <!-- 学生答案 -->
-      <view class="answer-section">
+      <view class="answer-section" v-if="errorDetail.studentAnswer">
         <text class="section-title">我的答案</text>
-        <text class="answer-text" :class="{ 'wrong': true }">{{ errorDetail.studentAnswer || '未作答' }}</text>
+        <text class="answer-text" :class="{ 'wrong': true }">{{ errorDetail.studentAnswer }}</text>
       </view>
 
       <!-- 正确答案 -->
-      <view class="answer-section correct">
+      <view class="answer-section correct" v-if="errorDetail.correctAnswer">
         <text class="section-title">正确答案</text>
         <text class="answer-text" :class="{ 'correct': true }">{{ errorDetail.correctAnswer }}</text>
       </view>
@@ -98,8 +104,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref } from 'vue';
+import { onLoad } from '@dcloudio/uni-app';
 import { useAuthGuard } from '@/utils/useAuthGuard';
+import { getErrorQuestionDetail } from '@/api/error';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
@@ -112,20 +120,17 @@ const errorDetail = ref(null);
 const loading = ref(false);
 
 // ========== 生命周期 ==========
-onMounted(() => {
+onLoad((options) => {
   const sysInfo = uni.getSystemInfoSync();
   statusBarHeight.value = sysInfo.statusBarHeight || 0;
 
-  // 从路由参数获取 errorId
-  const pages = getCurrentPages();
-  const currentPage = pages[pages.length - 1];
-  const options = currentPage.options;
-  const errorId = options.errorId;
+  // 从路由参数获取 errorId（onLoad 在小程序/H5 下都能可靠拿到参数）
+  const errorId = options?.errorId;
 
   if (errorId) {
     fetchErrorDetail(errorId);
   } else {
-    console.warn('[ErrorDetail] 缺少 errorId 参数');
+    console.warn('[ErrorDetail] 缺少 errorId 参数, options:', options);
   }
 });
 
@@ -133,18 +138,12 @@ onMounted(() => {
 async function fetchErrorDetail(errorId) {
   loading.value = true;
   try {
-    // TODO: 后端需要提供单个错题详情的接口
-    // 目前先用列表接口模拟，实际应该用 GET /api/error-questions/{errorId}
-    const { getErrorQuestions } = await import('@/api/error');
-    const result = await getErrorQuestions({ page: 1, size: 100 });
-    const errors = result?.records || [];
-    errorDetail.value = errors.find(e => e.errorId === parseInt(errorId)) || null;
-    
-    if (!errorDetail.value) {
-      console.warn('[ErrorDetail] 未找到错题:', errorId);
-    }
+    // 注意：小程序编译下动态 import() 会被编译成字符串字面量，必须用静态导入
+    errorDetail.value = await getErrorQuestionDetail(errorId);
   } catch (e) {
+    // 接口报错（含错题不存在）时保持空态展示
     console.warn('[ErrorDetail] 获取错题详情失败:', e.message);
+    errorDetail.value = null;
   } finally {
     loading.value = false;
   }
@@ -155,15 +154,19 @@ function goBack() {
   uni.navigateBack();
 }
 
+function formatSourceLabel(type) {
+  const map = { homework: '作业', assessment: '测评', exam: '考试' };
+  return map[type] || type || '未知来源';
+}
+
 function formatTypeLabel(type) {
   const map = { 
     choice: '选择题', 
     numeric: '填空题', 
     short: '解答题', 
-    self: '主观题',
-    redo: '重做题'
+    self: '主观题'
   };
-  return map[type] || type;
+  return map[type] || type || '—';
 }
 
 function difficultyLabel(diff) {
@@ -178,8 +181,16 @@ function choiceLabel(idx) {
 function parseOptions(optionsStr) {
   if (!optionsStr) return [];
   try {
-    // 假设 options 是 JSON 字符串数组
-    return JSON.parse(optionsStr);
+    let parsed = JSON.parse(optionsStr);
+    // 兼容双重序列化：解析结果仍是字符串时再解析一次
+    if (typeof parsed === 'string') {
+      parsed = JSON.parse(parsed);
+    }
+    if (Array.isArray(parsed)) return parsed;
+    if (typeof parsed === 'string') {
+      return parsed.split('\n').filter(o => o.trim());
+    }
+    return [];
   } catch (e) {
     // 如果不是 JSON，尝试按换行符分割
     return optionsStr.split('\n').filter(o => o.trim());
@@ -220,12 +231,23 @@ function formatDate(dateStr) {
   justify-content: space-between;
   padding: 0 $spacing-lg;
 }
+/* 返回按钮（纯 CSS 箭头图标） */
 .btn-back {
-  font-size: $font-md;
-  color: $primary-color;
   background: none;
   border: none;
-  padding: 0;
+  padding: 16rpx 20rpx;
+  line-height: 1;
+}
+.btn-back::after {
+  border: none;
+}
+.back-icon {
+  display: block;
+  width: 22rpx;
+  height: 22rpx;
+  border-left: 4rpx solid $primary-color;
+  border-bottom: 4rpx solid $primary-color;
+  transform: rotate(45deg);
 }
 .nav-title {
   font-size: $font-lg;

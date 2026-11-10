@@ -16,22 +16,49 @@
 import { showError } from '@/utils/message';
 import { useAuthStore } from '@/stores/auth';
 
-// ========== 基础配置 ==========
+// ========== 基础配置（全部由 .env.* 注入，见 student-app/.env.example） ==========
 // 微信小程序环境必须使用完整 URL（Vite proxy 仅对 H5 生效）
-// 开发环境指向本地后端，生产环境需替换为正式域名
-const BASE_URL = 'http://localhost:80/api';
+const LOCAL_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:80/api';
 const TIMEOUT = 30000; // 30s 超时
 
 // ========== 云托管配置 ==========
-// 默认使用云托管（真机调试必须），可通过环境变量 VITE_USE_LOCAL=1 切换本地
-const USE_LOCAL = import.meta.env.DEV
+// 本地后端 / 微信云托管双通道；VITE_USE_LOCAL 未配置时按构建模式推断
+const USE_LOCAL = resolveUseLocal();
 
-// 云托管环境 ID 和服务名（根据实际部署配置修改）
-const CLOUD_ENV = 'prod-d8g1ado543d76cfe4';
-const CLOUD_SERVICE = 'springboot-0kxz';
+// 云托管环境 ID 与服务名（wx.cloud.callContainer 使用）
+const CLOUD_ENV = import.meta.env.VITE_CLOUD_ENV || '';
+const CLOUD_SERVICE = import.meta.env.VITE_CLOUD_SERVICE || '';
 
 // 云托管公网地址（callContainer 失败时降级使用）
-const CLOUD_BASE_URL = 'https://springboot-0kxz-337659-13-1520028634.sh.run.tcloudbase.com';
+const CLOUD_BASE_URL = import.meta.env.VITE_CLOUD_BASE_URL || '';
+
+// callContainer 需要 env + service 同时配置，缺一则直接走公网 HTTPS
+const CLOUD_CONTAINER_ENABLED = Boolean(CLOUD_ENV && CLOUD_SERVICE);
+
+/**
+ * 解析是否使用本地后端：
+ * 1. VITE_USE_LOCAL 显式配置优先（true/false）
+ * 2. 未配置时按构建模式推断（dev → 本地，build → 云托管）
+ */
+function resolveUseLocal(): boolean {
+  const flag = import.meta.env.VITE_USE_LOCAL;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  return import.meta.env.DEV;
+}
+
+/**
+ * 取云托管公网地址前先校验，避免空地址拼出无效 URL 让排查变得困难
+ */
+function requireCloudBaseUrl(): string {
+  if (!CLOUD_BASE_URL) {
+    throw new Error(
+      '未配置 VITE_CLOUD_BASE_URL：请在 .env.production 中填写云托管公网地址，' +
+      '或设置 VITE_USE_LOCAL=true 使用本地后端'
+    );
+  }
+  return CLOUD_BASE_URL;
+}
 
 // ========== 类型定义 ==========
 
@@ -130,11 +157,10 @@ export function request<T = any>(options: RequestOptions): Promise<T> {
     if (authStore.token) {
       header['Authorization'] = `Bearer ${authStore.token}`;
     }
-    debugger;
     if (USE_LOCAL) {
       // 本地开发：使用 uni.request
       uni.request({
-        url: BASE_URL + url,
+        url: LOCAL_BASE_URL + url,
         method,
         data,
         header: {
@@ -152,6 +178,9 @@ export function request<T = any>(options: RequestOptions): Promise<T> {
           reject(new Error(err.errMsg || '网络请求失败'));
         }
       });
+    } else if (!CLOUD_CONTAINER_ENABLED) {
+      // 云托管未配置（缺 env 或 service）→ 直接走公网 HTTPS，不让 callContainer 静默失败
+      fallbackToPublic<T>(url, method, data, header, options, resolve, reject);
     } else {
       // 云托管：优先使用 callContainer，失败时降级到公网 HTTPS
       try {
@@ -196,7 +225,7 @@ function fallbackToPublic<T>(
   const { showError: shouldShowError = true } = options;
   
   uni.request({
-    url: CLOUD_BASE_URL + '/api' + url,  // 添加 /api 前缀
+    url: requireCloudBaseUrl() + '/api' + url,  // 添加 /api 前缀
     method: method as any,
     data,
     header: {
@@ -229,7 +258,7 @@ function fallbackToPublicReplay<T>(
   shouldShowError: boolean
 ): void {
   uni.request({
-    url: CLOUD_BASE_URL + '/api' + url,  // 添加 /api 前缀
+    url: requireCloudBaseUrl() + '/api' + url,  // 添加 /api 前缀
     method: method as any,
     data,
     header: {
@@ -299,7 +328,7 @@ async function handleResponse<T>(
       if (USE_LOCAL) {
         // 本地开发：使用 uni.request
         uni.request({
-          url: BASE_URL + url,
+          url: LOCAL_BASE_URL + url,
           method,
           data,
           header: replayHeader,
@@ -322,6 +351,9 @@ async function handleResponse<T>(
             reject(new Error(err.errMsg || '重放请求失败'));
           }
         });
+      } else if (!CLOUD_CONTAINER_ENABLED) {
+        // 云托管未配置 → 直接走公网 HTTPS 重放
+        fallbackToPublicReplay<T>(url, method, data, replayHeader, resolve, reject, shouldShowError);
       } else {
         // 云托管：使用 callContainer
         try {

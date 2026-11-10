@@ -3,7 +3,9 @@
     <!-- 顶部导航栏 -->
     <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-bar-inner">
-        <button class="btn-back" @click="goBack">← 退出</button>
+        <button class="btn-back" @click="goBack" aria-label="返回">
+          <view class="back-icon"></view>
+        </button>
         <text class="nav-title">{{ subjectName }}</text>
         <text class="nav-progress">{{ currentIndex + 1 }}/{{ totalQuestions }}</text>
       </view>
@@ -294,12 +296,23 @@ function difficultyLabel(diff) {
   justify-content: space-between;
   padding: 0 $spacing-lg;
 }
+/* 返回按钮（纯 CSS 箭头图标） */
 .btn-back {
-  font-size: $font-md;
-  color: $primary-color;
   background: none;
   border: none;
-  padding: 0;
+  padding: 16rpx 20rpx;
+  line-height: 1;
+}
+.btn-back::after {
+  border: none;
+}
+.back-icon {
+  display: block;
+  width: 22rpx;
+  height: 22rpx;
+  border-left: 4rpx solid $primary-color;
+  border-bottom: 4rpx solid $primary-color;
+  transform: rotate(45deg);
 }
 .nav-title {
   font-size: $font-lg;

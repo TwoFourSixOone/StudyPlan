@@ -13,6 +13,15 @@ export function getErrorQuestions(params: Record<string, any> = {}): Promise<any
 }
 
 /**
+ * 查询单条错题详情（含选项、正确答案、解析）
+ * @param errorId 错题 ID（errorQuestionId）
+ * @returns 详情 VO
+ */
+export function getErrorQuestionDetail(errorId: number | string): Promise<any> {
+  return get(`/error-questions/${errorId}`, {}, { showError: false });
+}
+
+/**
  * 查询错题统计
  * @returns 统计数据
  */

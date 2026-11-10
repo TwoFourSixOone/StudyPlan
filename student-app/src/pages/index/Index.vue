@@ -39,7 +39,7 @@ import { ref } from 'vue';
 import { onShow } from '@dcloudio/uni-app';
 import { useAuthStore } from '@/stores/auth';
 import { useAuthGuard } from '@/utils/useAuthGuard';
-import { getGoalList } from '@/api/goal';
+import { getActiveGoals } from '@/api/goal';
 import LoadingState from '@/components/LoadingState.vue';
 
 // ========== 登录态守卫 ==========
@@ -75,9 +75,9 @@ onShow(() => {
 async function fetchGoals() {
   goalLoading.value = true;
   try {
-    const result = await getGoalList(1, 50);
-    // 前端过滤活跃目标
-    activeGoals.value = (result?.records || []).filter(g => g.status === 'active');
+    // 直接取后端已过滤的活跃目标，避免前端在分页结果里过滤导致漏数据（R6）
+    const result = await getActiveGoals();
+    activeGoals.value = result || [];
   } catch (e) {
     console.warn('[Index] 获取活跃目标失败:', e.message);
     activeGoals.value = [];

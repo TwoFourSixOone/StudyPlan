@@ -59,6 +59,13 @@
         "navigationBarTitleText": "错题详情",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/record-list/RecordList",
+      "style": {
+        "navigationBarTitleText": "学习记录",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

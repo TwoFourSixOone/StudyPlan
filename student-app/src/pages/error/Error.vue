@@ -3,7 +3,11 @@
     <!-- 顶部导航栏 -->
     <view class="nav-bar" :style="{ paddingTop: statusBarHeight + 'px' }">
       <view class="nav-bar-inner">
+        <button class="btn-back" @click="goBack" aria-label="返回">
+          <view class="back-icon"></view>
+        </button>
         <text class="nav-title">错题本</text>
+        <view class="nav-placeholder"></view>
       </view>
     </view>
 
@@ -24,17 +28,17 @@
     </view>
 
     <!-- 统计信息 -->
-    <view class="stats-bar" v-if="statistics">
+    <view class="stats-bar">
       <view class="stat-item">
-        <text class="stat-value">{{ statistics.totalCount }}</text>
+        <text class="stat-value">{{ totalCount }}</text>
         <text class="stat-label">总错题数</text>
       </view>
       <view class="stat-item">
-        <text class="stat-value">{{ statistics.activeCount }}</text>
+        <text class="stat-value">{{ statistics.dueCount ?? 0 }}</text>
         <text class="stat-label">待复习</text>
       </view>
       <view class="stat-item">
-        <text class="stat-value">{{ statistics.completedCount }}</text>
+        <text class="stat-value">{{ completedCount }}</text>
         <text class="stat-label">已掌握</text>
       </view>
     </view>
@@ -44,20 +48,20 @@
       <view 
         class="error-card" 
         v-for="item in errorList" 
-        :key="item.errorId"
+        :key="item.errorQuestionId"
         @click="viewDetail(item)"
       >
         <view class="card-header">
-          <text class="subject-tag">{{ item.subjectName }}</text>
-          <text class="type-tag">{{ formatTypeLabel(item.taskType) }}</text>
-          <text class="stage-tag" :class="'stage-' + item.stage">第{{ item.stage }}阶段</text>
+          <text class="subject-tag">{{ item.knowledgePointName || '未分类' }}</text>
+          <text class="type-tag">{{ formatSourceLabel(item.sourceType) }}</text>
+          <text class="stage-tag" :class="'stage-' + item.currentStage">第{{ item.currentStage }}阶段</text>
         </view>
         <view class="card-content">
           <text class="question-text">{{ truncateText(item.questionContent, 100) }}</text>
         </view>
         <view class="card-footer">
-          <text class="error-time">错误时间：{{ formatDate(item.createTime) }}</text>
-          <text class="review-count">重做 {{ item.reviewCount }} 次</text>
+          <text class="error-time">错误时间：{{ item.firstWrongDate || '—' }}</text>
+          <text class="review-count">下次复习：{{ item.nextDueDate || '—' }}</text>
         </view>
       </view>
     </view>
@@ -102,7 +106,9 @@ const appStore = useAppStore();
 const statusBarHeight = ref(0);
 const errorList = ref([]);
 const loading = ref(false);
-const statistics = ref(null);
+const statistics = ref({});
+const totalCount = ref(0);
+const completedCount = ref(0);
 const currentPage = ref(1);
 const pageSize = ref(10);
 const totalRecords = ref(0);
@@ -127,7 +133,14 @@ onMounted(() => {
 // ========== 数据加载 ==========
 async function fetchStatistics() {
   try {
-    statistics.value = await getErrorStatistics();
+    // 后端统计只返回 dueCount/activeAndPausedCount/pausedCount；
+    // 总错题数、已掌握数通过列表接口的 total 获取
+    const [stats, completedResult] = await Promise.all([
+      getErrorStatistics(),
+      getErrorQuestions({ status: 'completed', page: 1, size: 1 })
+    ]);
+    statistics.value = stats || {};
+    completedCount.value = completedResult?.total || 0;
   } catch (e) {
     console.warn('[Error] 获取统计失败:', e.message);
   }
@@ -158,6 +171,10 @@ async function fetchErrors() {
     const result = await getErrorQuestions(params);
     errorList.value = result?.records || [];
     totalRecords.value = result?.total || 0;
+    // 无状态筛选时，total 即总错题数
+    if (statusIndex.value === 0) {
+      totalCount.value = result?.total || 0;
+    }
   } catch (e) {
     console.warn('[Error] 获取错题列表失败:', e.message);
   } finally {
@@ -195,20 +212,24 @@ function nextPage() {
 // 查看错题详情
 function viewDetail(item) {
   uni.navigateTo({
-    url: `/pages/error-detail/ErrorDetail?errorId=${item.errorId}`
+    url: `/pages/error-detail/ErrorDetail?errorId=${item.errorQuestionId}`
   });
 }
 
 // ========== 工具函数 ==========
-function formatTypeLabel(type) {
-  const map = { 
-    choice: '选择题', 
-    numeric: '填空题', 
-    short: '解答题', 
-    self: '主观题',
-    redo: '重做题'
-  };
-  return map[type] || type;
+function goBack() {
+  // 页面栈 > 1 时正常返回，否则兜底跳回「我的」Tab
+  const pages = getCurrentPages();
+  if (pages.length > 1) {
+    uni.navigateBack();
+  } else {
+    uni.switchTab({ url: '/pages/profile/Profile' });
+  }
+}
+
+function formatSourceLabel(type) {
+  const map = { homework: '作业', assessment: '测评', exam: '考试' };
+  return map[type] || type || '未知来源';
 }
 
 function truncateText(text, maxLength) {
@@ -242,12 +263,36 @@ function formatDate(dateStr) {
   height: 88rpx;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  padding: 0 $spacing-lg;
+}
+/* 返回按钮（纯 CSS 箭头图标） */
+.btn-back {
+  background: none;
+  border: none;
+  padding: 16rpx 20rpx;
+  line-height: 1;
+}
+.btn-back::after {
+  border: none;
+}
+.back-icon {
+  display: block;
+  width: 22rpx;
+  height: 22rpx;
+  border-left: 4rpx solid $primary-color;
+  border-bottom: 4rpx solid $primary-color;
+  transform: rotate(45deg);
 }
 .nav-title {
   font-size: $font-lg;
   font-weight: bold;
   color: $text-primary;
+  flex: 1;
+  text-align: center;
+}
+.nav-placeholder {
+  width: 80rpx;
 }
 
 /* 筛选栏 */
