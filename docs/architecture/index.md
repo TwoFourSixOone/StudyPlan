@@ -219,12 +219,15 @@ StudyPlan/
 - `standards[].id` → 通过中间表 `knowledge_point_standard` 关联 `curriculum_standard.id`（多对多）
 - `mastery_criteria`（数组）→ JSON 字段
 - `diagnostic_question`（对象）→ JSON 字段
+- `gradeRange`（可选，规则 #11）→ `grade_range`，形如 `"3"` / `"7-9"` / `"1,2,3"`，空值落 NULL（全年级通用）
+- `grade`（可选，规则 #11 数据集兼容）→ 单值 1–12 时转为 `grade_range = "N"`；`gradeRange` 存在时优先；13–16 表示高中"选择性必修"模块（选必二/三、选择性必修第 1–4 册），归一化为 `"10-12"`（高中通用），**不可落 NULL**（NULL 表示全年级通用，会让低年级看到高中内容）
 
 **题目字段映射**（`questions.json` → `question_bank` 表）：
 - `topicId` → `knowledge_point_id`（关联知识点）
 - `choices`（数组，仅选择题）→ JSON 字段（含 `key`、`text`、可选 `figure`）
 - `difficulty`（`basic`/`standard`/`challenge`）→ 枚举，映射 D_norm 数值
 - `type`（`numeric`/`choice`）→ 枚举
+- `grade`（可选，规则 #11）→ `grade`，1–12 整数；空值表示继承所属知识点的 `grade_range`
 
 **先修关系字段映射**（`dependencies.json` → `knowledge_point_dependency` 表）：
 - `topicId` → `knowledge_point_id`

@@ -120,6 +120,10 @@
     - **`.ts` 接口文件**：放 `src/api/*.ts`（如 `api/error.ts`），由 Vite + TS 编译，mp-weixin 下正常工作；**不要因为历史结论把它们挪走**
     - **`.js` 接口文件**：若必须用 JS，放 `src/utils/`，规避上述注册问题
     - **请求工具**：`utils/request.ts` / `utils/upload.ts` 始终放 `utils/`，与业务接口文件分离
+- **补充（2026-11-10，年级设置联调）**：即使 `.ts` 文件放在 `src/api/`，**"新增"模块仍可能在运行期不注册**——文件已在 `dist/dev/mp-weixin/api/student.js`，但 `require` 报 `module 'api/student.js' is not defined`；重建产物、清缓存后仍不稳定。稳妥做法：
+    - **新增接口函数一律并入已有 `api/*.ts` 模块**（如 `updateGrade` 并入 `api/auth.ts`），不要为此新建文件
+    - **新增 `utils/*.ts` 同样有风险**；只被单个页面使用的小工具直接内联在该页面
+    - 若确实必须新建模块，需在**停掉 watcher → 删除 `dist/dev` → 重启 watcher → 开发者工具清缓存**之后验证，仍失败则改为并入已有模块
 - **影响范围**：student-app 全部前端模块导入
 - **违反后果**：运行时模块加载失败，页面白屏或功能不可用
 - **发现时间**：2026-11-05
