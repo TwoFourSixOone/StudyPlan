@@ -14,8 +14,8 @@
 
 ### Task 2：骨架生成
 
-- [x] `PlanSkeletonService` + `Impl`：查真实数据 → 规划 → 落骨架
-- [x] 模板降级（Agent 失败时按知识点顺序轮转）
+- [x] `PlanSkeletonService` + `Impl`：① 模板骨架同步落库（秒级） ② 规划 Agent 异步细化（LLM 超时不影响创建）
+- [x] 模板骨架（知识点顺序轮转）+ 异步细化（联调：同步调 Agent 会触发 PT2M 超时阻塞创建，故改为两段式）
 - [x] `GoalServiceImpl.createGoal` 调用（失败不阻塞目标创建）
 
 ### Task 3：每日出题读骨架
@@ -42,6 +42,6 @@
 
 ### Task 7：构建与联调
 
-- [x] `mvn test` → 578 tests, 0 failures
+- [x] `mvn test` → 579 tests, 0 failures
 - [ ] 联调：创建目标后查 `daily_plan` 骨架（应覆盖整段周期）
 - [ ] 联调：02:00 出题是否按骨架知识点；02:30 是否自动调整

@@ -30,6 +30,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -59,6 +60,8 @@ class GoalServiceTest {
     private StudentMapper studentMapper;
     @Mock
     private PlanSkeletonService planSkeletonService;
+    @Mock
+    private ThreadPoolExecutor planningExecutor;
 
     @InjectMocks
     private GoalServiceImpl goalService;

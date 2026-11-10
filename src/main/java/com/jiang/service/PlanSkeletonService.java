@@ -3,8 +3,11 @@ package com.jiang.service;
 /**
  * 每日计划骨架服务（产品规则 #1）
  *
- * <p>创建学习目标时调用：由规划 Agent 把目标周期拆成每日计划，
- * 批量写入 {@code daily_plan} 骨架（状态 {@code pending_generation}、题目待生成）。</p>
+ * <p>两段式：</p>
+ * <ol>
+ *   <li>{@link #generateSkeleton} —— 创建目标时**同步**写入模板骨架（纯 DB 操作，秒级）</li>
+ *   <li>{@link #refineWithAgent} —— 后台**异步**调用规划 Agent 细化（LLM 可能超时，不阻塞创建）</li>
+ * </ol>
  *
  * @author StudyMate Team
  * @since 2026-11-10
@@ -12,13 +15,21 @@ package com.jiang.service;
 public interface PlanSkeletonService {
 
     /**
-     * 为目标生成整段计划骨架
+     * 生成模板骨架（同步，不调用 LLM）
      *
-     * <p>幂等：已存在的日期跳过。规划 Agent 失败时回退为"按知识点均匀分配"的模板计划。</p>
+     * <p>按知识点 ID 顺序轮转分配到目标周期内的每一天，保证创建目标后立即有计划可看。
+     * 幂等：已存在的日期跳过。</p>
      *
-     * @param goalId   目标 ID
-     * @param tenantId 租户 ID
-     * @return 实际新建的计划条数
+     * @return 新建计划条数
      */
     int generateSkeleton(Long goalId, String tenantId);
+
+    /**
+     * 调用规划 Agent 细化骨架（异步，失败静默返回 0）
+     *
+     * <p>只覆盖仍处于 {@code pending_generation} 的计划，不影响已开始/已完成的日期。</p>
+     *
+     * @return 更新的计划条数
+     */
+    int refineWithAgent(Long goalId, String tenantId);
 }

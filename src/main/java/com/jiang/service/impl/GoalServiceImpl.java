@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.jiang.common.result.PageResult;
 import com.jiang.dto.CreateGoalRequest;
 import com.jiang.dto.UpdateGoalRequest;
@@ -23,10 +25,12 @@ import com.jiang.service.PlanSkeletonService;
 import com.jiang.vo.GoalVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +64,13 @@ public class GoalServiceImpl implements GoalService {
      */
     @Autowired
     private PlanSkeletonService planSkeletonService;
+
+    /**
+     * 规划细化线程池（异步调用规划 Agent，避免阻塞目标创建）
+     */
+    @Autowired
+    @Qualifier("planningExecutor")
+    private ThreadPoolExecutor planningExecutor;
 
     @Transactional(rollbackFor = Exception.class)
     @Override
@@ -126,10 +137,21 @@ public class GoalServiceImpl implements GoalService {
 
         learningGoalMapper.insert(goal);
 
-        // 产品规则 #1：创建目标后立即生成整段计划骨架（每日作业按骨架执行）
-        // 骨架生成失败不阻塞目标创建——02:00 生成时会按掌握度兜底
+        // 产品规则 #1：先同步落"模板骨架"（纯 DB 操作，秒级），保证创建后立刻有计划可看；
+        // 再由后台线程调用规划 Agent 细化——LLM 可能耗时 1~2 分钟甚至超时，绝不能阻塞创建接口
         try {
             planSkeletonService.generateSkeleton(goal.getGoalId(), tenantId);
+            final Long skeletonGoalId = goal.getGoalId();
+            if (TransactionSynchronizationManager.isSynchronizationActive()) {
+                TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        submitRefine(skeletonGoalId, tenantId);
+                    }
+                });
+            } else {
+                submitRefine(skeletonGoalId, tenantId);
+            }
         } catch (Exception e) {
             log.warn("计划骨架生成失败，将在每日生成时兜底: goalId={}, error={}", goal.getGoalId(), e.getMessage());
         }
@@ -137,10 +159,26 @@ public class GoalServiceImpl implements GoalService {
         return toGoalVO(goal, subject.getName());
     }
 
+    /**
+     * 提交规划细化任务（异步，失败仅记日志）
+     */
+    private void submitRefine(Long goalId, String tenantId) {
+        try {
+            planningExecutor.execute(() -> {
+                try {
+                    planSkeletonService.refineWithAgent(goalId, tenantId);
+                } catch (Exception e) {
+                    log.warn("规划 Agent 细化失败: goalId={}, error={}", goalId, e.getMessage());
+                }
+            });
+        } catch (Exception e) {
+            log.warn("提交规划细化任务失败: goalId={}, error={}", goalId, e.getMessage());
+        }
+    }
+
     @Transactional(rollbackFor = Exception.class)
     @Override
-    public GoalVO updateGoal(Long goalId, UpdateGoalRequest request) {
-        Long studentId = StudentContext.getStudentId();
+    public GoalVO updateGoal(Long goalId, UpdateGoalRequest request) {        Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
 
         // 1. 查询目标 + 校验所有权 + 校验可修改状态

@@ -31,6 +31,8 @@ import static org.mockito.Mockito.*;
 /**
  * PlanSkeletonServiceImpl 单元测试（产品规则 #1）
  *
+ * <p>两段式：模板骨架同步落库；Agent 细化异步执行且失败静默。</p>
+ *
  * @author StudyMate Team
  * @since 2026-11-10
  */
@@ -60,15 +62,16 @@ class PlanSkeletonServiceTest {
     private static final Long STUDENT_ID = 1L;
     private static final Long SUBJECT_ID = 10L;
     private static final String TENANT_ID = "default";
-    private static final LocalDate TODAY = LocalDate.of(2026, 11, 10);
+    private static final LocalDate START = LocalDate.of(2026, 11, 11);
+    private static final LocalDate END = LocalDate.of(2026, 11, 12);
 
     private LearningGoal buildGoal() {
         LearningGoal goal = new LearningGoal();
         goal.setGoalId(GOAL_ID);
         goal.setStudentId(STUDENT_ID);
         goal.setSubjectId(SUBJECT_ID);
-        goal.setStartDate(TODAY);
-        goal.setEndDate(TODAY);
+        goal.setStartDate(START);
+        goal.setEndDate(END);
         goal.setStatus("active");
         goal.setTenantId(TENANT_ID);
         return goal;
@@ -90,67 +93,76 @@ class PlanSkeletonServiceTest {
         subject.setSubjectId(SUBJECT_ID);
         subject.setName("数学");
         when(subjectMapper.selectById(SUBJECT_ID)).thenReturn(subject);
+        when(studentMapper.selectById(STUDENT_ID)).thenReturn(null);
         when(knowledgePointMapper.selectList(any())).thenReturn(List.of(buildKp("kp_001"), buildKp("kp_002")));
         when(stateMapper.selectActiveStatesWithKpInfo(anyLong(), eq(TENANT_ID), anyString(), eq(false)))
                 .thenReturn(List.of());
     }
 
     @Test
-    @DisplayName("规划 Agent 成功 → 按草稿落骨架（知识点 + 题量）")
-    void should_persistAgentDraft() {
+    @DisplayName("模板骨架：每个日期一行，秒级完成且不调用 Agent")
+    void should_insertTemplateSkeleton_withoutAgent() {
         stubBase();
-        PlanDraft.PlanDay day = new PlanDraft.PlanDay();
-        day.setDate(TODAY);
-        day.setKpIds(List.of("kp_001", "kp_002"));
-        day.setQuestionCount(8);
-        PlanDraft draft = new PlanDraft();
-        draft.setDays(List.of(day));
-        draft.setReason("test");
-        when(planningAgent.generate(any())).thenReturn(draft);
-        when(dailyPlanMapper.selectByGoalIdAndDate(eq(GOAL_ID), eq(TENANT_ID), eq(TODAY))).thenReturn(null);
+        when(dailyPlanMapper.selectByGoalIdAndDate(anyLong(), eq(TENANT_ID), any(LocalDate.class)))
+                .thenReturn(null);
 
         int inserted = planSkeletonService.generateSkeleton(GOAL_ID, TENANT_ID);
 
-        assertEquals(1, inserted);
-        ArgumentCaptor<DailyPlan> captor = ArgumentCaptor.forClass(DailyPlan.class);
-        verify(dailyPlanMapper).insert(captor.capture());
-        DailyPlan plan = captor.getValue();
-        assertEquals("pending_generation", plan.getStatus());
-        assertEquals("[\"kp_001\",\"kp_002\"]", plan.getPlannedKpIds());
-        assertEquals(8, plan.getPlannedQuestionCount());
+        assertEquals(2, inserted, "11-11 ~ 11-12 共 2 天");
+        verify(dailyPlanMapper, times(2)).insert(any(DailyPlan.class));
+        verifyNoInteractions(planningAgent);
     }
 
     @Test
-    @DisplayName("规划 Agent 失败 → 模板降级仍生成骨架")
-    void should_fallbackToTemplate_when_agentFails() {
+    @DisplayName("模板骨架：已存在的日期跳过")
+    void should_skipExistingDates_when_insertingTemplate() {
         stubBase();
-        when(planningAgent.generate(any())).thenThrow(new RuntimeException("agent down"));
-        when(dailyPlanMapper.selectByGoalIdAndDate(eq(GOAL_ID), eq(TENANT_ID), eq(TODAY))).thenReturn(null);
-
-        int inserted = planSkeletonService.generateSkeleton(GOAL_ID, TENANT_ID);
-
-        assertEquals(1, inserted, "Agent 失败也应生成模板骨架");
-        verify(dailyPlanMapper).insert(any(DailyPlan.class));
-    }
-
-    @Test
-    @DisplayName("当日计划已存在 → 跳过（幂等）")
-    void should_skip_when_planExists() {
-        stubBase();
-        PlanDraft.PlanDay day = new PlanDraft.PlanDay();
-        day.setDate(TODAY);
-        day.setKpIds(List.of("kp_001"));
-        day.setQuestionCount(10);
-        PlanDraft draft = new PlanDraft();
-        draft.setDays(List.of(day));
-        when(planningAgent.generate(any())).thenReturn(draft);
-        when(dailyPlanMapper.selectByGoalIdAndDate(eq(GOAL_ID), eq(TENANT_ID), eq(TODAY)))
+        when(dailyPlanMapper.selectByGoalIdAndDate(anyLong(), eq(TENANT_ID), any(LocalDate.class)))
                 .thenReturn(new DailyPlan());
 
         int inserted = planSkeletonService.generateSkeleton(GOAL_ID, TENANT_ID);
 
         assertEquals(0, inserted);
         verify(dailyPlanMapper, never()).insert(any(DailyPlan.class));
+    }
+
+    @Test
+    @DisplayName("Agent 细化：只更新待生成的计划")
+    void should_refineExistingPendingPlan() {
+        stubBase();
+        PlanDraft.PlanDay day = new PlanDraft.PlanDay();
+        day.setDate(START);
+        day.setKpIds(List.of("kp_002"));
+        day.setQuestionCount(8);
+        PlanDraft draft = new PlanDraft();
+        draft.setDays(List.of(day));
+        when(planningAgent.generate(any())).thenReturn(draft);
+
+        DailyPlan existing = new DailyPlan();
+        existing.setPlanId(200L);
+        existing.setStatus("pending_generation");
+        when(dailyPlanMapper.selectByGoalIdAndDate(eq(GOAL_ID), eq(TENANT_ID), eq(START)))
+                .thenReturn(existing);
+
+        int updated = planSkeletonService.refineWithAgent(GOAL_ID, TENANT_ID);
+
+        assertEquals(1, updated);
+        ArgumentCaptor<DailyPlan> captor = ArgumentCaptor.forClass(DailyPlan.class);
+        verify(dailyPlanMapper).updateById(captor.capture());
+        assertEquals("[\"kp_002\"]", captor.getValue().getPlannedKpIds());
+        assertEquals(8, captor.getValue().getPlannedQuestionCount());
+    }
+
+    @Test
+    @DisplayName("Agent 细化失败：保留模板骨架，不抛异常")
+    void should_swallowAgentFailure_when_refining() {
+        stubBase();
+        when(planningAgent.generate(any())).thenThrow(new RuntimeException("timeout"));
+
+        int updated = planSkeletonService.refineWithAgent(GOAL_ID, TENANT_ID);
+
+        assertEquals(0, updated);
+        verify(dailyPlanMapper, never()).updateById(any(DailyPlan.class));
     }
 
     @Test
@@ -163,9 +175,10 @@ class PlanSkeletonServiceTest {
         when(subjectMapper.selectById(SUBJECT_ID)).thenReturn(subject);
         when(knowledgePointMapper.selectList(any())).thenReturn(List.of());
 
-        int inserted = planSkeletonService.generateSkeleton(GOAL_ID, TENANT_ID);
-
-        assertEquals(0, inserted);
+        assertAll(
+                () -> assertEquals(0, planSkeletonService.generateSkeleton(GOAL_ID, TENANT_ID)),
+                () -> assertEquals(0, planSkeletonService.refineWithAgent(GOAL_ID, TENANT_ID))
+        );
         verifyNoInteractions(planningAgent);
     }
 }
