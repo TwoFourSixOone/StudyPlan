@@ -86,4 +86,10 @@ public class StudentKnowledgeState extends BaseEntity {
      */
     @TableField(exist = false)
     private String kpStatus;
+
+    /**
+     * 知识点适用年级范围（瞬态，来自 JOIN knowledge_point.grade_range），产品规则 #11
+     */
+    @TableField(exist = false)
+    private String kpGradeRange;
 }

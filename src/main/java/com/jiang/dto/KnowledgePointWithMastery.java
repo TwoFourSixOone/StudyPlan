@@ -33,4 +33,12 @@ public class KnowledgePointWithMastery {
 
     /** 置信度（0.00-1.00） */
     private BigDecimal confidence;
+
+    /**
+     * 适用年级范围（"3" / "7-9" / "1,2,3"；null 表示全年级通用）
+     *
+     * <p>产品规则 #11：仅用于后端年级过滤，不进入 Agent Prompt
+     * （{@code QuestionGenAgent#buildPrompt} 只拼 id/name/mastery/confidence）。</p>
+     */
+    private String gradeRange;
 }

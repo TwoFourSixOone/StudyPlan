@@ -13,10 +13,12 @@ import com.jiang.mapper.AssessmentSubmissionDetailMapper;
 import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.QuestionBankMapper;
 import com.jiang.mapper.StudentKnowledgeStateMapper;
+import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.AssessmentResult;
 import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.QuestionBank;
+import com.jiang.model.entity.Student;
 import com.jiang.model.entity.StudentKnowledgeState;
 import com.jiang.model.entity.Subject;
 import com.jiang.service.impl.AssessmentServiceImpl;
@@ -28,6 +30,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -75,6 +78,8 @@ class AssessmentServiceTest {
 
     @Mock
     private QuestionBankMapper questionBankMapper;
+    @Mock
+    private StudentMapper studentMapper;
 
     @Mock
     private ErrorQuestionService errorQuestionService;
@@ -198,6 +203,68 @@ class AssessmentServiceTest {
             assertEquals("pending", vo.getStatus());
             assertEquals(3, vo.getQuestionCount());
             verify(assessmentResultMapper).insert(any(AssessmentResult.class));
+        }
+
+        @Test
+        @DisplayName("年级过滤：候选按学生年级收敛，超纲题不进入评测")
+        void should_filterCandidates_when_studentGradePresent() throws Exception {
+            when(subjectMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(buildSubject());
+            KnowledgePoint kp = buildKp(KP_ID_1, "二次函数");
+            kp.setGradeRange("3");
+            when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(Collections.singletonList(kp));
+            when(studentKnowledgeStateMapper.selectList(any(QueryWrapper.class)))
+                    .thenReturn(Collections.emptyList());
+            when(studentMapper.selectById(STUDENT_ID)).thenReturn(buildStudent("3"));
+
+            List<QuestionBank> questions = Arrays.asList(
+                    gradeQuestion(1L, 3), gradeQuestion(2L, 3), gradeQuestion(3L, 3), gradeQuestion(4L, 9));
+            when(questionBankMapper.selectActiveByKp(eq(KP_ID_1), eq(TENANT_ID))).thenReturn(questions);
+            when(assessmentResultMapper.insert(any(AssessmentResult.class))).thenReturn(1);
+
+            assessmentService.createAssessment(STUDENT_ID, TENANT_ID, SUBJECT_ID);
+
+            ArgumentCaptor<AssessmentResult> captor = ArgumentCaptor.forClass(AssessmentResult.class);
+            verify(assessmentResultMapper).insert(captor.capture());
+            String results = captor.getValue().getResults();
+            assertTrue(results.contains("\"questionId\":1"));
+            assertFalse(results.contains("\"questionId\":4"), "9 年级题目不应进入三年级学生的评测");
+        }
+
+        @Test
+        @DisplayName("年级过滤：无匹配题目时回退未过滤候选，不抛 QUESTION_NOT_FOUND")
+        void should_fallbackToUnfiltered_when_noCandidateMatchesGrade() throws Exception {
+            when(subjectMapper.selectOne(any(LambdaQueryWrapper.class))).thenReturn(buildSubject());
+            KnowledgePoint kp = buildKp(KP_ID_1, "二次函数");
+            kp.setGradeRange("3");
+            when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                    .thenReturn(Collections.singletonList(kp));
+            when(studentKnowledgeStateMapper.selectList(any(QueryWrapper.class)))
+                    .thenReturn(Collections.emptyList());
+            when(studentMapper.selectById(STUDENT_ID)).thenReturn(buildStudent("3"));
+
+            // 全部是 9 年级题 → 过滤后为空 → 回退未过滤
+            List<QuestionBank> questions = Arrays.asList(
+                    gradeQuestion(1L, 9), gradeQuestion(2L, 9), gradeQuestion(3L, 9));
+            when(questionBankMapper.selectActiveByKp(eq(KP_ID_1), eq(TENANT_ID))).thenReturn(questions);
+            when(assessmentResultMapper.insert(any(AssessmentResult.class))).thenReturn(1);
+
+            AssessmentVO vo = assessmentService.createAssessment(STUDENT_ID, TENANT_ID, SUBJECT_ID);
+
+            assertEquals(3, vo.getQuestionCount(), "回退后仍应抽到题目");
+        }
+
+        private QuestionBank gradeQuestion(Long id, int grade) {
+            QuestionBank q = buildQuestion(id, KP_ID_1, "basic", "choice", "A");
+            q.setGrade(grade);
+            return q;
+        }
+
+        private Student buildStudent(String grade) {
+            Student student = new Student();
+            student.setStudentId(STUDENT_ID);
+            student.setGrade(grade);
+            return student;
         }
 
         @Test

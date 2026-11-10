@@ -10,6 +10,7 @@ import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
 import com.jiang.common.util.AssessmentQuestionSelector;
+import com.jiang.common.util.GradeMatcher;
 import com.jiang.common.util.MasteryFormulaUtil;
 import com.jiang.dto.AnswerItem;
 import com.jiang.mapper.AssessmentResultMapper;
@@ -17,11 +18,13 @@ import com.jiang.mapper.AssessmentSubmissionDetailMapper;
 import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.QuestionBankMapper;
 import com.jiang.mapper.StudentKnowledgeStateMapper;
+import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.AssessmentResult;
 import com.jiang.model.entity.AssessmentSubmissionDetail;
 import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.QuestionBank;
+import com.jiang.model.entity.Student;
 import com.jiang.model.entity.StudentKnowledgeState;
 import com.jiang.model.entity.Subject;
 import com.jiang.model.enums.ChangeType;
@@ -84,6 +87,8 @@ public class AssessmentServiceImpl implements AssessmentService {
 
     @Autowired
     private QuestionBankMapper questionBankMapper;
+    @Autowired
+    private StudentMapper studentMapper;
 
     @Autowired
     private ErrorQuestionService errorQuestionService;
@@ -94,6 +99,20 @@ public class AssessmentServiceImpl implements AssessmentService {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ==================== createAssessment ====================
+
+    /**
+     * 解析学生年级（产品规则 #11）
+     *
+     * <p>{@code student.grade} 是字符串（"9" / "初三" / "初中"），无法定位单一年级时返回
+     * {@code null}，调用方按"不过滤"处理。</p>
+     */
+    private Integer resolveStudentGrade(Long studentId) {
+        Student student = studentMapper.selectById(studentId);
+        if (student == null) {
+            return null;
+        }
+        return GradeMatcher.normalizeStudentGrade(student.getGrade());
+    }
 
     @Override
     public AssessmentVO createAssessment(Long studentId, String tenantId, Long subjectId) {
@@ -115,6 +134,9 @@ public class AssessmentServiceImpl implements AssessmentService {
         if (activeKps.isEmpty()) {
             throw new BusinessException(ErrorCodes.SUBJECT_NO_ACTIVE_KP);
         }
+
+        // 2.5 学生年级（产品规则 #11）：null 表示不过滤
+        Integer studentGrade = resolveStudentGrade(studentId);
 
         // 3. BLOCK-5：超过 5 个知识点时，按掌握度 ASC 选最低的 5 个
         List<KnowledgePoint> selectedKps;
@@ -140,8 +162,19 @@ public class AssessmentServiceImpl implements AssessmentService {
                 log.warn("[createAssessment] 知识点 {} 无可用题目，跳过", kp.getKnowledgePointId());
                 continue;
             }
+
+            // 产品规则 #11：按学生年级过滤候选；为空时回退未过滤（评测题量小，空池比超纲更糟）
+            List<QuestionBank> gradeCandidates = candidates.stream()
+                    .filter(q -> GradeMatcher.matchesQuestion(studentGrade, q.getGrade(), kp.getGradeRange()))
+                    .collect(Collectors.toList());
+            if (gradeCandidates.isEmpty()) {
+                log.warn("[createAssessment] 知识点 {} 无符合年级的题目，回退未过滤候选",
+                        kp.getKnowledgePointId());
+                gradeCandidates = candidates;
+            }
+
             List<QuestionBank> selected = AssessmentQuestionSelector.select(
-                    candidates, AssessmentQuestionSelector.QUESTIONS_PER_KP);
+                    gradeCandidates, AssessmentQuestionSelector.QUESTIONS_PER_KP);
             allSelectedQuestions.addAll(selected);
             selectedKpIds.add(kp.getKnowledgePointId());
         }

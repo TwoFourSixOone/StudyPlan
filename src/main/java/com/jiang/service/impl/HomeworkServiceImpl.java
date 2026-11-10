@@ -8,6 +8,7 @@ import com.jiang.agent.QuestionGenAgent;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.util.DailyPlanContentParser;
+import com.jiang.common.util.GradeMatcher;
 import com.jiang.common.util.HomeworkQuotaCalculator;
 import com.jiang.common.util.SimilarityDetector;
 import com.jiang.dto.DailyPlanQuestionRef;
@@ -198,10 +199,31 @@ public class HomeworkServiceImpl implements HomeworkService {
                     .knowledgePointId(kp.getKnowledgePointId())
                     .name(kp.getName())
                     .subject(kp.getSubject())
+                    .gradeRange(kp.getGradeRange())
                     .masteryScore(state != null ? state.getMasteryScore() : null)
                     .confidence(state != null ? state.getConfidence() : null)
                     .build());
         }
+
+        // 5.1 年级过滤（产品规则 #11）：严格优先 + 整体降级
+        // 只收窄内容池，不改配额算法；整体为空时关闭过滤，保证当日仍能出题
+        Integer studentGrade = GradeMatcher.normalizeStudentGrade(getStudentGrade(studentId));
+        if (studentGrade != null) {
+            List<KnowledgePointWithMastery> gradeFiltered = kpList.stream()
+                    .filter(kp -> GradeMatcher.matchesRange(studentGrade, kp.getGradeRange()))
+                    .collect(Collectors.toList());
+            if (gradeFiltered.isEmpty() && !kpList.isEmpty()) {
+                log.warn("年级过滤后知识点为空，整体降级为不过滤: studentId={}, grade={}, 原始知识点数={}",
+                        studentId, studentGrade, kpList.size());
+            } else {
+                log.info("年级过滤生效: studentId={}, grade={}, 知识点 {} -> {}",
+                        studentId, studentGrade, kpList.size(), gradeFiltered.size());
+                kpList = gradeFiltered;
+            }
+        }
+        Set<String> gradeKpIds = kpList.stream()
+                .map(KnowledgePointWithMastery::getKnowledgePointId)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
         // 6. T-06 Part A: 查询到期错题（在 Agent 调用前）
         // BLOCK-H: 内部已按 knowledge_point_id 分组，每组 ≤ 3 道
@@ -230,6 +252,14 @@ public class HomeworkServiceImpl implements HomeworkService {
 
         // 构建 kpErrorCountMap（kpId → 活跃错题总数，用于配额计算）
         Set<String> errorKpIds = dueErrorMap.keySet();
+        // 年级过滤后，被排除的知识点不参与「举一反三」配额（仍保留其原题重做）
+        Set<String> quotaErrorKpIds = errorKpIds.stream()
+                .filter(gradeKpIds::contains)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        if (quotaErrorKpIds.size() != errorKpIds.size()) {
+            log.info("年级过滤：{} 个有错题知识点不参与举一反三配额（仅保留原题重做）",
+                    errorKpIds.size() - quotaErrorKpIds.size());
+        }
         int dueErrorCount = errorRefs.size();
         List<Map<String, Object>> activeErrorCounts = errorQuestionMapper.selectActiveErrorCountGroupByKp(studentId, tenantId);
         Map<String, Integer> kpErrorCountMap = activeErrorCounts.stream()
@@ -240,7 +270,7 @@ public class HomeworkServiceImpl implements HomeworkService {
 
         HomeworkQuotaCalculator.QuotaAllocation quota;
         try {
-            quota = HomeworkQuotaCalculator.calculate(dueErrorCount, errorKpIds, kpMasteryMap, kpErrorCountMap);
+            quota = HomeworkQuotaCalculator.calculate(dueErrorCount, quotaErrorKpIds, kpMasteryMap, kpErrorCountMap);
         } catch (IllegalArgumentException e) {
             log.error("配额计算入参非法: {}", e.getMessage());
             throw new BusinessException(ErrorCodes.BAD_REQUEST,
@@ -270,6 +300,12 @@ public class HomeworkServiceImpl implements HomeworkService {
                 // T-07: 知识点停用检查——disabled 知识点跳过举一反三
                 if (!activeKpIds.contains(kpId)) {
                     log.info("知识点 {} 已停用，跳过举一反三生成", kpId);
+                    continue;
+                }
+
+                // 产品规则 #11：被年级过滤的知识点只保留原题重做，不生成新题
+                if (!gradeKpIds.contains(kpId)) {
+                    log.info("知识点 {} 被年级过滤，跳过举一反三（仅保留原题重做）", kpId);
                     continue;
                 }
 
@@ -336,7 +372,7 @@ public class HomeworkServiceImpl implements HomeworkService {
                                 + ": " + lastAgentException.getMessage() : "unknown",
                         tenantId);
                 try {
-                    reviewRefs = degradationHandler.generateDefaultPlan(reviewKpList, tenantId);
+                    reviewRefs = degradationHandler.generateDefaultPlan(reviewKpList, tenantId, studentGrade);
                     reviewGeneratedQuestions = List.of();
                 } catch (Exception e) {
                     log.error("知识回顾降级也失败: {}", e.getMessage());

@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
+import com.jiang.common.util.GradeMatcher;
 import com.jiang.dto.ImportResultDTO;
 import com.jiang.mapper.*;
 import com.jiang.model.entity.*;
@@ -316,6 +317,18 @@ public class DataImportServiceImpl implements DataImportService {
         if (name == null || name.isBlank()) {
             return new ValidationResult(false, id, "name 为空");
         }
+        // 产品规则 #11：年级范围可选，但给了就必须合法（语法 + 取值，1-12 且 min<=max）
+        String gradeRange = getTextOrNull(node, "gradeRange");
+        if (gradeRange != null && !gradeRange.isBlank() && !GradeMatcher.isValidRange(gradeRange)) {
+            return new ValidationResult(false, id, "gradeRange 非法: " + gradeRange);
+        }
+        // 兼容数据集：无 gradeRange 时使用单值 grade；必须是整数（13-16 为高中选必模块，映射为 10-12）
+        if (gradeRange == null || gradeRange.isBlank()) {
+            JsonNode gradeNode = node.get("grade");
+            if (gradeNode != null && !gradeNode.isNull() && !gradeNode.isInt()) {
+                return new ValidationResult(false, id, "grade 非法（需整数）: " + gradeNode.asText());
+            }
+        }
         return new ValidationResult(true, id, null);
     }
 
@@ -345,6 +358,13 @@ public class DataImportServiceImpl implements DataImportService {
         }
         if (type != null && !Set.of("numeric", "choice", "short", "self").contains(type)) {
             return new ValidationResult(false, getTextNodeId(node), "type 非法: " + type);
+        }
+        // 产品规则 #11：题目年级可选（缺省继承知识点），给了就必须是 1-12 的整数
+        JsonNode gradeNode = node.get("grade");
+        if (gradeNode != null && !gradeNode.isNull()) {
+            if (!gradeNode.isInt() || gradeNode.asInt() < 1 || gradeNode.asInt() > 12) {
+                return new ValidationResult(false, getTextNodeId(node), "grade 非法: " + gradeNode.asText());
+            }
         }
         return new ValidationResult(true, getTextNodeId(node), null);
     }
@@ -480,7 +500,44 @@ public class DataImportServiceImpl implements DataImportService {
         kp.setStandards(serializeJson(node.get("standards")));
         kp.setMasteryCriteria(serializeJson(node.get("mastery_criteria")));
         kp.setDiagnosticQuestion(serializeJson(node.get("diagnostic_question")));
+        // 产品规则 #11：年级范围可选；空白串统一落 NULL，避免存入无意义空值
+        // 兼容公开数据集（如 cn-math-taxonomy）：其字段是单值 grade，没有 gradeRange
+        String gradeRange = getTextOrNull(node, "gradeRange");
+        if (gradeRange == null || gradeRange.isBlank()) {
+            gradeRange = resolveGradeRange(node);
+        }
+        kp.setGradeRange(gradeRange == null || gradeRange.isBlank() ? null : gradeRange.trim());
         return kp;
+    }
+
+    /**
+     * 把数据集的单值 {@code grade} 归一化为年级范围（产品规则 #11）
+     *
+     * <ul>
+     *   <li>1–12：K12 具体年级，原样转为 {@code "N"}</li>
+     *   <li>13–16：数据集用它表示高中"选择性必修"模块（选必二/三、选择性必修第 1–4 册），
+     *       属高中内容，统一映射为 {@code "10-12"}（高中通用）。<b>不能落 NULL</b>——
+     *       NULL 表示"全年级通用"，会让小学/初中学生看到高中内容</li>
+     *   <li>其余：视为无法识别，落 NULL 并告警</li>
+     * </ul>
+     */
+    private String resolveGradeRange(JsonNode node) {
+        JsonNode gradeNode = node.get("grade");
+        if (gradeNode == null || gradeNode.isNull() || !gradeNode.isInt()) {
+            return null;
+        }
+        int grade = gradeNode.asInt();
+        if (grade >= 1 && grade <= 12) {
+            return String.valueOf(grade);
+        }
+        if (grade >= 13 && grade <= 16) {
+            log.debug("数据集年级 {} 表示高中选择性必修模块，归一化为 10-12: id={}",
+                    grade, getTextOrNull(node, "id"));
+            return "10-12";
+        }
+        log.warn("知识点年级无法识别，按未标注处理（全年级通用）: id={}, grade={}",
+                getTextOrNull(node, "id"), grade);
+        return null;
     }
 
     /**
@@ -497,6 +554,9 @@ public class DataImportServiceImpl implements DataImportService {
         q.setDifficulty(normalizeDifficulty(getTextOrNull(node, "difficulty")));
         q.setType(getTextOrNull(node, "type"));
         q.setChoices(serializeJson(node.get("choices")));
+        // 产品规则 #11：题目年级可选（NULL 表示继承知识点 grade_range）
+        JsonNode gradeNode = node.get("grade");
+        q.setGrade(gradeNode != null && gradeNode.isInt() ? gradeNode.asInt() : null);
         return q;
     }
 

@@ -63,4 +63,11 @@ public class QuestionBank extends BaseEntity {
      * 题型：numeric / choice / short / self
      */
     private String type;
+
+    /**
+     * 题目所属年级（1-12）；NULL 表示继承所属知识点的 grade_range
+     *
+     * <p>对应产品规则 #11，判定逻辑见 {@link com.jiang.common.util.GradeMatcher}</p>
+     */
+    private Integer grade;
 }

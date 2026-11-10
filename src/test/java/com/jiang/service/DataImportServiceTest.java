@@ -419,4 +419,132 @@ class DataImportServiceTest {
         assertTrue(result.toString().contains("valid=false"));
         assertTrue(result.toString().contains("kp999"));
     }
+
+    // ==================== 年级字段校验（产品规则 #11） ====================
+
+    @Test
+    void should_validateTopicGradeRange_when_provided() throws Exception {
+        var method = DataImportServiceImpl.class.getDeclaredMethod("validateTopic",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        method.setAccessible(true);
+        var realMapper = new ObjectMapper();
+
+        // 未提供 gradeRange → 合法（可选字段）
+        Object absent = method.invoke(dataImportService,
+                realMapper.readTree("{\"id\":\"kp001\",\"name\":\"知识点\"}"));
+        assertTrue(absent.toString().contains("valid=true"));
+
+        // 合法形态
+        for (String ok : new String[]{"3", "7-9", "1,2,3"}) {
+            Object result = method.invoke(dataImportService,
+                    realMapper.readTree("{\"id\":\"kp001\",\"name\":\"知识点\",\"gradeRange\":\"" + ok + "\"}"));
+            assertTrue(result.toString().contains("valid=true"), "应通过: " + ok);
+        }
+
+        // 非法形态：越界、倒序、空段
+        for (String bad : new String[]{"0", "13", "99", "9-7", "1,2,3,", "abc"}) {
+            Object result = method.invoke(dataImportService,
+                    realMapper.readTree("{\"id\":\"kp001\",\"name\":\"知识点\",\"gradeRange\":\"" + bad + "\"}"));
+            assertTrue(result.toString().contains("valid=false"), "应拒绝: " + bad);
+            assertTrue(result.toString().contains("gradeRange"), "失败原因应说明 gradeRange: " + bad);
+        }
+    }
+
+    @Test
+    void should_validateQuestionGrade_when_provided() throws Exception {
+        var method = DataImportServiceImpl.class.getDeclaredMethod("validateQuestion",
+                com.fasterxml.jackson.databind.JsonNode.class, java.util.Set.class);
+        method.setAccessible(true);
+        var realMapper = new ObjectMapper();
+        var validKpIds = java.util.Set.of("kp001");
+
+        // 未提供 → 合法（继承知识点）
+        Object absent = method.invoke(dataImportService, realMapper.readTree(
+                "{\"topicId\":\"kp001\",\"prompt\":\"x\",\"answer\":\"y\",\"difficulty\":\"basic\",\"type\":\"numeric\"}"),
+                validKpIds);
+        assertTrue(absent.toString().contains("valid=true"));
+
+        // 合法取值
+        Object ok = method.invoke(dataImportService, realMapper.readTree(
+                "{\"topicId\":\"kp001\",\"prompt\":\"x\",\"answer\":\"y\",\"difficulty\":\"basic\",\"type\":\"numeric\",\"grade\":3}"),
+                validKpIds);
+        assertTrue(ok.toString().contains("valid=true"));
+
+        // 越界与非整数
+        for (String bad : new String[]{"0", "13", "\"abc\""}) {
+            Object result = method.invoke(dataImportService, realMapper.readTree(
+                    "{\"topicId\":\"kp001\",\"prompt\":\"x\",\"answer\":\"y\",\"difficulty\":\"basic\",\"type\":\"numeric\",\"grade\":" + bad + "}"),
+                    validKpIds);
+            assertTrue(result.toString().contains("valid=false"), "应拒绝 grade=" + bad);
+            assertTrue(result.toString().contains("grade"), "失败原因应说明 grade: " + bad);
+        }
+    }
+
+    @Test
+    void should_mapGradeFields_toEntities() throws Exception {
+        var realMapper = new ObjectMapper();
+
+        var kpMethod = DataImportServiceImpl.class.getDeclaredMethod("mapToKnowledgePoint",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        kpMethod.setAccessible(true);
+        KnowledgePoint kp = (KnowledgePoint) kpMethod.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp001\",\"name\":\"知识点\",\"subject\":\"数学\",\"gradeRange\":\" 7-9 \"}"));
+        assertEquals("7-9", kp.getGradeRange(), "应 trim 后入库");
+
+        KnowledgePoint kpNoGrade = (KnowledgePoint) kpMethod.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp002\",\"name\":\"知识点\",\"subject\":\"数学\"}"));
+        assertNull(kpNoGrade.getGradeRange());
+
+        var qMethod = DataImportServiceImpl.class.getDeclaredMethod("mapToQuestionBank",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        qMethod.setAccessible(true);
+        QuestionBank q = (QuestionBank) qMethod.invoke(dataImportService, realMapper.readTree(
+                "{\"topicId\":\"kp001\",\"prompt\":\"x\",\"answer\":\"y\",\"difficulty\":\"basic\",\"type\":\"numeric\",\"grade\":3}"));
+        assertEquals(3, q.getGrade());
+
+        QuestionBank qNoGrade = (QuestionBank) qMethod.invoke(dataImportService, realMapper.readTree(
+                "{\"topicId\":\"kp001\",\"prompt\":\"x\",\"answer\":\"y\",\"difficulty\":\"basic\",\"type\":\"numeric\"}"));
+        assertNull(qNoGrade.getGrade());
+    }
+
+    // ==================== 数据集字段兼容（grade 单值） ====================
+
+    @Test
+    void should_fallbackToSingleGradeField_when_gradeRangeAbsent() throws Exception {
+        var method = DataImportServiceImpl.class.getDeclaredMethod("mapToKnowledgePoint",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        method.setAccessible(true);
+        var realMapper = new ObjectMapper();
+
+        // 公开数据集用 grade=3（无 gradeRange）→ 落 "3"
+        KnowledgePoint kp = (KnowledgePoint) method.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp001\",\"name\":\"知识点\",\"subject\":\"数学\",\"grade\":3}"));
+        assertEquals("3", kp.getGradeRange());
+
+        // 数据集用 13–16 表示高中"选择性必修"模块 → 归一化为高中范围 10-12
+        KnowledgePoint kpOut = (KnowledgePoint) method.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp002\",\"name\":\"知识点\",\"subject\":\"数学\",\"grade\":14}"));
+        assertEquals("10-12", kpOut.getGradeRange(), "13-16 是高中选必模块，不能落 NULL（会变成全年级通用）");
+
+        // 两者都有 → gradeRange 优先
+        KnowledgePoint kpBoth = (KnowledgePoint) method.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp003\",\"name\":\"知识点\",\"subject\":\"数学\",\"gradeRange\":\"7-9\",\"grade\":3}"));
+        assertEquals("7-9", kpBoth.getGradeRange());
+    }
+
+    @Test
+    void should_notRejectTopic_when_gradeIsOutOfK12Range() throws Exception {
+        var method = DataImportServiceImpl.class.getDeclaredMethod("validateTopic",
+                com.fasterxml.jackson.databind.JsonNode.class);
+        method.setAccessible(true);
+        var realMapper = new ObjectMapper();
+
+        Object outOfRange = method.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp001\",\"name\":\"知识点\",\"grade\":14}"));
+        assertTrue(outOfRange.toString().contains("valid=true"), "超出 K12 不应阻塞导入");
+
+        Object notInteger = method.invoke(dataImportService, realMapper.readTree(
+                "{\"id\":\"kp001\",\"name\":\"知识点\",\"grade\":\"三年级\"}"));
+        assertTrue(notInteger.toString().contains("valid=false"), "非整数 grade 应拒绝");
+    }
 }

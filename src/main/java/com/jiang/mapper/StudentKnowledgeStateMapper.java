@@ -36,7 +36,8 @@ public interface StudentKnowledgeStateMapper extends BaseMapper<StudentKnowledge
             "SELECT s.state_id, s.student_id, s.knowledge_point_id, s.mastery_score, " +
             "s.confidence, s.source, s.last_assessed_at, s.version, " +
             "s.tenant_id, s.create_time, s.update_time, " +
-            "k.name AS kp_name, k.subject AS kp_subject, k.status AS kp_status " +
+            "k.name AS kp_name, k.subject AS kp_subject, k.status AS kp_status, " +
+            "k.grade_range AS kp_grade_range " +
             "FROM student_knowledge_state s " +
             "JOIN knowledge_point k ON s.knowledge_point_id = k.knowledge_point_id " +
             "AND s.tenant_id = k.tenant_id " +

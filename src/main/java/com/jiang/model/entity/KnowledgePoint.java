@@ -70,4 +70,11 @@ public class KnowledgePoint extends BaseEntity {
      */
     @TableField(typeHandler = JsonStringTypeHandler.class)
     private String diagnosticQuestion;
+
+    /**
+     * 适用年级范围："3" / "7-9" / "1,2,3"；NULL 表示全年级通用
+     *
+     * <p>对应产品规则 #11，判定逻辑见 {@link com.jiang.common.util.GradeMatcher}</p>
+     */
+    private String gradeRange;
 }

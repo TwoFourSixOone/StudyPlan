@@ -3,6 +3,7 @@ package com.jiang.agent;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
+import com.jiang.common.util.GradeMatcher;
 import com.jiang.dto.DailyPlanQuestionRef;
 import com.jiang.dto.KnowledgePointWithMastery;
 import com.jiang.mapper.AgentDegradationLogMapper;
@@ -46,12 +47,13 @@ public class HomeworkDegradationHandler {
     /**
      * 生成默认计划（降级方案）
      *
-     * @param knowledgePoints 知识点列表（含掌握度）
+     * @param knowledgePoints 知识点列表（含掌握度与年级范围）
      * @param tenantId        租户 ID
+     * @param studentGrade    学生年级（1-12，null 表示不过滤；产品规则 #11）
      * @return 题目引用列表
      */
     public List<DailyPlanQuestionRef> generateDefaultPlan(
-            List<KnowledgePointWithMastery> knowledgePoints, String tenantId) {
+            List<KnowledgePointWithMastery> knowledgePoints, String tenantId, Integer studentGrade) {
 
         // 1. 按掌握度从低到高排序（优先练习薄弱知识点）
         List<KnowledgePointWithMastery> sorted = knowledgePoints.stream()
@@ -68,17 +70,24 @@ public class HomeworkDegradationHandler {
                 break;
             }
 
-            // 查询该知识点下的 basic 难度题库题目（最多 2 题）
-            List<QuestionBank> questions = questionBankMapper.selectList(
+            // 查询该知识点下的 basic 难度题库题目
+            // 多取几条再按年级过滤，避免 LIMIT 2 恰好全被年级过滤掉导致该知识点无题
+            List<QuestionBank> candidates = questionBankMapper.selectList(
                     new LambdaQueryWrapper<QuestionBank>()
                             .eq(QuestionBank::getKnowledgePointId, kp.getKnowledgePointId())
                             .eq(QuestionBank::getTenantId, tenantId)
                             .eq(QuestionBank::getDifficulty, "basic")
-                            .last("LIMIT 2")
+                            .last("LIMIT 10")
             );
 
+            // 产品规则 #11：按学生年级过滤（题目 grade 优先，缺省继承知识点范围）
+            List<QuestionBank> questions = candidates.stream()
+                    .filter(q -> GradeMatcher.matchesQuestion(studentGrade, q.getGrade(), kp.getGradeRange()))
+                    .limit(2)
+                    .collect(Collectors.toList());
+
             if (questions.isEmpty()) {
-                log.warn("降级：知识点 {} 下无 basic 难度题目，跳过", kp.getKnowledgePointId());
+                log.warn("降级：知识点 {} 下无符合年级的 basic 题目，跳过", kp.getKnowledgePointId());
                 continue;
             }
 

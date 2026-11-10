@@ -39,6 +39,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
@@ -214,6 +215,124 @@ class HomeworkServiceTest {
                 eq(PlanStatus.PENDING_GENERATION.getCode()), eq(TENANT_ID));
     }
 
+    // ==================== 年级过滤（产品规则 #11） ====================
+
+    @Test
+    @DisplayName("年级过滤：只把匹配年级的知识点传给 Agent")
+    void should_filterKnowledgePoints_when_studentGradePresent() {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(studentMapper.selectById(STUDENT_ID)).thenReturn(buildStudent("3"));
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of(
+                        buildStudentState("kp_001", new BigDecimal("0.5")),
+                        buildStudentState("kp_002", new BigDecimal("0.4"))));
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(List.of(
+                        buildKnowledgePoint("kp_001", "3"),
+                        buildKnowledgePoint("kp_002", "7-9")));
+
+        List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(1L, "bank", "review"));
+        stubGenerateCommon(refs);
+
+        homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<KnowledgePointWithMastery>> captor = ArgumentCaptor.forClass(List.class);
+        verify(questionGenAgent).generate(captor.capture(), eq(15));
+        assertEquals(1, captor.getValue().size(), "只有三年级知识点应传给 Agent");
+        assertEquals("kp_001", captor.getValue().get(0).getKnowledgePointId());
+    }
+
+    @Test
+    @DisplayName("年级过滤：全部被过滤时整体降级，不把内容池筛空")
+    void should_fallbackToUnfiltered_when_allKpsFilteredOut() {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(studentMapper.selectById(STUDENT_ID)).thenReturn(buildStudent("3"));
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of(
+                        buildStudentState("kp_001", new BigDecimal("0.5")),
+                        buildStudentState("kp_002", new BigDecimal("0.4"))));
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(List.of(
+                        buildKnowledgePoint("kp_001", "7-9"),
+                        buildKnowledgePoint("kp_002", "10-12")));
+
+        List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(1L, "bank", "review"));
+        stubGenerateCommon(refs);
+
+        homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<KnowledgePointWithMastery>> captor = ArgumentCaptor.forClass(List.class);
+        verify(questionGenAgent).generate(captor.capture(), eq(15));
+        assertEquals(2, captor.getValue().size(), "过滤后为空应降级为不过滤");
+    }
+
+    @Test
+    @DisplayName("年级过滤：学生无年级 → 不过滤，知识点原样传入")
+    void should_skipGradeFilter_when_studentGradeAbsent() {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        // 不 stub studentMapper → 学生年级为 null
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of(
+                        buildStudentState("kp_001", new BigDecimal("0.5")),
+                        buildStudentState("kp_002", new BigDecimal("0.4"))));
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(List.of(
+                        buildKnowledgePoint("kp_001", "3"),
+                        buildKnowledgePoint("kp_002", "7-9")));
+
+        List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(1L, "bank", "review"));
+        stubGenerateCommon(refs);
+
+        homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<KnowledgePointWithMastery>> captor = ArgumentCaptor.forClass(List.class);
+        verify(questionGenAgent).generate(captor.capture(), eq(15));
+        assertEquals(2, captor.getValue().size());
+    }
+
+    /**
+     * 生成成功路径的公共 stub（Agent 成功 + 落库）
+     */
+    private void stubGenerateCommon(List<DailyPlanQuestionRef> refs) {
+        QuestionGenAgent.QuestionGenResult agentResult =
+                new QuestionGenAgent.QuestionGenResult(refs, Collections.emptyList());
+        when(questionGenAgent.generate(anyList(), eq(15))).thenReturn(agentResult);
+        when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
+                .thenReturn(Collections.emptyMap());
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(Collections.emptyList());
+        when(contentParser.serialize(refs)).thenReturn("[{\"questionId\":1}]");
+        doAnswer(invocation -> {
+            DailyPlan p = invocation.getArgument(0);
+            p.setPlanId(PLAN_ID);
+            return 1;
+        }).when(dailyPlanMapper).insert(any(DailyPlan.class));
+        when(dailyPlanMapper.updateContentAndStatus(eq(PLAN_ID), anyString(), anyString(), anyString(), anyString()))
+                .thenReturn(1);
+    }
+
+    private Student buildStudent(String grade) {
+        Student student = new Student();
+        student.setStudentId(STUDENT_ID);
+        student.setGrade(grade);
+        return student;
+    }
+
+    private KnowledgePoint buildKnowledgePoint(String kpId, String gradeRange) {
+        KnowledgePoint kp = buildKnowledgePoint(kpId);
+        kp.setGradeRange(gradeRange);
+        return kp;
+    }
+
     @Test
     @DisplayName("生成作业：Agent 失败 → 降级成功")
     void should_fallbackToDegradation_when_agentFails() {
@@ -237,7 +356,7 @@ class HomeworkServiceTest {
 
         // 降级成功
         List<DailyPlanQuestionRef> defaultRefs = List.of(new DailyPlanQuestionRef(5L, "bank", "review"));
-        when(degradationHandler.generateDefaultPlan(anyList(), eq(TENANT_ID))).thenReturn(defaultRefs);
+        when(degradationHandler.generateDefaultPlan(anyList(), eq(TENANT_ID), any())).thenReturn(defaultRefs);
         when(contentParser.serialize(defaultRefs)).thenReturn("[{\"questionId\":5}]");
         when(dailyPlanMapper.updateContentAndStatus(eq(PLAN_ID), anyString(), anyString(), anyString(), anyString()))
                 .thenReturn(1);
@@ -245,7 +364,7 @@ class HomeworkServiceTest {
         assertDoesNotThrow(() -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
 
         verify(degradationHandler).logDegradation(anyString(), anyString(), eq(TENANT_ID));
-        verify(degradationHandler).generateDefaultPlan(anyList(), eq(TENANT_ID));
+        verify(degradationHandler).generateDefaultPlan(anyList(), eq(TENANT_ID), any());
     }
 
     @Test
@@ -268,7 +387,7 @@ class HomeworkServiceTest {
                 .thenReturn(Collections.emptyList());
 
         // 降级也失败
-        when(degradationHandler.generateDefaultPlan(anyList(), eq(TENANT_ID)))
+        when(degradationHandler.generateDefaultPlan(anyList(), eq(TENANT_ID), any()))
                 .thenThrow(new BusinessException(ErrorCodes.AGENT_DEGRADED, "无可用题目"));
 
         // 优雅降级后仍需的 stub（plan 创建 + content 序列化）
@@ -285,7 +404,7 @@ class HomeworkServiceTest {
         assertDoesNotThrow(() -> homeworkService.generateDailyHomework(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
 
         // 降级处理器仍被调用
-        verify(degradationHandler).generateDefaultPlan(anyList(), eq(TENANT_ID));
+        verify(degradationHandler).generateDefaultPlan(anyList(), eq(TENANT_ID), any());
         // 计划正常落库
         verify(dailyPlanMapper).insert(any(DailyPlan.class));
     }
