@@ -30,7 +30,7 @@
 
 ## 2. 每日作业生成
 
-**触发方式**：① 每天 02:00 定时任务 `DailyHomeworkGenerationTask` 为所有进行中目标自动生成（幂等：当日计划已存在则跳过）；② 学生手动 `POST /api/homework/generate` 兜底。**知识点来源**：优先读取当日计划骨架（`planned_kp_ids`），骨架缺失才按掌握度现算。`generateDailyHomework(studentId, tenantId, subjectId, planDate)` 的顺序：
+**触发方式**：⓪ 目标开始日期就是今天时，创建目标后立即异步生成；① 每天 02:00 定时任务 `DailyHomeworkGenerationTask` 为所有进行中目标自动生成（幂等：当日计划已存在则跳过）；② 学生手动 `POST /api/homework/generate` 兜底。**知识点来源**：优先读取当日计划骨架（`planned_kp_ids`），骨架缺失才按掌握度现算。`generateDailyHomework(studentId, tenantId, subjectId, planDate)` 的顺序：
 
 1. 取该科目活跃目标（无目标 → `LEARNING_GOAL_NOT_FOUND`）
 2. 查当日计划：已是 `in_progress` / `completed` → `HOMEWORK_ALREADY_EXISTS`

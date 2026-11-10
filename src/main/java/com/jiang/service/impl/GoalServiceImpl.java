@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
+import com.jiang.event.GoalCreatedEvent;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import com.jiang.common.result.PageResult;
@@ -25,6 +26,7 @@ import com.jiang.service.PlanSkeletonService;
 import com.jiang.vo.GoalVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,6 +49,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class GoalServiceImpl implements GoalService {
+
+    @Autowired
+    private ApplicationEventPublisher eventPublisher;
 
     @Autowired
     private LearningGoalMapper learningGoalMapper;
@@ -156,6 +161,11 @@ public class GoalServiceImpl implements GoalService {
         } catch (Exception e) {
             log.warn("计划骨架生成失败，将在每日生成时兜底: goalId={}, error={}", goal.getGoalId(), e.getMessage());
         }
+
+        // 目标从今天开始时立即生成今日作业（02:00 已过，等明天会让学生以为没生效）
+        // 用事件解耦：GoalServiceImpl → HomeworkService 会与 HomeworkServiceImpl 形成循环依赖
+        eventPublisher.publishEvent(new GoalCreatedEvent(this, goal.getGoalId(), studentId,
+                goal.getSubjectId(), tenantId, goal.getStartDate()));
 
         return toGoalVO(goal, subject.getName());
     }

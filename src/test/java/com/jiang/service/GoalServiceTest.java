@@ -36,6 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
+import org.springframework.context.ApplicationEventPublisher;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -62,6 +63,8 @@ class GoalServiceTest {
     private PlanSkeletonService planSkeletonService;
     @Mock
     private ThreadPoolExecutor planningExecutor;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private GoalServiceImpl goalService;
