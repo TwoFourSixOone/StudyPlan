@@ -75,16 +75,14 @@
 - [x] 小程序构建通过
 - [x] 联调确认选项可作答
 - [ ] 人工在云库执行清理脚本（可选，不阻塞归档）
-- [ ] 归档到 `openspec/changes/archive/`
+- [x] 归档到 `openspec/changes/archive/`（2026-11-11）
 
 ---
 
-## 7. 归档时需同步的 `openspec/specs`（本次未改，避免跨 change 混写）
+## 7. `openspec/specs` 回写（归档时完成）
 
-| 文件 | 现状 | 归档本 change 时需补 |
-|------|------|----------------------|
-| `openspec/specs/agent-contracts.md` §3 | 只列出 `question_gen_v1.txt`，没有举一反三的 `similar_question_gen_v1.txt` + `similar_question_schema.json` | 补「出题（举一反三）」一行，标注输出结构 `{knowledgePointId, content}` |
-| `openspec/specs/agent-contracts.md` §4 | 出题降级行未提「输出非法重试 5 轮 / 调用失败立即放弃」 | 补充 `SimilarQuestionServiceImpl` 的重试语义 |
-| `openspec/specs/agent-contracts.md` §1 | 规划 Agent 仍写「❌ 未实现」 | **与 `2026-11-10_goal_planning_agent` 冲突**，应在该 change 归档时更新，勿在本 change 顺手改 |
-
-> 说明：本 change 只做「工件 ↔ 实现」对齐，不改 `specs/`（避免与 `goal_planning_agent` 等并行 change 互相覆盖）。
+| 文件 | 回写内容 | 状态 |
+|------|----------|------|
+| `openspec/specs/agent-contracts.md` §3 | 新增「出题（举一反三）」一行（`similar_question_gen_v1.txt` / `similar_question_schema.json`，输出 `{knowledgePointId, content}`）；补充输出结构约束（选项 ≥2、answer 为 label、纯文本） | ✅ 已回写 |
+| `openspec/specs/agent-contracts.md` §4 | 新增「出题（举一反三）」降级行：输出非法重试 5 轮、调用失败立即放弃 | ✅ 已回写 |
+| `openspec/specs/agent-contracts.md` §1 | 规划 Agent 仍写「❌ 未实现」 | ⚠️ 不属于本 change，留给 `2026-11-10_goal_planning_agent` 归档时更新 |

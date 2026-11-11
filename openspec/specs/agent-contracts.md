@@ -34,6 +34,7 @@
 | Agent | 输入 | 输出 | Prompt / Schema |
 |-------|------|------|----------------|
 | 出题 | 知识点列表 + 掌握度 + 配额 | 题目引用列表（`DailyPlanQuestionRef`）+ 举一反三新题 | `question_gen_v1.txt` / `question_gen_schema.json` |
+| 出题（举一反三） | 原错题 + 掌握度 + 目标数量 + 难度策略 | `[{knowledgePointId, content}]`（不含 questionId/taskType，由系统落库时分配） | `similar_question_gen_v1.txt` / `similar_question_schema.json` |
 | 新题校验 | 原错题 + 生成的新题 | 通过/拒绝 + 原因 | `question_check_v1.txt` |
 | 归因 | 题目文本 + 作答结果 | 知识点 ID 映射 | `attribution_v1.txt` / `attribution_schema.json` |
 | 调整 | 触发信号 + `AdjustmentContextDTO`（目标 / 未来 7 天计划 / 未覆盖知识点 / 超期错题） | `PlanDiffDTO`（仅需修改的日期） | `adjustment_v2.txt` / `adjustment_schema.json` |
@@ -42,6 +43,12 @@
 
 > `adjustment_v1.txt` 保留未删，便于回滚。Prompt 一律从 `classpath:prompts/versions/` 加载，禁止硬编码。
 
+**输出结构约束（2026-11-11）**：
+
+- `formatType=choice` 的生成题必须带 ≥2 个有效选项（`[{label,text}]`），否则视为非法输出
+- 选择题 `answer` 必须是选项标签（A/B/C/D），不是选项内容
+- 题干、选项、解析一律纯文本（无 LaTeX/Markdown），出参时统一过 `LlmTextSanitizer`（约定 #24）
+
 ---
 
 ## 4. 降级契约（实现层面）
@@ -49,6 +56,7 @@
 | Agent | 失败时的行为 | 是否有降级日志 |
 |-------|-------------|---------------|
 | 出题 | 重试 2 次 → `HomeworkDegradationHandler.generateDefaultPlan` 用题库兜底 → 仍失败则计划留 `pending_generation`，前端提示"今日作业生成失败" | ✅ `agent_degradation_log`，`agent_type=question_gen`，`degradation_action=return_default` |
+| 出题（举一反三） | `SimilarQuestionServiceImpl`：输出结构非法（`AGENT_OUTPUT_INVALID`）重试，最多 5 轮；调用失败/超时立即放弃；不足数量记 `skip_similar_question` 降级日志 | ✅ `agent_degradation_log`，`agent_type=question_check`，`degradation_action=skip_similar_question` |
 | 调整 | 捕获 `AdjustmentException` → 返回空 diff（"暂无需调整"），不落库 diff | ✅ `agent_degradation_log`，`agent_type=adjustment`，`degradation_action=return_empty_diff` |
 | 归因 | 题目标记 `pending_manual_review`，不更新掌握度 | ⚠️ **未写降级日志**（现状缺口） |
 | 解析生成 | 解析置空，不影响批改结果 | ❌ 不写日志（属可接受的静默降级） |
