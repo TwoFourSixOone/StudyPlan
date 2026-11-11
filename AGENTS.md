@@ -135,6 +135,7 @@ repo/
 │  ├─ architecture/           ← 架构知识 & 隐性约定
 │  ├─ product/                ← 产品规则（index.md 为业务唯一依据）
 │  ├─ standards/              ← 测试 & 数据库规范
+│  ├─ ops/                    ← 运维/排障 SQL（人工执行，不进 Flyway）
 │  └─ changelog/              ← 公式/规范变更记录（如 mastery-formula.md）
 ├─ openspec/                  ← OpenSpec 变更管理
 │  ├─ changes/                ← 进行中的 change
