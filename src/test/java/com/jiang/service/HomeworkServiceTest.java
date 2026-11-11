@@ -580,6 +580,33 @@ class HomeworkServiceTest {
         assertNull(result.get(0).getStudentAnswer());
     }
 
+    @Test
+    @DisplayName("查询作业：生成题题干与选项中的 LaTeX 被清洗为纯文本（隐性约定 #24）")
+    void should_sanitizeGeneratedQuestionText() {
+        DailyPlan plan = buildDailyPlan(PlanStatus.PENDING);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
+
+        List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(7L, "generated", "similar"));
+        when(contentParser.parse(plan.getContent())).thenReturn(refs);
+
+        GeneratedQuestion gq = new GeneratedQuestion();
+        gq.setGeneratedQuestionId(7L);
+        gq.setKnowledgePointId("kp_001");
+        gq.setDifficulty("standard");
+        gq.setContent("{\"stem\":\"求 $\\\\sqrt{10}$ 的值\","
+                + "\"choices\":[{\"label\":\"A\",\"text\":\"$\\\\sqrt{10}$\"},"
+                + "{\"label\":\"B\",\"text\":\"$\\\\frac{1}{2}$\"}],"
+                + "\"answer\":\"A\",\"formatType\":\"choice\",\"difficulty\":\"standard\"}");
+        when(generatedQuestionMapper.selectBatchIds(anyCollection())).thenReturn(List.of(gq));
+        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(Collections.emptyList());
+
+        List<HomeworkVO> result = homeworkService.getHomeworkByDate(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
+
+        assertEquals(1, result.size());
+        assertEquals("求 √(10) 的值", result.get(0).getQuestionContent());
+        assertEquals(List.of("√(10)", "(1)/(2)"), result.get(0).getChoices());
+    }
+
     // ==================== submitAnswer ====================
 
     @Test

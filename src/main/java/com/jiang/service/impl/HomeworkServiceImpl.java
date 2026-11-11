@@ -1069,7 +1069,7 @@ public class HomeworkServiceImpl implements HomeworkService {
             QuestionBank q = bankMap.get(ref.getQuestionId());
             if (q != null) {
                 builder.questionFormatType(q.getType())
-                        .questionContent(q.getContent())
+                        .questionContent(LlmTextSanitizer.sanitize(q.getContent()))
                         .difficulty(q.getDifficulty())
                         .knowledgePointId(q.getKnowledgePointId());
                 // 解析选择题选项（隐性约定 #25：题库存 {key,text}，出参统一为纯文本，label 由前端按序号渲染）
@@ -1089,7 +1089,7 @@ public class HomeworkServiceImpl implements HomeworkService {
                 try {
                     Map<String, Object> content = OBJECT_MAPPER.readValue(gq.getContent(),
                             new TypeReference<Map<String, Object>>() {});
-                    builder.questionContent((String) content.get("stem"))
+                    builder.questionContent(LlmTextSanitizer.sanitize((String) content.get("stem")))
                             .questionFormatType((String) content.get("formatType"));
                     if ("choice".equals(content.get("formatType"))) {
                         List<String> choices = resolveChoiceTexts(content.get("choices"));
@@ -1152,6 +1152,8 @@ public class HomeworkServiceImpl implements HomeworkService {
             return ChoiceOptions.normalize(parsed).stream()
                     .map(option -> option.get("text"))
                     .filter(text -> text != null && !text.isBlank())
+                    // 题干与选项同样需要清洗（隐性约定 #24 覆盖到题目正文）
+                    .map(LlmTextSanitizer::sanitize)
                     .collect(Collectors.toList());
         } catch (Exception e) {
             log.warn("解析选择题选项失败: {}", e.getMessage());

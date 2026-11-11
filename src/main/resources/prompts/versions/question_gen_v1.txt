@@ -13,6 +13,18 @@
   - 掌握度 0.4~0.7 的知识点：分配 standard 难度，taskType=redo 或 similar
   - 掌握度 > 0.7 的知识点：分配 challenge 难度，taskType=comprehensive
 
+## 纯文本要求（重要）
+
+小程序只渲染纯文本，**禁止 LaTeX 与 Markdown**：
+- 不得出现 `$`、`\sqrt`、`\frac`、`\vec`、`\cdot`、`\times`、`\leq`、`\neq`、`\pi`、`\theta` 等命令
+- 不得使用 `**`、`#`、反引号等 Markdown 标记
+- 数学符号只用常用字符：√ ² ³ ° · × ÷ ≤ ≥ ≠ ≈ π θ ∠ △ ⊥ ∥ ∞ →
+  - 根号：写 `√10`（√ 后直接跟数字，不加括号，不写 sqrt）
+  - 分数：写 `1/2` 或"二分之一"，不写 \frac{1}{2}
+  - 向量：写"向量AB"或 `AB`，不写 \vec{AB}
+  - 幂：写 `x²`，不写 `x^2`
+- 以上要求同时适用于 `stem`、`choices[].text`、`analysis` 三个字段
+
 ## 输出格式要求
 
 请严格以 JSON 数组格式输出，每个元素包含以下字段：
