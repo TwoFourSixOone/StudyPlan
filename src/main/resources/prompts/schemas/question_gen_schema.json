@@ -42,11 +42,11 @@
               "type": "object",
               "required": ["label", "text"],
               "properties": {
-                "label": { "type": "string" },
-                "text": { "type": "string" }
+                "label": { "type": "string", "pattern": "^[A-H]$" },
+                "text": { "type": "string", "minLength": 1 }
               }
             },
-            "description": "选择题选项（仅 formatType=choice 时必填）"
+            "description": "选择题选项（questionSource=generated 且 formatType=choice 时必填，至少 2 个；label 依次 A/B/C/D）"
           },
           "answer": {
             "type": "string",

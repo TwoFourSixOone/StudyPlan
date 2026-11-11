@@ -27,7 +27,7 @@
       <text class="question-content">{{ currentQuestion.questionContent }}</text>
 
       <!-- 选择题选项 -->
-      <view class="choices" v-if="currentQuestion.questionFormatType === 'choice' && currentQuestion.choices">
+      <view class="choices" v-if="currentQuestion.questionFormatType === 'choice' && currentQuestion.choices && currentQuestion.choices.length">
         <view
           class="choice-item"
           v-for="(choice, cIdx) in currentQuestion.choices"
@@ -43,6 +43,11 @@
           <text class="choice-label">{{ choiceLabel(cIdx) }}</text>
           <text class="choice-text">{{ choice }}</text>
         </view>
+      </view>
+
+      <!-- 选项缺失兜底：不渲染空白选项区，提示用户跳过 -->
+      <view class="choices-missing" v-else-if="currentQuestion.questionFormatType === 'choice'">
+        <text class="choices-missing-text">本题选项数据异常，请跳过此题并反馈给老师</text>
       </view>
 
       <!-- 填空题输入 -->
@@ -370,6 +375,19 @@ function difficultyLabel(diff) {
   flex-direction: column;
   gap: $spacing-sm;
   margin-bottom: $spacing-md;
+}
+/* 选项缺失兜底提示 */
+.choices-missing {
+  padding: $spacing-md;
+  margin-bottom: $spacing-md;
+  border: 2rpx dashed $border-color;
+  border-radius: $radius-md;
+  background-color: #fdf6ec;
+}
+.choices-missing-text {
+  font-size: $font-sm;
+  color: $warning-color;
+  line-height: 1.5;
 }
 .choice-item {
   display: flex;

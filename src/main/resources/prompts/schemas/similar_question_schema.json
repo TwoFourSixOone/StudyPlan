@@ -17,8 +17,23 @@
         "required": ["stem", "answer", "formatType"],
         "properties": {
           "stem": { "type": "string", "minLength": 1, "description": "题干" },
-          "choices": { "type": "array", "items": { "type": "string" }, "description": "选项（choice 题必填）" },
-          "answer": { "type": "string", "minLength": 1, "description": "标准答案" },
+          "choices": {
+            "type": "array",
+            "description": "选项（formatType=choice 时必填，至少 2 个；其他题型为空数组）",
+            "items": {
+              "type": "object",
+              "required": ["label", "text"],
+              "properties": {
+                "label": { "type": "string", "pattern": "^[A-H]$", "description": "选项标签，A/B/C/D" },
+                "text": { "type": "string", "minLength": 1, "description": "选项内容（不含标签前缀）" }
+              }
+            }
+          },
+          "answer": {
+            "type": "string",
+            "minLength": 1,
+            "description": "标准答案；选择题必须为选项标签（A/B/C/D）"
+          },
           "analysis": { "type": "string", "description": "解析" },
           "formatType": {
             "type": "string",
@@ -30,7 +45,19 @@
             "enum": ["basic", "standard", "challenge"],
             "description": "难度"
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": { "formatType": { "const": "choice" } },
+              "required": ["formatType"]
+            },
+            "then": {
+              "required": ["choices"],
+              "properties": { "choices": { "minItems": 2 } }
+            }
+          }
+        ]
       }
     }
   }

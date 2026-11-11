@@ -21,6 +21,10 @@
 - taskType: 任务类型，"review" / "redo" / "similar" / "comprehensive"
 - knowledgePointId: 关联知识点 ID
 - content: 题目内容（JSON 对象，包含 stem, choices, answer, analysis, formatType, difficulty）
+  - choices: 选项数组（仅 formatType=choice 时必填，其他类型填空数组 []），**固定结构**：
+    [{"label": "A", "text": "选项内容"}, {"label": "B", "text": "选项内容"}, {"label": "C", "text": "选项内容"}, {"label": "D", "text": "选项内容"}]
+    选择题必须给出 4 个选项，label 依次为 A/B/C/D，text 只写选项内容（不要带 "A." 前缀）
+  - answer: 标准答案；**选择题必须填选项 label（如 "B"），不要填选项内容**
 
 ## 注意事项
 1. 只输出 JSON 数组，不要包含任何其他文字说明

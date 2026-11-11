@@ -24,8 +24,10 @@
 - knowledgePointId: 关联知识点 ID（必须与输入一致）
 - content: 题目内容（JSON 对象，包含 stem, choices, answer, analysis, formatType, difficulty）
   - stem: 题干（不能为空）
-  - choices: 选项数组（仅 formatType=choice 时必填，其他类型填空数组 []）
-  - answer: 标准答案（不能为空）
+  - choices: 选项数组（仅 formatType=choice 时必填，其他类型填空数组 []），**固定结构**：
+    [{"label": "A", "text": "选项内容"}, {"label": "B", "text": "选项内容"}, {"label": "C", "text": "选项内容"}, {"label": "D", "text": "选项内容"}]
+    选择题必须给出 4 个选项，label 依次为 A/B/C/D，text 只写选项内容（不要带 "A." 前缀）
+  - answer: 标准答案（不能为空）；**选择题必须填选项 label（如 "B"），不要填选项内容**
   - analysis: 解析说明
   - formatType: 题目形式（choice / numeric / short / self）
   - difficulty: 难度（basic / standard / challenge，按 progressive 策略分配）

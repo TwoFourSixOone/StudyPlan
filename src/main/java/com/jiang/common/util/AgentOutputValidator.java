@@ -120,6 +120,14 @@ public class AgentOutputValidator {
                 String ft = content.get("formatType").asText();
                 if (!Set.of("choice", "numeric", "short", "self").contains(ft)) {
                     errors.add(prefix + ".content: formatType 值非法: " + ft);
+                } else if ("choice".equals(ft)
+                        && "generated".equals(item.path("questionSource").asText())) {
+                    // 生成的选择题必须有可作答选项（隐性约定 #25）；题库题由 question_bank 提供选项
+                    List<Map<String, String>> options = ChoiceOptions.normalize(content.get("choices"));
+                    if (!ChoiceOptions.isUsable(options)) {
+                        errors.add(prefix + ".content: 选择题 content.choices 至少需要 "
+                                + ChoiceOptions.MIN_OPTIONS + " 个有效选项");
+                    }
                 }
             }
 
@@ -244,6 +252,13 @@ public class AgentOutputValidator {
                 String formatType = content.get("formatType").asText();
                 if (!java.util.Set.of("choice", "numeric", "short", "self").contains(formatType)) {
                     errors.add(prefix + ": content.formatType 非法（" + formatType + "）");
+                } else if ("choice".equals(formatType)) {
+                    // 选择题必须有可作答的选项（隐性约定 #25），否则前端只能渲染出空选项区
+                    List<Map<String, String>> options = ChoiceOptions.normalize(content.get("choices"));
+                    if (!ChoiceOptions.isUsable(options)) {
+                        errors.add(prefix + ": 选择题 content.choices 至少需要 "
+                                + ChoiceOptions.MIN_OPTIONS + " 个有效选项");
+                    }
                 }
             }
         }

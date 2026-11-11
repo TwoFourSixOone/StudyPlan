@@ -6,6 +6,7 @@ import com.jiang.client.AgentScopeClient;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.util.AgentOutputValidator;
+import com.jiang.common.util.ChoiceOptions;
 import com.jiang.dto.DailyPlanQuestionRef;
 import com.jiang.dto.KnowledgePointWithMastery;
 import com.jiang.model.entity.GeneratedQuestion;
@@ -113,7 +114,7 @@ public class QuestionGenAgent {
                     // 生成题：创建 GeneratedQuestion 实体（planId 后续回填）
                     GeneratedQuestion gq = new GeneratedQuestion();
                     gq.setKnowledgePointId(knowledgePointId);
-                    gq.setContent(OBJECT_MAPPER.writeValueAsString(item.get("content")));
+                    gq.setContent(buildCanonicalContent(item.get("content")));
                     gq.setDifficulty(extractDifficulty(item));
                     gq.setSimilarityChecked(0);
                     generatedQuestions.add(gq);
@@ -141,6 +142,22 @@ public class QuestionGenAgent {
         } catch (Exception e) {
             return "standard";
         }
+    }
+
+    /**
+     * 归一化题目内容后序列化（隐性约定 #25）
+     *
+     * <p>LLM 可能返回字符串数组、{@code {key,text}} 等非标准选项形态，
+     * 落库前统一为 {@code [{label,text}]}，并把选择题答案转成选项标签。</p>
+     */
+    private String buildCanonicalContent(Object rawContent) throws Exception {
+        if (!(rawContent instanceof Map<?, ?> rawMap)) {
+            return OBJECT_MAPPER.writeValueAsString(rawContent);
+        }
+        Map<String, Object> content = new java.util.LinkedHashMap<>();
+        rawMap.forEach((key, value) -> content.put(String.valueOf(key), value));
+        ChoiceOptions.canonicalize(content);
+        return OBJECT_MAPPER.writeValueAsString(content);
     }
 
     /**
@@ -212,7 +229,7 @@ public class QuestionGenAgent {
             for (Map<String, Object> item : items) {
                 GeneratedQuestion gq = new GeneratedQuestion();
                 gq.setKnowledgePointId(kpId);
-                gq.setContent(OBJECT_MAPPER.writeValueAsString(item.get("content")));
+                gq.setContent(buildCanonicalContent(item.get("content")));
                 gq.setDifficulty(extractDifficulty(item));
                 gq.setSimilarityChecked(0);
                 generatedQuestions.add(gq);

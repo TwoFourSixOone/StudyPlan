@@ -7,6 +7,7 @@ import com.jiang.agent.HomeworkDegradationHandler;
 import com.jiang.agent.QuestionGenAgent;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
+import com.jiang.common.util.ChoiceOptions;
 import com.jiang.common.util.DailyPlanContentParser;
 import com.jiang.common.util.GradeMatcher;
 import com.jiang.common.util.LlmTextSanitizer;
@@ -1071,32 +1072,12 @@ public class HomeworkServiceImpl implements HomeworkService {
                         .questionContent(q.getContent())
                         .difficulty(q.getDifficulty())
                         .knowledgePointId(q.getKnowledgePointId());
-                // 解析选择题选项
-                // DB 可能存在双重序列化：外层引号包裹的 JSON 字符串 "[{\"key\":\"A\",...}]"
-                if (q.getChoices() != null) {
-                    try {
-                        String rawChoices = q.getChoices();
-                        // 如果首字符是引号，说明被双重序列化，先解一层
-                        if (rawChoices.startsWith("\"")) {
-                            rawChoices = OBJECT_MAPPER.readValue(rawChoices, String.class);
-                        }
-                        List<Map<String, Object>> choiceMaps = OBJECT_MAPPER.readValue(rawChoices,
-                                new TypeReference<List<Map<String, Object>>>() {});
-                        List<String> choices = choiceMaps.stream()
-                                .map(c -> {
-                                    String key = (String) c.get("key");
-                                    String text = (String) c.get("text");
-                                    return key + ". " + text;
-                                })
-                                .collect(Collectors.toList());
-                        builder.choices(choices);
-                    } catch (Exception e) {
-                        log.warn("解析 question_bank.choices JSON 失败: {}", e.getMessage());
-                    }
+                // 解析选择题选项（隐性约定 #25：题库存 {key,text}，出参统一为纯文本，label 由前端按序号渲染）
+                List<String> choices = resolveChoiceTexts(q.getChoices());
+                if (!choices.isEmpty()) {
+                    builder.choices(choices);
                 } else if ("choice".equals(q.getType())) {
-                    // 选择题缺少选项数据，生成默认选项兜底
-                    log.warn("选择题 questionId={} 缺少 choices 数据，生成默认选项", q.getQuestionId());
-                    builder.choices(List.of("A. 选项A", "B. 选项B", "C. 选项C", "D. 选项D"));
+                    log.error("题库选择题 questionId={} 缺少有效选项，学生将无法作答", q.getQuestionId());
                 }
             }
         } else if ("generated".equals(ref.getQuestionSource())) {
@@ -1110,12 +1091,13 @@ public class HomeworkServiceImpl implements HomeworkService {
                             new TypeReference<Map<String, Object>>() {});
                     builder.questionContent((String) content.get("stem"))
                             .questionFormatType((String) content.get("formatType"));
-                    if ("choice".equals(content.get("formatType")) && content.containsKey("choices")) {
-                        @SuppressWarnings("unchecked")
-                        List<Map<String, String>> choiceList = (List<Map<String, String>>) content.get("choices");
-                        builder.choices(choiceList.stream()
-                                .map(c -> c.get("label") + ". " + c.get("text"))
-                                .collect(Collectors.toList()));
+                    if ("choice".equals(content.get("formatType"))) {
+                        List<String> choices = resolveChoiceTexts(content.get("choices"));
+                        if (choices.isEmpty()) {
+                            log.error("生成选择题 questionId={} 缺少有效选项，学生将无法作答", gq.getGeneratedQuestionId());
+                        } else {
+                            builder.choices(choices);
+                        }
                     }
                 } catch (Exception e) {
                     log.warn("解析 generated_question.content JSON 失败: {}", e.getMessage());
@@ -1138,6 +1120,43 @@ public class HomeworkServiceImpl implements HomeworkService {
         }
 
         return builder.build();
+    }
+
+    /**
+     * 解析选择题选项为纯文本列表（隐性约定 #25）
+     *
+     * <p>输入可能是：JSON 字符串（可能被双重序列化）、{@code List}、{@code Map}，
+     * 元素可能是 {@code {label,text}}、{@code {key,text}} 或纯字符串；统一交给
+     * {@link ChoiceOptions#normalize(Object)} 归一化后只保留文本，label 由前端按序号渲染。</p>
+     */
+    private List<String> resolveChoiceTexts(Object rawOptions) {
+        if (rawOptions == null) {
+            return List.of();
+        }
+        try {
+            Object parsed = rawOptions;
+            if (rawOptions instanceof String raw) {
+                if (raw.isBlank()) {
+                    return List.of();
+                }
+                try {
+                    parsed = OBJECT_MAPPER.readValue(raw, Object.class);
+                    // 双重序列化：外层仍是字符串
+                    if (parsed instanceof String inner && !inner.isBlank()) {
+                        parsed = OBJECT_MAPPER.readValue(inner, Object.class);
+                    }
+                } catch (Exception ignore) {
+                    parsed = raw;
+                }
+            }
+            return ChoiceOptions.normalize(parsed).stream()
+                    .map(option -> option.get("text"))
+                    .filter(text -> text != null && !text.isBlank())
+                    .collect(Collectors.toList());
+        } catch (Exception e) {
+            log.warn("解析选择题选项失败: {}", e.getMessage());
+            return List.of();
+        }
     }
 
     /**

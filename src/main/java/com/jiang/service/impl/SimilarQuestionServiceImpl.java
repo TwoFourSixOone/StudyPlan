@@ -82,10 +82,13 @@ public class SimilarQuestionServiceImpl implements SimilarQuestionService {
                 doSingleAttempt(kpId, masteryScore, sourceQuestion, currentTarget,
                         stemContents, roundPassed, roundFailed);
             } catch (BusinessException e) {
-                // 生成 Agent 调用失败 → 本轮全部视为失败
+                // 输出格式非法（如选择题缺选项）→ 可重试；调用超时/失败 → 直接放弃，避免 5 轮长等待
                 log.error("举一反三生成 Agent 调用失败 (kpId={}, attempt={}): {}",
                         kpId, attempt + 1, e.getMessage());
                 totalFailedCount += currentTarget;
+                if (e.getCode() == ErrorCodes.AGENT_OUTPUT_INVALID.getCode()) {
+                    continue;
+                }
                 break;
             }
 
