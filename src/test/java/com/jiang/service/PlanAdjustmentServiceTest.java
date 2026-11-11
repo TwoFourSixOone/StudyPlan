@@ -85,6 +85,8 @@ class PlanAdjustmentServiceTest {
     @Mock
     private StudentKnowledgeStateMapper knowledgeStateMapper;
     @Mock
+    private com.jiang.mapper.StudentMapper studentMapper;
+    @Mock
     private AgentDegradationLogMapper degradationLogMapper;
     @Mock
     private PlatformTransactionManager transactionManager;
@@ -154,7 +156,7 @@ class PlanAdjustmentServiceTest {
                 .thenReturn(List.of(
                         buildPlan(today, "pending", "[]"),
                         buildPlan(today.plusDays(1), "pending", "[{\"questionId\":1}]")));
-        when(knowledgeStateMapper.selectUncoveredKpList(STUDENT_ID, SUBJECT_ID, TENANT_ID, UNCOVERED_KP_LIMIT))
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
                 .thenReturn(List.of(kpRow("kp_001", "一元二次方程"), kpRow("kp_002", "勾股定理")));
         when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))
                 .thenReturn(new PlanDiffDTO());
@@ -181,7 +183,7 @@ class PlanAdjustmentServiceTest {
         assertEquals("一元二次方程", context.getUncoveredKps().get(0).getName());
 
         // 截断上限必须按常量 30 下发，防止 Prompt 膨胀
-        verify(knowledgeStateMapper).selectUncoveredKpList(STUDENT_ID, SUBJECT_ID, TENANT_ID, UNCOVERED_KP_LIMIT);
+        verify(knowledgeStateMapper).selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID);
 
         assertTrue(vo.isAdjusted());
         assertEquals(DIFF_ID, vo.getDiffId());
@@ -194,7 +196,7 @@ class PlanAdjustmentServiceTest {
         stubGoalAndSubject();
         when(planMapper.selectPlansBetween(anyLong(), anyString(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-        when(knowledgeStateMapper.selectUncoveredKpList(anyLong(), anyLong(), anyString(), anyInt()))
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(anyLong(), anyLong(), anyString()))
                 .thenReturn(List.of());
         when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))
                 .thenReturn(new PlanDiffDTO());
@@ -228,7 +230,7 @@ class PlanAdjustmentServiceTest {
         stubGoalAndSubject();
         when(planMapper.selectPlansBetween(anyLong(), anyString(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-        when(knowledgeStateMapper.selectUncoveredKpList(anyLong(), anyLong(), anyString(), anyInt()))
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(anyLong(), anyLong(), anyString()))
                 .thenReturn(List.of());
         when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))
                 .thenThrow(new AdjustmentException("agent timeout"));
@@ -257,7 +259,7 @@ class PlanAdjustmentServiceTest {
         stubGoalAndSubject();
         when(planMapper.selectPlansBetween(anyLong(), anyString(), any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(List.of());
-        when(knowledgeStateMapper.selectUncoveredKpList(anyLong(), anyLong(), anyString(), anyInt()))
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(anyLong(), anyLong(), anyString()))
                 .thenReturn(List.of());
         String longMessage = "apiKey=sk-secret-123 " + "x".repeat(600);
         when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))

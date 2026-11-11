@@ -7,6 +7,7 @@ import com.jiang.mapper.HomeworkSubmissionDetailMapper;
 import com.jiang.mapper.LearningGoalMapper;
 import com.jiang.mapper.MasteryChangeLogMapper;
 import com.jiang.mapper.StudentKnowledgeStateMapper;
+import com.jiang.mapper.StudentMapper;
 import com.jiang.model.entity.LearningGoal;
 import com.jiang.service.impl.SignalDetectorImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,7 +20,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -52,6 +56,8 @@ class SignalDetectorTest {
     private MasteryChangeLogMapper changeLogMapper;
     @Mock
     private DailyPlanMapper planMapper;
+    @Mock
+    private StudentMapper studentMapper;
 
     @InjectMocks
     private SignalDetectorImpl signalDetector;
@@ -122,8 +128,8 @@ class SignalDetectorTest {
         when(goalMapper.selectById(GOAL_ID))
                 .thenReturn(buildGoal(STUDENT_ID, SUBJECT_ID, LocalDate.now().plusDays(3)));
         // changeLog 未 stub → 返回 null，SIG-2 自然不命中
-        when(knowledgeStateMapper.countUncoveredByStudentAndSubject(STUDENT_ID, SUBJECT_ID, TENANT_ID))
-                .thenReturn(10L);
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
+                .thenReturn(uncoveredRows(10));
 
         List<TriggerSignalDTO> signals = signalDetector.detectSignals(GOAL_ID, TENANT_ID);
 
@@ -135,8 +141,8 @@ class SignalDetectorTest {
     void should_notDetectSIG4_when_capacityIsEnough() {
         when(goalMapper.selectById(GOAL_ID))
                 .thenReturn(buildGoal(STUDENT_ID, SUBJECT_ID, LocalDate.now().plusDays(30)));
-        when(knowledgeStateMapper.countUncoveredByStudentAndSubject(STUDENT_ID, SUBJECT_ID, TENANT_ID))
-                .thenReturn(5L);
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
+                .thenReturn(uncoveredRows(5));
 
         List<TriggerSignalDTO> signals = signalDetector.detectSignals(GOAL_ID, TENANT_ID);
 
@@ -162,8 +168,8 @@ class SignalDetectorTest {
                 .thenReturn(buildGoal(STUDENT_ID, SUBJECT_ID, LocalDate.now().plusDays(30)));
         when(changeLogMapper.selectMaxMasteryDropByStudentAndSubject(STUDENT_ID, SUBJECT_ID, TENANT_ID))
                 .thenReturn(-0.02);
-        when(knowledgeStateMapper.countUncoveredByStudentAndSubject(STUDENT_ID, SUBJECT_ID, TENANT_ID))
-                .thenReturn(1L);
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
+                .thenReturn(uncoveredRows(1));
 
         List<TriggerSignalDTO> signals = signalDetector.detectSignals(GOAL_ID, TENANT_ID);
 
@@ -171,6 +177,22 @@ class SignalDetectorTest {
     }
 
     // ==================== 辅助方法 ====================
+
+    /**
+     * 构造 n 条「未覆盖」知识点行（mastery 为空、年级 7）
+     */
+    private List<Map<String, Object>> uncoveredRows(int count) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("kpId", "kp_" + i);
+            row.put("kpName", "知识点" + i);
+            row.put("gradeRange", "7");
+            row.put("masteryScore", null);
+            rows.add(row);
+        }
+        return rows;
+    }
 
     private LearningGoal buildGoal(Long studentId, Long subjectId, LocalDate endDate) {
         LearningGoal goal = new LearningGoal();

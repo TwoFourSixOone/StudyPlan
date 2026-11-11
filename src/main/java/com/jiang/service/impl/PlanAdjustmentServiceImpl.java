@@ -71,6 +71,9 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
     private static final int FUTURE_PLAN_DAYS = 7;
     /** 调整 Agent 上下文：未覆盖知识点清单截断条数（避免 Prompt 膨胀） */
     private static final int UNCOVERED_KP_LIMIT = 30;
+
+    @Autowired
+    private com.jiang.mapper.StudentMapper studentMapper;
     /** 降级日志字段最大长度（隐性约定 #12：截断至 500 字符） */
     private static final int MAX_LOG_LENGTH = 500;
 
@@ -163,6 +166,18 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
      * 修复调整 Agent 信息不足：原 Prompt 仅传 goalId，LLM 只能凭空编造知识点/日期/题目，
      * 确认后幻觉数据写入 daily_plan.content（产品规则 #8：Agent 只能引用已启用知识点）
      */
+    /**
+     * 学生年级（无法识别时返回 null）
+     */
+    private Integer resolveStudentGrade(Long studentId) {
+        if (studentId == null) {
+            return null;
+        }
+        com.jiang.model.entity.Student student = studentMapper.selectById(studentId);
+        return student == null ? null
+                : com.jiang.common.util.GradeMatcher.normalizeStudentGrade(student.getGrade());
+    }
+
     private AdjustmentContextDTO buildAdjustmentContext(Long goalId, String tenantId) {
         LearningGoal goal = goalMapper.selectById(goalId);
         if (goal == null) {
@@ -189,9 +204,20 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 未覆盖知识点清单（截断，防止 Prompt 膨胀）
-        List<Map<String, Object>> uncoveredRows = knowledgeStateMapper.selectUncoveredKpList(
-                goal.getStudentId(), goal.getSubjectId(), tenantId, UNCOVERED_KP_LIMIT);
+        // 未覆盖知识点清单（按学生年级过滤后截断，防止 Prompt 膨胀 & 混入其他学段知识点）
+        Integer studentGrade = resolveStudentGrade(goal.getStudentId());
+        List<Map<String, Object>> uncoveredRows = knowledgeStateMapper
+                .selectActiveKpsWithMastery(goal.getStudentId(), goal.getSubjectId(), tenantId)
+                .stream()
+                .filter(row -> studentGrade == null
+                        || com.jiang.common.util.GradeMatcher.matchesRange(
+                                studentGrade, (String) row.get("gradeRange")))
+                .filter(row -> {
+                    Object mastery = row.get("masteryScore");
+                    return mastery == null || ((Number) mastery).doubleValue() == 0d;
+                })
+                .limit(UNCOVERED_KP_LIMIT)
+                .collect(Collectors.toList());
         List<AdjustmentContextDTO.KpItem> uncoveredKps = uncoveredRows.stream()
                 .map(r -> AdjustmentContextDTO.KpItem.builder()
                         .kpId(String.valueOf(r.get("kpId")))

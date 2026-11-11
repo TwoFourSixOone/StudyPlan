@@ -4,12 +4,14 @@ import com.jiang.config.SignalConfig;
 import com.jiang.dto.TriggerSignalDTO;
 import com.jiang.mapper.*;
 import com.jiang.model.entity.LearningGoal;
+import com.jiang.model.entity.Student;
 import com.jiang.service.SignalDetector;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.jiang.common.util.BusinessDate;
+import com.jiang.common.util.GradeMatcher;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -38,6 +40,8 @@ public class SignalDetectorImpl implements SignalDetector {
     private MasteryChangeLogMapper changeLogMapper;
     @Autowired
     private DailyPlanMapper planMapper;
+    @Autowired
+    private StudentMapper studentMapper;
 
     @Override
     public List<TriggerSignalDTO> detectSignals(Long goalId, String tenantId) {
@@ -167,10 +171,16 @@ public class SignalDetectorImpl implements SignalDetector {
         double capDay = signalConfig.getSig4().getCapDay();
         double eff = signalConfig.getSig4().getEfficiency();
 
-        // 修复 BadSqlGrammar：goal 与知识点无直接关联表，按学生 + 科目维度统计未覆盖知识点
-        // 修复 BLOCK-14：kUncovered = 从未学习过（masteryScore IS NULL）
-        long kUncovered = knowledgeStateMapper.countUncoveredByStudentAndSubject(
-                goal.getStudentId(), goal.getSubjectId(), tenantId);
+        // 未覆盖知识点必须按"学生年级 + 科目"统计：
+        // 否则会把其他学段的知识点算进来（联调实测：高三学生数学被算出 864 个未覆盖，导致每天误报 SIG-4）
+        Integer studentGrade = resolveStudentGrade(goal.getStudentId());
+        long kUncovered = knowledgeStateMapper
+                .selectActiveKpsWithMastery(goal.getStudentId(), goal.getSubjectId(), tenantId)
+                .stream()
+                .filter(row -> studentGrade == null
+                        || GradeMatcher.matchesRange(studentGrade, (String) row.get("gradeRange")))
+                .filter(this::isUncovered)
+                .count();
 
         if (dRemain * capDay * eff < kUncovered) {
             TriggerSignalDTO signal = new TriggerSignalDTO();
@@ -181,5 +191,24 @@ public class SignalDetectorImpl implements SignalDetector {
             return java.util.Optional.of(signal);
         }
         return java.util.Optional.empty();
+    }
+
+    /**
+     * 学生年级（无法识别时返回 null，表示不按年级过滤）
+     */
+    private Integer resolveStudentGrade(Long studentId) {
+        if (studentId == null) {
+            return null;
+        }
+        Student student = studentMapper.selectById(studentId);
+        return student == null ? null : GradeMatcher.normalizeStudentGrade(student.getGrade());
+    }
+
+    /**
+     * 是否"未覆盖"：无掌握度记录或掌握度为 0
+     */
+    private boolean isUncovered(java.util.Map<String, Object> row) {
+        Object mastery = row.get("masteryScore");
+        return mastery == null || ((Number) mastery).doubleValue() == 0d;
     }
 }

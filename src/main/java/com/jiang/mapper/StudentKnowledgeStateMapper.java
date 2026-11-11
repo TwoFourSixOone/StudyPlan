@@ -76,6 +76,27 @@ public interface StudentKnowledgeStateMapper extends BaseMapper<StudentKnowledge
                                           @Param("tenantId") String tenantId);
 
     /**
+     * 查询科目下全部已启用知识点 + 学生掌握度（含 grade_range）
+     *
+     * <p>供 SIG-4 / 调整上下文使用：调用方需按学生年级过滤 grade_range，
+     * 否则会把其他学段的知识点算进"未覆盖"（联调实测：高三学生被算出 864 个未覆盖）。</p>
+     *
+     * @return 每行包含 kpId / kpName / gradeRange / masteryScore
+     */
+    @Select("SELECT kp.knowledge_point_id AS kpId, kp.name AS kpName, " +
+            "kp.grade_range AS gradeRange, s.mastery_score AS masteryScore " +
+            "FROM knowledge_point kp " +
+            "JOIN subject sub ON sub.subject_id = #{subjectId} " +
+            "AND sub.name = kp.subject AND sub.tenant_id = #{tenantId} " +
+            "LEFT JOIN student_knowledge_state s " +
+            "ON s.knowledge_point_id = kp.knowledge_point_id " +
+            "AND s.student_id = #{studentId} AND s.tenant_id = #{tenantId} " +
+            "WHERE kp.status = 'active' AND kp.tenant_id = #{tenantId}")
+    List<Map<String, Object>> selectActiveKpsWithMastery(@Param("studentId") Long studentId,
+                                                         @Param("subjectId") Long subjectId,
+                                                         @Param("tenantId") String tenantId);
+
+    /**
      * 查询学生指定科目下未覆盖知识点清单（ID + 名称，计划调整 Agent 上下文）
      * <p>
      * 与 countUncoveredByStudentAndSubject 同一关联链，LIMIT 截断到最近需要覆盖的数量，

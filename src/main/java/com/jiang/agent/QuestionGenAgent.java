@@ -196,8 +196,9 @@ public class QuestionGenAgent {
     }
 
     private List<GeneratedQuestion> validateAndParseSimilar(String agentOutput, String kpId) {
-        // 校验（复用现有 Schema 校验器）
-        AgentOutputValidator.ValidationResult result = validator.validate(agentOutput);
+        // 举一反三的输出结构是 [{knowledgePointId, content{...}}]，与出题 Agent 的 ref 结构不同，
+        // 必须用专用 schema 校验（此前误用 question_gen schema，导致所有生成被判失败）
+        AgentOutputValidator.ValidationResult result = validator.validateSimilar(agentOutput);
         if (!result.isSuccess()) {
             throw new BusinessException(ErrorCodes.AGENT_OUTPUT_INVALID, result.getMessage());
         }

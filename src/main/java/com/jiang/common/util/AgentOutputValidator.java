@@ -31,6 +31,7 @@ public class AgentOutputValidator {
     private JsonNode attributionSchema;
     private JsonNode adjustmentSchema;
     private JsonNode planningSchema;
+    private JsonNode similarQuestionSchema;
 
     @PostConstruct
     public void init() {
@@ -39,6 +40,7 @@ public class AgentOutputValidator {
             attributionSchema = loadSchema("prompts/schemas/attribution_schema.json");
             adjustmentSchema = loadSchema("prompts/schemas/adjustment_schema.json");
             planningSchema = loadSchema("prompts/schemas/planning_schema.json");
+            similarQuestionSchema = loadSchema("prompts/schemas/similar_question_schema.json");
         } catch (IOException e) {
             log.error("加载 JSON Schema 失败: {}", e.getMessage());
         }
@@ -195,6 +197,60 @@ public class AgentOutputValidator {
      * @param agentOutput Agent 返回的 JSON 字符串
      * @return 校验结果
      */
+    /**
+     * 校验举一反三 Agent 输出（产品规则 #3）
+     *
+     * <p>结构与出题 Agent 不同：{@code [{knowledgePointId, content{stem, answer, formatType}}]}，
+     * 不含 questionId/questionSource/taskType（这些由系统落库时分配）。</p>
+     */
+    public ValidationResult validateSimilar(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+
+        if (!jsonNode.isArray() || jsonNode.isEmpty()) {
+            return ValidationResult.fail("输出必须是非空 JSON 数组");
+        }
+
+        List<String> errors = new ArrayList<>();
+        for (int i = 0; i < jsonNode.size(); i++) {
+            JsonNode item = jsonNode.get(i);
+            String prefix = "题目[" + i + "]";
+
+            if (!item.has("knowledgePointId") || !item.get("knowledgePointId").isTextual()
+                    || item.get("knowledgePointId").asText().isBlank()) {
+                errors.add(prefix + ": 缺少必填字段 knowledgePointId");
+            }
+
+            JsonNode content = item.get("content");
+            if (content == null || !content.isObject()) {
+                errors.add(prefix + ": 缺少必填字段 content");
+                continue;
+            }
+            if (!content.has("stem") || !content.get("stem").isTextual()
+                    || content.get("stem").asText().isBlank()) {
+                errors.add(prefix + ": content.stem 不能为空");
+            }
+            if (!content.has("answer") || !content.get("answer").isTextual()
+                    || content.get("answer").asText().isBlank()) {
+                errors.add(prefix + ": content.answer 不能为空");
+            }
+            if (!content.has("formatType") || !content.get("formatType").isTextual()) {
+                errors.add(prefix + ": 缺少 content.formatType");
+            } else {
+                String formatType = content.get("formatType").asText();
+                if (!java.util.Set.of("choice", "numeric", "short", "self").contains(formatType)) {
+                    errors.add(prefix + ": content.formatType 非法（" + formatType + "）");
+                }
+            }
+        }
+
+        return errors.isEmpty() ? ValidationResult.success() : ValidationResult.fail(String.join("; ", errors));
+    }
+
     /**
      * 校验规划 Agent 输出（产品规则 #6）
      *

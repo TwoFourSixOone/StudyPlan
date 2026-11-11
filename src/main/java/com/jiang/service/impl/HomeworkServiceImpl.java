@@ -339,8 +339,20 @@ public class HomeworkServiceImpl implements HomeworkService {
         // 6. T-06 Part A: 查询到期错题（在 Agent 调用前）
         // BLOCK-H: 内部已按 knowledge_point_id 分组，每组 ≤ 3 道
         // IMP-AB: 返回 LinkedHashMap，key 顺序由 ORDER BY knowledge_point_id ASC 决定
-        Map<String, List<com.jiang.vo.DueErrorQuestionVO>> dueErrorMap =
-                errorQuestionService.getDueErrorQuestions(studentId, tenantId, planDate);
+        Map<String, List<com.jiang.vo.DueErrorQuestionVO>> dueErrorMap = new java.util.LinkedHashMap<>(
+                errorQuestionService.getDueErrorQuestions(studentId, tenantId, planDate));
+
+        // 6.1 错题必须属于当前科目：getDueErrorQuestions 只按学生查询，
+        // 不过滤会把其他科目的错题塞进本作业（联调实测英语作业里出现数学题）
+        Set<String> subjectKpIds = activeKps.stream()
+                .map(KnowledgePoint::getKnowledgePointId)
+                .collect(Collectors.toSet());
+        int dueKpBeforeFilter = dueErrorMap.size();
+        dueErrorMap.keySet().removeIf(kpId -> !subjectKpIds.contains(kpId));
+        if (dueErrorMap.size() < dueKpBeforeFilter) {
+            log.info("错题科目过滤: 到期知识点 {} -> {}（已排除其他科目）",
+                    dueKpBeforeFilter, dueErrorMap.size());
+        }
 
         // 组装错题引用列表（taskType=redo, questionSource=bank）
         List<DailyPlanQuestionRef> errorRefs = new ArrayList<>();

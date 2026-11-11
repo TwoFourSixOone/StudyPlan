@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * 计划自动调整任务（产品规则 #5）
  *
- * <p>每天 02:30（在 02:00 作业生成之后）检查所有进行中目标的触发信号：
+ * <p>每天 01:30（在 02:00 作业生成之前）检查所有进行中目标的触发信号：
  * 命中信号则自动生成调整方案并**直接应用**，无需学生手动确认。
  * 调整只影响未来且尚未开始的计划，已作答的历史不受影响。</p>
  *
@@ -46,9 +46,9 @@ public class AutoAdjustmentTask {
     private PlanDiffService planDiffService;
 
     /**
-     * 每天凌晨 2:30 自动检测信号并调整
+     * 每天凌晨 1:30 自动检测信号并调整（早于 02:00 出题，避免调整覆盖刚生成的作业）
      */
-    @Scheduled(cron = "0 30 2 * * ?", zone = "Asia/Shanghai")
+    @Scheduled(cron = "0 30 1 * * ?", zone = "Asia/Shanghai")
     public void autoAdjust() {
         LocalDate today = BusinessDate.today();
         log.info("[AutoAdjust] 开始检测 {} 的计划调整信号", today);
