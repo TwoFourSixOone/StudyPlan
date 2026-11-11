@@ -38,13 +38,16 @@
 
 - 新增 `com.jiang.common.util.ChoiceOptions`：选项归一化 + 可用性判断 + 答案标签归一化
 - `similar_question_schema.json`：`choices` 元素改为 `{label,text}` 对象；`formatType=choice` 时必填且 `minItems=2`
-- `question_gen_v1.txt` / `similar_question_gen_v1.txt`：明确选项结构与答案取值规则
+- `question_gen_schema.json`：`choices` 元素补充 `label` 取值约束（`^[A-H]$`）
+- `question_gen_v1.txt` / `similar_question_gen_v1.txt`：明确选项结构与答案取值规则；新增「纯文本要求」段（禁止 LaTeX/Markdown）
 - `AgentOutputValidator.validateSimilar`：选择题选项缺失/不足直接判失败
+- `AgentOutputValidator.validate`（主路径）：`questionSource=generated` 的选择题同样校验选项
 - `QuestionGenAgent`（两条解析路径）：落库前统一 `canonicalize`
-- `HomeworkServiceImpl.buildHomeworkVO`：选项解析容错（bank / generated 都走归一化）
-- `SimilarQuestionServiceImpl`：单轮生成异常改为**重试**而非直接放弃
+- `HomeworkServiceImpl.buildHomeworkVO`：选项解析容错（bank / generated 都走归一化）；题干与选项统一过 `LlmTextSanitizer`
+- `SimilarQuestionServiceImpl`：单轮生成异常按异常类型重试/放弃
 - `HomeworkDetail.vue`：选项为空时显示提示文案，不再渲染空白区
-- 新增 `ChoiceOptionsTest`、补充 `AgentOutputValidator` 用例
+- 运维脚本 `target/sql/clean_invalid_choice_questions.sql`：清理历史坏题并重置受影响计划
+- 新增 `ChoiceOptionsTest`、`AgentOutputValidatorTest`，`HomeworkServiceTest` 补清洗用例
 
 ### 不包含
 
