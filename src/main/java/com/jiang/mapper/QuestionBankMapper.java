@@ -71,4 +71,22 @@ public interface QuestionBankMapper extends BaseMapper<QuestionBank> {
             "</script>")
     List<Map<String, Object>> countByKnowledgePointIds(@Param("kpIds") List<String> kpIds,
                                                         @Param("tenantId") String tenantId);
+
+    /**
+     * 批量查询题库难度分布（按知识点 + 难度分组计数，用于试卷 D_norm 的历史均值校验，design §7.3）
+     *
+     * <p>只统计合法的 basic/standard/challenge（非法难度不参与均值，与规则 #2 口径一致）。
+     * 走既有 idx_knowledge_point（tenant_id, knowledge_point_id），零 DDL。</p>
+     *
+     * @return 每行包含 knowledge_point_id / difficulty / cnt
+     */
+    @Select("<script>" +
+            "SELECT knowledge_point_id, difficulty, COUNT(*) AS cnt FROM question_bank " +
+            "WHERE tenant_id = #{tenantId} AND knowledge_point_id IN " +
+            "<foreach collection='kpIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>" +
+            " AND difficulty IN ('basic', 'standard', 'challenge') " +
+            "GROUP BY knowledge_point_id, difficulty" +
+            "</script>")
+    List<Map<String, Object>> selectDifficultyDistributionByKpIds(@Param("kpIds") List<String> kpIds,
+                                                                  @Param("tenantId") String tenantId);
 }

@@ -66,6 +66,28 @@
         "navigationBarTitleText": "学习记录",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/exam-upload/ExamUpload",
+      "style": {
+        "navigationBarTitleText": "试卷上传",
+        "navigationStyle": "custom"
+      }
+    },
+    {
+      "path": "pages/exam-list/ExamList",
+      "style": {
+        "navigationBarTitleText": "历史试卷",
+        "navigationStyle": "custom",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/exam-detail/ExamDetail",
+      "style": {
+        "navigationBarTitleText": "试卷详情",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

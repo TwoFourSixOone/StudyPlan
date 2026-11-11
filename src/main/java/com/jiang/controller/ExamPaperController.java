@@ -2,31 +2,40 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
-import com.jiang.dto.ExamGradeRequest;
+import com.jiang.dto.ExamPaperCreateRequest;
 import com.jiang.service.ExamPaperService;
-import com.jiang.vo.*;
+import com.jiang.vo.ExamImageUploadVO;
+import com.jiang.vo.ExamPaperDetailVO;
+import com.jiang.vo.ExamPaperListItemVO;
+import com.jiang.vo.ExamSubmitVO;
+import com.jiang.vo.ExamTaskProgressVO;
+import com.jiang.vo.ExamUploadVO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.format.annotation.DateTimeFormat;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.time.LocalDate;
-import java.util.List;
-
 /**
- * 试卷管理 Controller
- * 修复 BLOCK-6：新增成绩录入接口
+ * 试卷管理 Controller（Change 2026-11-11：接口收敛到 /exam/papers*，D9）
+ *
+ * <p>上传三段式（design D1）：建会话 → 逐张传图 → 提交解析；历史回看走 /papers 与 /papers/{id}
+ * （以 exam_paper 为准，不复用 exam_analysis_result 的 /results 语义）。multipart 字段名固定 {@code file}（S5）。</p>
  *
  * @author StudyMate Team
  * @since 2026-11-04
  */
 @RestController
 @RequestMapping("/api/student/exam")
-@Tag(name = "试卷管理", description = "试卷上传、成绩录入与解析结果查询")
+@Tag(name = "试卷管理", description = "试卷上传（≤8 图）、解析进度、历史试卷列表与详情")
 @Slf4j
 public class ExamPaperController {
 
@@ -34,64 +43,82 @@ public class ExamPaperController {
     private ExamPaperService examPaperService;
 
     /**
-     * 上传试卷（不含批改）
-     * 修复 IMP-6：文件上传在事务外，仅 DB 写入在事务内
+     * 创建试卷上传会话（同学生+科目+日期重复上传 → 1131；30 分钟内 uploading 会话复用）
      */
-    @PostMapping("/upload")
-    @Operation(summary = "上传试卷")
-    public Result<ExamUploadVO> uploadExamPaper(
-            @RequestParam("subjectId") Long subjectId,
-            @RequestParam("examDate") @DateTimeFormat(pattern = "yyyy-MM-dd") LocalDate examDate,
-            @RequestParam(value = "paperType", defaultValue = "midterm") String paperType,
-            @RequestParam("files") List<MultipartFile> files) {
-        log.info("上传试卷: subjectId={}, examDate={}, paperType={}, fileCount={}",
-                subjectId, examDate, paperType, files.size());
-        return Result.success(examPaperService.uploadExamPaper(subjectId, examDate, paperType, files));
+    @PostMapping("/papers")
+    @Operation(summary = "创建试卷上传会话")
+    public Result<ExamUploadVO> createPaper(@Valid @RequestBody ExamPaperCreateRequest request) {
+        log.info("创建试卷上传会话: subjectId={}, examDate={}, paperType={}, imageCount={}",
+                request.getSubjectId(), request.getExamDate(), request.getPaperType(),
+                request.getImageCount());
+        return Result.success(examPaperService.createPaper(
+                request.getSubjectId(), request.getExamDate(), request.getPaperType(),
+                request.getImageCount()));
     }
 
     /**
-     * 录入考试成绩
-     * 修复 BLOCK-6：学生手动录入每道题的对错/得分，触发掌握度更新和错题入队
+     * 历史试卷列表（固定 2 条 SQL：count + 分页派生表聚合；按考试日期倒序）
      */
-    @PostMapping("/result/{resultId}/grade")
-    @Operation(summary = "录入考试成绩")
-    public Result<Void> submitExamGrade(
-            @PathVariable Long resultId,
-            @RequestBody @Valid ExamGradeRequest request) {
-        log.info("录入考试成绩: resultId={}", resultId);
-        examPaperService.submitExamGrade(resultId, request);
-        return Result.success();
-    }
-
-    /**
-     * 查询解析任务进度
-     */
-    @GetMapping("/task/{taskId}")
-    @Operation(summary = "查询解析进度")
-    public Result<ExamTaskProgressVO> getTaskProgress(@PathVariable Long taskId) {
-        log.info("查询解析进度: taskId={}", taskId);
-        return Result.success(examPaperService.getTaskProgress(taskId));
-    }
-
-    /**
-     * 查看分析结果详情
-     */
-    @GetMapping("/result/{resultId}")
-    @Operation(summary = "查看分析结果详情")
-    public Result<ExamResultDetailVO> getResultDetail(@PathVariable Long resultId) {
-        log.info("查看分析结果详情: resultId={}", resultId);
-        return Result.success(examPaperService.getResultDetail(resultId));
-    }
-
-    /**
-     * 查看分析结果历史列表
-     */
-    @GetMapping("/results")
-    @Operation(summary = "查看分析结果历史列表")
-    public Result<PageResult<ExamResultListVO>> getResultHistory(
+    @GetMapping("/papers")
+    @Operation(summary = "历史试卷列表")
+    public Result<PageResult<ExamPaperListItemVO>> getPapers(
             @RequestParam(value = "page", defaultValue = "1") Integer page,
             @RequestParam(value = "size", defaultValue = "10") Integer size) {
-        log.info("查看分析结果历史: page={}, size={}", page, size);
-        return Result.success(examPaperService.getResultHistory(page, size));
+        log.info("历史试卷列表: page={}, size={}", page, size);
+        return Result.success(examPaperService.getPapers(page, size));
+    }
+
+    /**
+     * 试卷详情 + 全部题目（固定 3 条 SQL；他人 paperId → 1136，不泄漏存在性）
+     */
+    @GetMapping("/papers/{paperId}")
+    @Operation(summary = "试卷详情")
+    public Result<ExamPaperDetailVO> getPaperDetail(@PathVariable("paperId") Long paperId) {
+        log.info("试卷详情: paperId={}", paperId);
+        return Result.success(examPaperService.getPaperDetail(paperId));
+    }
+
+    /**
+     * 追加一张试卷图片（multipart 字段名固定 file）
+     */
+    @PostMapping("/papers/{paperId}/images")
+    @Operation(summary = "上传单张试卷图片")
+    public Result<ExamImageUploadVO> uploadImage(
+            @PathVariable("paperId") Long paperId,
+            @RequestParam("file") MultipartFile file) {
+        log.info("上传试卷图片: paperId={}, size={}, contentType={}",
+                paperId, file == null ? 0 : file.getSize(),
+                file == null ? null : file.getContentType());
+        return Result.success(examPaperService.uploadImage(paperId, file));
+    }
+
+    /**
+     * 提交解析（正常触发路径）
+     */
+    @PostMapping("/papers/{paperId}/submit")
+    @Operation(summary = "提交试卷解析")
+    public Result<ExamSubmitVO> submitPaper(@PathVariable("paperId") Long paperId) {
+        log.info("提交试卷解析: paperId={}", paperId);
+        return Result.success(examPaperService.submitPaper(paperId));
+    }
+
+    /**
+     * 重试解析（仅 failed 且整卷重试次数 < 2）
+     */
+    @PostMapping("/papers/{paperId}/retry")
+    @Operation(summary = "重试试卷解析")
+    public Result<ExamSubmitVO> retryPaper(@PathVariable("paperId") Long paperId) {
+        log.info("重试试卷解析: paperId={}", paperId);
+        return Result.success(examPaperService.retryPaper(paperId));
+    }
+
+    /**
+     * 查询解析任务进度（归属校验：task → paper 的 student_id + tenant_id）
+     */
+    @GetMapping("/tasks/{taskId}")
+    @Operation(summary = "查询解析进度")
+    public Result<ExamTaskProgressVO> getTaskProgress(@PathVariable("taskId") Long taskId) {
+        log.info("查询解析进度: taskId={}", taskId);
+        return Result.success(examPaperService.getTaskProgress(taskId));
     }
 }

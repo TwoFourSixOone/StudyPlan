@@ -27,4 +27,11 @@ public interface SubjectMapper extends BaseMapper<Subject> {
             "<foreach item='id' collection='ids' open='(' separator=',' close=')'>#{id}</foreach>" +
             "</script>")
     List<Map<String, Object>> selectNamesByIds(@Param("ids") List<Long> ids);
+
+    /**
+     * 按主键 + 租户查询科目（A7：科目校验必须带 tenant_id，禁止裸 selectById 跨租户命中）
+     */
+    @Select("SELECT subject_id, name, tenant_id FROM subject "
+            + "WHERE subject_id = #{subjectId} AND tenant_id = #{tenantId}")
+    Subject selectByIdAndTenant(@Param("subjectId") Long subjectId, @Param("tenantId") String tenantId);
 }

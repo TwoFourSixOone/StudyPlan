@@ -23,4 +23,18 @@ public interface ExamAnalysisResultMapper extends BaseMapper<ExamAnalysisResult>
     ExamAnalysisResult selectByIdAndStudentId(@Param("id") Long id,
                                                @Param("studentId") Long studentId,
                                                @Param("tenantId") String tenantId);
+
+    /**
+     * 结算写学习记录前的查重（一条试卷一条记录：exam_name 由 科目+类型中文+日期 组成）
+     *
+     * <p>走 idx_student (tenant_id, student_id) 扫描该学生的考试记录（≤ 数十条），零 DDL 下不新增索引。</p>
+     *
+     * @return 已存在的 completed 记录数
+     */
+    @Select("SELECT COUNT(*) FROM exam_analysis_result " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "AND exam_name = #{examName} AND status = 'completed'")
+    int countCompletedByExamName(@Param("studentId") Long studentId,
+                                  @Param("tenantId") String tenantId,
+                                  @Param("examName") String examName);
 }

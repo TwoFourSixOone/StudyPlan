@@ -160,7 +160,7 @@ class PlanAdjustmentServiceTest {
                 .thenReturn(List.of(kpRow("kp_001", "一元二次方程"), kpRow("kp_002", "勾股定理")));
         when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))
                 .thenReturn(new PlanDiffDTO());
-        when(planDiffService.saveDiff(eq(GOAL_ID), anyList(), any(PlanDiffDTO.class))).thenReturn(DIFF_ID);
+        when(planDiffService.saveDiff(eq(GOAL_ID), anyList(), any(PlanDiffDTO.class), anyString())).thenReturn(DIFF_ID);
 
         AdjustTriggerVO vo = planAdjustmentService.triggerAdjustment(GOAL_ID);
 
@@ -200,7 +200,7 @@ class PlanAdjustmentServiceTest {
                 .thenReturn(List.of());
         when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))
                 .thenReturn(new PlanDiffDTO());
-        when(planDiffService.saveDiff(eq(GOAL_ID), anyList(), any(PlanDiffDTO.class))).thenReturn(DIFF_ID);
+        when(planDiffService.saveDiff(eq(GOAL_ID), anyList(), any(PlanDiffDTO.class), anyString())).thenReturn(DIFF_ID);
 
         planAdjustmentService.triggerAdjustment(GOAL_ID);
 
@@ -285,7 +285,9 @@ class PlanAdjustmentServiceTest {
         signal.setSignalType("SIG-1");
         signal.setDescription("最近 3 次作业正确率均低于 60%");
         when(signalDetector.detectSignals(GOAL_ID, TENANT_ID)).thenReturn(List.of(signal));
-        when(errorQuestionMapper.selectCriticalErrors(any(LocalDate.class), eq(TENANT_ID))).thenReturn(List.of());
+        // Change 2026-11-11 v3（S10）：selectCriticalErrors 签名补 studentId
+        when(errorQuestionMapper.selectCriticalErrors(any(Long.class), any(LocalDate.class), eq(TENANT_ID)))
+                .thenReturn(List.of());
     }
 
     private void stubGoalAndSubject() {

@@ -49,6 +49,24 @@ public interface ErrorQuestionService {
                            LocalDate wrongDate);
 
     /**
+     * 批量记录错题（试卷结算用，design §7.2）
+     *
+     * <p>先批量查已存在 → 已存在的走批量 UPDATE（重置 stage/next_due_date/status，语义同
+     * {@link #recordWrongAnswer} 的 DUPLICATE 回退）→ 不存在的批量 INSERT（≤100 条/批）；
+     * 插入撞 {@code uk_student_question} 时回退为批量 UPDATE。无知识点（待人工归因）的题不入队。</p>
+     *
+     * @param studentId  学生 ID
+     * @param tenantId   租户 ID
+     * @param items      错题引用（试卷来源 questionId 为负值 {@code -exam_question.id}）
+     * @param sourceType 来源类型
+     * @param sourceId   来源 ID（试卷 = exam_paper.id）
+     * @param wrongDate  答错日期
+     * @return 实际入队/更新的错题条数
+     */
+    int recordWrongAnswers(Long studentId, String tenantId, List<com.jiang.dto.WrongQuestionRef> items,
+                           ErrorQuestionSourceType sourceType, Long sourceId, LocalDate wrongDate);
+
+    /**
      * 查询到期错题（按知识点分组，每组 ≤ 3 道）
      *
      * <p>条件：status=active AND next_due_date <= targetDate</p>

@@ -171,4 +171,126 @@ class AgentOutputValidatorTest {
 
         assertTrue(validator.validate(output).isSuccess());
     }
+
+    // ==================== 试卷视觉解析（exam_parse_v1） ====================
+
+    @Test
+    @DisplayName("试卷解析：合法单题 → 通过")
+    void should_pass_examParse_when_itemValid() {
+        String output = """
+                {"questions":[{
+                  "questionIndex": 1,
+                  "stem": "下列各数中，最小的数是（ ）",
+                  "formatType": "choice",
+                  "choices": [{"label":"A","text":"-3"},{"label":"B","text":"0"}],
+                  "correctAnswer": "A",
+                  "studentAnswer": "B",
+                  "answerStatus": "answered",
+              "knowledgePointId": "kp-1",
+                  "difficulty": "basic",
+                  "explanation": "负数最小"
+                }]}
+                """;
+
+        assertTrue(validator.validateExamParse(output).isSuccess());
+    }
+
+    @Test
+    @DisplayName("试卷解析：缺少 questions → 整图失败")
+    void should_fail_examParse_when_questionsMissing() {
+        assertFalse(validator.validateExamParse("{\"imageWarning\":\"封面\"}").isSuccess());
+        assertFalse(validator.validateExamParse("[]").isSuccess());
+        assertFalse(validator.validateExamParse("not json").isSuccess());
+    }
+
+    @Test
+    @DisplayName("试卷解析：单题缺 stem/formatType 越界 → 无合法题 → 整图失败")
+    void should_fail_examParse_when_noValidItem() {
+        String missingStem = """
+                {"questions":[{"questionIndex":1,"formatType":"short","studentAnswer":"","answerStatus":"blank"}]}
+                """;
+        assertFalse(validator.validateExamParse(missingStem).isSuccess());
+
+        String badFormatType = """
+                {"questions":[{"questionIndex":1,"stem":"题干","formatType":"essay","studentAnswer":"","answerStatus":"blank"}]}
+                """;
+        assertFalse(validator.validateExamParse(badFormatType).isSuccess());
+    }
+
+    @Test
+    @DisplayName("试卷解析：选择题选项不足 2 个 → 该题非法 → 整图失败")
+    void should_fail_examParse_when_choiceOptionsNotUsable() {
+        String output = """
+                {"questions":[{
+                  "questionIndex": 1,
+                  "stem": "题干",
+                  "formatType": "choice",
+                  "choices": [{"label":"A","text":"4"}],
+                  "correctAnswer": "A",
+                  "studentAnswer": "A",
+                  "answerStatus": "answered",
+                  "knowledgePointId": ""
+                }]}
+                """;
+
+        AgentOutputValidator.ValidationResult result = validator.validateExamParse(output);
+
+        assertFalse(result.isSuccess());
+        assertTrue(result.getMessage().contains("至少需要"), result.getMessage());
+    }
+
+    @Test
+    @DisplayName("试卷解析：空数组 + imageWarning（封面页）→ 合法 0 题")
+    void should_pass_examParse_when_emptyQuestionsWithWarning() {
+        assertTrue(validator.validateExamParse(
+                "{\"questions\":[],\"imageWarning\":\"本页为试卷封面\"}").isSuccess());
+    }
+
+    @Test
+    @DisplayName("试卷解析：一题合法一题非法 → 整图通过（非法题由调用方丢弃）")
+    void should_pass_examParse_when_partiallyValid() throws Exception {
+        String output = """
+                {"questions":[
+                  {"questionIndex":1,"stem":"题干一","formatType":"short","studentAnswer":"答案","answerStatus":"answered","knowledgePointId":"kp-1"},
+                  {"questionIndex":2,"stem":"题干二","formatType":"essay","studentAnswer":"","answerStatus":"blank"}
+                ]}
+                """;
+
+        assertTrue(validator.validateExamParse(output).isSuccess());
+
+        com.fasterxml.jackson.databind.JsonNode invalidItem = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree("{\"questionIndex\":2,\"stem\":\"题干二\",\"formatType\":\"essay\","
+                        + "\"studentAnswer\":\"\",\"answerStatus\":\"blank\",\"knowledgePointId\":\"\"}");
+        String error = validator.checkExamParseItem(invalidItem);
+        assertNotNull(error);
+        assertTrue(error.contains("formatType"), error);
+    }
+
+    @Test
+    @DisplayName("exam_parse_schema.json 可解析，关键约束与 design §3.3 一致")
+    void should_loadExamParseSchema() throws Exception {
+        try (java.io.InputStream is = new org.springframework.core.io.ClassPathResource(
+                "prompts/schemas/exam_parse_schema.json").getInputStream()) {
+            com.fasterxml.jackson.databind.JsonNode schema =
+                    new com.fasterxml.jackson.databind.ObjectMapper().readTree(is);
+            assertEquals("object", schema.get("type").asText());
+            assertTrue(schema.get("required").toString().contains("questions"));
+            assertEquals(0, schema.at("/properties/questions/minItems").asInt());
+            assertEquals(60, schema.at("/properties/questions/maxItems").asInt());
+
+            com.fasterxml.jackson.databind.JsonNode item = schema.at("/properties/questions/items");
+            String required = item.get("required").toString();
+            assertTrue(required.contains("questionIndex"));
+            assertTrue(required.contains("stem"));
+            assertTrue(required.contains("formatType"));
+            assertTrue(required.contains("studentAnswer"));
+            assertTrue(required.contains("answerStatus"));
+            assertEquals(8, item.at("/properties/choices/maxItems").asInt());
+            assertTrue(item.at("/properties/formatType/enum").toString().contains("choice"));
+            assertTrue(item.at("/properties/answerStatus/enum").toString().contains("unreadable"));
+            assertTrue(item.at("/properties/difficulty/enum").toString().contains("challenge"));
+            assertEquals(200, schema.at("/properties/imageWarning/maxLength").asInt());
+        }
+    }
 }
+

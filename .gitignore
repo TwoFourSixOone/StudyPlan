@@ -46,3 +46,7 @@ src/main/resources/application-local.yml
 student-app/node_modules/
 student-app/dist/
 student-app/unpackage/
+
+### 本地运行时产物 ###
+uploads/
+.agent-teams/

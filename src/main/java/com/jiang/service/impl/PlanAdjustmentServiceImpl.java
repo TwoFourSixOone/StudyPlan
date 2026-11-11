@@ -110,8 +110,16 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
      */
     @Override
     public AdjustTriggerVO triggerAdjustment(Long goalId) {
-        String tenantId = StudentContext.getTenantId();
-    
+        return triggerAdjustment(goalId, StudentContext.getStudentId(), StudentContext.getTenantId());
+    }
+
+    /**
+     * 显式身份重载（design §8.2）：Worker / 异步信号检测线程不读 StudentContext
+     */
+    @Override
+    public AdjustTriggerVO triggerAdjustment(Long goalId, Long studentId, String tenantId) {
+        log.info("触发计划调整: goalId={}, studentId={}, tenantId={}", goalId, studentId, tenantId);
+
         // 1. 应用层防重：检查是否已有 pending diff
         int pendingCount = diffMapper.countByGoalIdAndStatus(goalId, "pending", tenantId);
         if (pendingCount > 0) {
@@ -125,8 +133,9 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
         }
     
         // 3. 修复 Issue-3：在 Service 层查询超 30 天错题，作为 Agent 输入传入
+        // Change 2026-11-11 v3（S10）：补 student_id（原实现跨学生泄漏）并排除负 ID 试卷错题
         List<ErrorQuestion> criticalErrors = errorQuestionMapper.selectCriticalErrors(
-                BusinessDate.today().minusDays(30), tenantId);
+                studentId, BusinessDate.today().minusDays(30), tenantId);
         List<String> criticalErrorIds = criticalErrors.stream()
                 .map(e -> String.valueOf(e.getQuestionId()))
                 .collect(Collectors.toList());
@@ -150,7 +159,7 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
         Long diffId;
         try {
             diffId = transactionTemplate.execute(status -> {
-                return planDiffService.saveDiff(goalId, signals, diff);
+                return planDiffService.saveDiff(goalId, signals, diff, tenantId);
             });
         } catch (Exception e) {
             log.warn("saveDiff 失败，用户可重新触发: goalId={}", goalId, e);

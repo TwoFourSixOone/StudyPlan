@@ -135,4 +135,20 @@ public interface MasteryChangeLogMapper extends BaseMapper<MasteryChangeLog> {
     List<MasteryChangeLog> selectBySourceIdAndType(@Param("sourceId") Long sourceId,
                                                     @Param("changeType") String changeType,
                                                     @Param("tenantId") String tenantId);
+
+    /**
+     * 批量插入掌握度变更日志（≤100 条/批，每事件一条；Change 2026-11-11 试卷结算）
+     *
+     * <p>手写 SQL 不走 MyBatis-Plus 自动填充，{@code create_time}/{@code update_time} 用 {@code NOW()}。</p>
+     */
+    @org.apache.ibatis.annotations.Insert("<script>" +
+            "INSERT INTO mastery_change_log " +
+            "(student_id, knowledge_point_id, change_type, source_id, delta, mastery_before, " +
+            "mastery_after, tenant_id, create_time, update_time) VALUES " +
+            "<foreach collection='logs' item='l' separator=','>" +
+            "(#{l.studentId}, #{l.knowledgePointId}, #{l.changeType}, #{l.sourceId}, #{l.delta}, " +
+            "#{l.masteryBefore}, #{l.masteryAfter}, #{l.tenantId}, NOW(), NOW())" +
+            "</foreach>" +
+            "</script>")
+    int batchInsert(@Param("logs") List<MasteryChangeLog> logs);
 }

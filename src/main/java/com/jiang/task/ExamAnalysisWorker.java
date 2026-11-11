@@ -43,13 +43,24 @@ public class ExamAnalysisWorker {
 
     /**
      * 定时消费任务队列
-     * fixedDelay = 1000ms（每秒检查一次）
+     *
+     * <p>design §11.2 / tasks A3：拉取节流——线程池活跃线程数达到 coreSize 时<b>不再 pop+submit</b>。
+     * 否则队列元素会被 {@code CallerRunsPolicy} 在本调度线程上直接执行长任务（阻塞后续调度、
+     * 且与 {@code Semaphore(3)} 的全局 LLM 并发上限叠加后不可控）。</p>
+     *
+     * <p>fixedDelay = 1000ms（每秒检查一次）。</p>
      */
     @Scheduled(fixedDelay = 1000)
     public void processTasks() {
         try {
-            // 批量拉取任务（最多 3 个）
+            int coreSize = executor.getCorePoolSize();
+            // 节流：没有空闲线程就不拉取，留任务在队列里等下一轮（Redis 队列本身就是缓冲）
             for (int i = 0; i < 3; i++) {
+                if (executor.getActiveCount() >= coreSize) {
+                    log.debug("试卷解析线程池已满（active={} >= core={}），本轮暂停拉取",
+                            executor.getActiveCount(), coreSize);
+                    break;
+                }
                 Object taskIdObj = redisTemplate.opsForList().rightPop(QUEUE_NAME);
                 if (taskIdObj == null) {
                     break;
@@ -63,7 +74,7 @@ public class ExamAnalysisWorker {
                     continue;
                 }
 
-                // 提交到线程池执行
+                // 提交到线程池执行（容量已在上面校验，正常情况下不会触发 CallerRunsPolicy）
                 executor.submit(() -> {
                     try {
                         log.info("开始处理试卷解析任务: taskId={}", taskId);

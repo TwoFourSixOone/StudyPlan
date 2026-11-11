@@ -3,12 +3,16 @@ package com.jiang.service.impl;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jiang.agent.AgentDegradationLogger;
 import com.jiang.agent.HomeworkDegradationHandler;
 import com.jiang.agent.QuestionGenAgent;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.util.ChoiceOptions;
 import com.jiang.common.util.DailyPlanContentParser;
+import com.jiang.common.util.ExamQuestionRefs;
+import com.jiang.common.util.ExamQuestionSourceAdapter;
+import com.jiang.common.util.ExamQuestionTextCodec;
 import com.jiang.common.util.GradeMatcher;
 import com.jiang.common.util.LlmTextSanitizer;
 import com.jiang.common.util.HomeworkQuotaCalculator;
@@ -19,6 +23,7 @@ import com.jiang.dto.SubmitAnswerRequest;
 import com.jiang.client.AgentScopeClient;
 import com.jiang.mapper.DailyPlanMapper;
 import com.jiang.mapper.ErrorQuestionMapper;
+import com.jiang.mapper.ExamQuestionMapper;
 import com.jiang.mapper.GeneratedQuestionMapper;
 import com.jiang.mapper.HomeworkSubmissionDetailMapper;
 import com.jiang.mapper.KnowledgePointMapper;
@@ -28,6 +33,7 @@ import com.jiang.mapper.StudentKnowledgeStateMapper;
 import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.DailyPlan;
+import com.jiang.model.entity.ExamQuestion;
 import com.jiang.model.entity.GeneratedQuestion;
 import com.jiang.model.entity.HomeworkSubmissionDetail;
 import com.jiang.model.entity.KnowledgePoint;
@@ -36,6 +42,7 @@ import com.jiang.model.entity.QuestionBank;
 import com.jiang.model.entity.Student;
 import com.jiang.model.entity.StudentKnowledgeState;
 import com.jiang.model.entity.Subject;
+import com.jiang.model.enums.AgentType;
 import com.jiang.model.enums.ErrorQuestionSourceType;
 import com.jiang.model.enums.PlanStatus;
 import com.jiang.security.StudentContext;
@@ -156,8 +163,20 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Autowired
     private SimilarQuestionService similarQuestionService;
 
+    /** 判分公共组件（Change 2026-11-11：与试卷结算共用同一口径，design D5） */
+    @Autowired
+    private com.jiang.service.AnswerGradingService answerGradingService;
+
     @Autowired
     private ErrorQuestionMapper errorQuestionMapper;
+
+    /** 试卷题（questionSource=exam）批量读取：举一反三源题 + 原题重做题面（Change 2026-11-11 v3） */
+    @Autowired
+    private com.jiang.mapper.ExamQuestionMapper examQuestionMapper;
+
+    /** 降级日志（试卷源题缺答案跳过举一反三时记录，约定 #12） */
+    @Autowired
+    private AgentDegradationLogger degradationLogger;
 
     @Autowired
     private StudentMapper studentMapper;
@@ -355,14 +374,16 @@ public class HomeworkServiceImpl implements HomeworkService {
                     dueKpBeforeFilter, dueErrorMap.size());
         }
 
-        // 组装错题引用列表（taskType=redo, questionSource=bank）
+        // 组装错题引用列表（taskType=redo）：Change 2026-11-11 v3 —— 按负 ID 分流为试卷来源
         List<DailyPlanQuestionRef> errorRefs = new ArrayList<>();
         Set<Long> occupiedQuestionIds = new LinkedHashSet<>();
         for (List<com.jiang.vo.DueErrorQuestionVO> voList : dueErrorMap.values()) {
             for (com.jiang.vo.DueErrorQuestionVO vo : voList) {
-                errorRefs.add(new DailyPlanQuestionRef(
-                        vo.getQuestionId(), "bank", "redo"));
-                occupiedQuestionIds.add(vo.getQuestionId());
+                Long questionId = vo.getQuestionId();
+                String source = ExamQuestionRefs.isExamRef(questionId)
+                        ? ExamQuestionRefs.SOURCE_EXAM : ExamQuestionRefs.SOURCE_BANK;
+                errorRefs.add(new DailyPlanQuestionRef(questionId, source, "redo"));
+                occupiedQuestionIds.add(questionId);
             }
         }
 
@@ -386,11 +407,19 @@ public class HomeworkServiceImpl implements HomeworkService {
         }
         int dueErrorCount = errorRefs.size();
         List<Map<String, Object>> activeErrorCounts = errorQuestionMapper.selectActiveErrorCountGroupByKp(studentId, tenantId);
-        Map<String, Integer> kpErrorCountMap = activeErrorCounts.stream()
-                .collect(Collectors.toMap(
-                        m -> (String) m.get("knowledge_point_id"),
-                        m -> ((Number) m.get("error_count")).intValue(),
-                        (a, b) -> a));
+        // Change 2026-11-11 v3（方案 A）：kpErrorCountMap 按 kp 合计 clamp 到 KP_MAX，
+        // 不改 HomeworkQuotaCalculator 的断言（保留为防御）；超出部分保持 active → 次日顺延，
+        // 不写 daily_plan 未完成、不触发 SIG-3。试卷错题现在计入分母（撤销 B6/N1 的负 ID 排除）。
+        Map<String, Integer> kpErrorCountMap = new HashMap<>();
+        for (Map<String, Object> row : activeErrorCounts) {
+            String kpId = (String) row.get("knowledge_point_id");
+            int rawCount = ((Number) row.get("error_count")).intValue();
+            if (rawCount > HomeworkQuotaCalculator.KP_MAX) {
+                log.warn("知识点 {} 活跃错题数 {} 超过 KP_MAX={}，按上限夹取（剩余顺延到次日）",
+                        kpId, rawCount, HomeworkQuotaCalculator.KP_MAX);
+            }
+            kpErrorCountMap.merge(kpId, Math.min(rawCount, HomeworkQuotaCalculator.KP_MAX), Math::max);
+        }
 
         HomeworkQuotaCalculator.QuotaAllocation quota;
         try {
@@ -451,9 +480,12 @@ public class HomeworkServiceImpl implements HomeworkService {
                     continue;
                 }
 
-                // 查询代表错题（最早到期的 1 道）
+                // 查询代表错题（最早到期的 1 道）：Change 2026-11-11 v3 —— 题库优先 + exam 兜底（均不落库）
                 QuestionBank sourceQuestion = errorQuestionMapper.selectSourceQuestionForSimilar(
                         studentId, tenantId, kpId, planDate);
+                if (sourceQuestion == null) {
+                    sourceQuestion = resolveExamSourceQuestion(studentId, tenantId, kpId, planDate);
+                }
                 if (sourceQuestion == null) {
                     log.warn("知识点 {} 无可用源题，跳过举一反三", kpId);
                     continue;
@@ -563,6 +595,9 @@ public class HomeworkServiceImpl implements HomeworkService {
         if (reviewRefs != null) {
             allRefs.addAll(reviewRefs);
         }
+        // Change 2026-11-11 v3（design §7.2.1 去重与题量一致性）：
+        // 按 (questionSource, questionId) 去重，避免同一道题在一份作业里重复出现（含 exam 与 bank 混排）
+        allRefs = dedupeRefs(allRefs, goalId);
 
         List<GeneratedQuestion> allNewQuestions = new ArrayList<>(allGeneratedQuestions);
         if (reviewGeneratedQuestions != null) {
@@ -618,14 +653,18 @@ public class HomeworkServiceImpl implements HomeworkService {
             return List.of();
         }
 
-        // 4. NEW-1 双来源查询：按 questionSource 分组，批量查询（IMP-M: selectBatchIds 避免 N+1）
+        // 4. 多来源查询：按 questionSource 分组，批量查询（IMP-M: selectBatchIds 避免 N+1）
+        //    Change 2026-11-11 v3：新增 exam（试卷原题重做）来源，负 ID 反查 exam_question
         Set<Long> bankIds = new LinkedHashSet<>();
         Set<Long> generatedIds = new LinkedHashSet<>();
+        Set<Long> examIds = new LinkedHashSet<>();
         for (DailyPlanQuestionRef ref : refs) {
             if ("bank".equals(ref.getQuestionSource())) {
                 bankIds.add(ref.getQuestionId());
             } else if ("generated".equals(ref.getQuestionSource())) {
                 generatedIds.add(ref.getQuestionId());
+            } else if (ExamQuestionRefs.SOURCE_EXAM.equals(ref.getQuestionSource())) {
+                examIds.add(ExamQuestionRefs.examIdOf(ref.getQuestionId()));
             }
         }
 
@@ -637,6 +676,9 @@ public class HomeworkServiceImpl implements HomeworkService {
                 generatedQuestionMapper.selectBatchIds(generatedIds).stream()
                         .collect(Collectors.toMap(GeneratedQuestion::getGeneratedQuestionId, q -> q, (a, b) -> a));
 
+        // 试卷题：1 条批量查询（key = exam ref，即负 ID），禁止按负 ID 查 question_bank
+        Map<Long, ExamQuestion> examMap = loadExamQuestionMap(examIds);
+
         // 5. 查询学生作答记录
         List<HomeworkSubmissionDetail> submissions = submissionMapper.selectByPlanId(plan.getPlanId(), tenantId);
         Map<Long, HomeworkSubmissionDetail> submissionMap = submissions.stream()
@@ -645,7 +687,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         // 6. 组装 HomeworkVO 列表
         List<HomeworkVO> result = new ArrayList<>();
         for (DailyPlanQuestionRef ref : refs) {
-            HomeworkVO vo = buildHomeworkVO(plan.getPlanId(), ref, bankMap, genMap, submissionMap);
+            HomeworkVO vo = buildHomeworkVO(plan.getPlanId(), ref, bankMap, genMap, examMap, submissionMap);
             result.add(vo);
         }
 
@@ -789,6 +831,14 @@ public class HomeworkServiceImpl implements HomeworkService {
                 : generatedQuestionMapper.selectBatchIds(genIds).stream()
                 .collect(Collectors.toMap(GeneratedQuestion::getGeneratedQuestionId, q -> q, (a, b) -> a));
 
+        // Change 2026-11-11 v3：试卷来源原题重做 —— 1 条批量查询 exam_question（key = 负 ref ID）
+        Set<Long> examQuestionIds = refs.stream()
+                .filter(r -> ExamQuestionRefs.SOURCE_EXAM.equals(r.getQuestionSource()))
+                .map(r -> ExamQuestionRefs.examIdOf(r.getQuestionId()))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<Long, ExamQuestion> examMap = loadExamQuestionMap(examQuestionIds);
+        Map<Long, HomeworkSubmissionDetail> submissionsByQuestionRef = questionSubmissionMap;
+
         // 4.5 查询学生年级 + 科目名称（AI 解析用）
         String studentGrade = getStudentGrade(studentId);
         String subjectName = getSubjectName(goal.getSubjectId());
@@ -804,7 +854,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         String[] correctAnswers = new String[submissions.size()];
         String[] questionContents = new String[submissions.size()];
         String[] questionFormatTypes = new String[submissions.size()];
-        boolean[] isCorrectFlags = new boolean[submissions.size()];
+        Boolean[] isCorrectFlags = new Boolean[submissions.size()];
 
         for (int i = 0; i < submissions.size(); i++) {
             HomeworkSubmissionDetail sub = submissions.get(i);
@@ -813,17 +863,22 @@ public class HomeworkServiceImpl implements HomeworkService {
                 affectedKpIds.add(sub.getKnowledgePointId());
             }
 
-            correctAnswers[i] = findCorrectAnswer(sub.getQuestionId(), sub.getQuestionSource(), bankMap, genMap);
-            questionContents[i] = getQuestionContent(sub.getQuestionId(), sub.getQuestionSource(), bankMap, genMap);
-            questionFormatTypes[i] = getQuestionFormatType(sub.getQuestionId(), sub.getQuestionSource(), bankMap, genMap);
+            correctAnswers[i] = findCorrectAnswer(sub.getQuestionId(), sub.getQuestionSource(), bankMap, genMap, examMap);
+            questionContents[i] = getQuestionContent(sub.getQuestionId(), sub.getQuestionSource(), bankMap, genMap, examMap);
+            questionFormatTypes[i] = getQuestionFormatType(sub.getQuestionId(), sub.getQuestionSource(), bankMap, genMap, examMap);
 
             if ("choice".equals(questionFormatTypes[i])) {
-                // 选择题：字符串精确比较（快速，无需 AI）
-                isCorrectFlags[i] = sub.getStudentAnswer() != null
-                        && sub.getStudentAnswer().trim().equalsIgnoreCase(
-                        correctAnswers[i] != null ? correctAnswers[i].trim() : "");
+                // 选择题：字符串精确比较（委托公共判分组件，快速，无需 AI）；v4b 三态（可能为 null）
+                isCorrectFlags[i] = answerGradingService.grade(
+                        questionFormatTypes[i], questionContents[i], correctAnswers[i],
+                        sub.getStudentAnswer(), null, subjectName, studentGrade);
             }
-            // 非选择题：isCorrectFlags[i] 保持 false，后续由 AI 并行批改填充
+            // 非选择题：isCorrectFlags[i] 保持 null，后续由 AI 并行批改填充
+
+            // Change 2026-11-11 v3（D7）：exam redo 不调用 analysis_gen 生成解析，直接用试卷解析结果
+            if (ExamQuestionRefs.SOURCE_EXAM.equals(sub.getQuestionSource())) {
+                sub.setAnalysis(getExamExplanation(examMap, sub.getQuestionId()));
+            }
         }
 
         // Phase 2: 并行 AI 调用（非选择题批改 + 所有题目解析生成）
@@ -833,31 +888,43 @@ public class HomeworkServiceImpl implements HomeworkService {
             HomeworkSubmissionDetail sub = submissions.get(idx);
 
             if ("choice".equals(questionFormatTypes[idx])) {
-                // 选择题：只需生成解析
-                futures[idx] = CompletableFuture.supplyAsync(() -> {
-                    try {
-                        return generateAnalysis(questionContents[idx], correctAnswers[idx],
-                                sub.getStudentAnswer(), subjectName, studentGrade);
-                    } catch (Exception e) {
-                        log.warn("AI 生成解析失败 (choice): questionId={}", sub.getQuestionId());
-                        return null;
-                    }
-                }, aiExecutor).thenAccept(analysis -> sub.setAnalysis(analysis));
+                // 选择题：只需生成解析（exam redo 的解析已在 Phase 1 从 codec 取到，不再调用 AI）
+                if (ExamQuestionRefs.SOURCE_EXAM.equals(sub.getQuestionSource())) {
+                    futures[idx] = CompletableFuture.completedFuture(null);
+                } else {
+                    futures[idx] = CompletableFuture.supplyAsync(() -> {
+                        try {
+                            return generateAnalysis(questionContents[idx], correctAnswers[idx],
+                                    sub.getStudentAnswer(), subjectName, studentGrade);
+                        } catch (Exception e) {
+                            log.warn("AI 生成解析失败 (choice): questionId={}", sub.getQuestionId());
+                            return null;
+                        }
+                    }, aiExecutor).thenAccept(analysis -> sub.setAnalysis(analysis));
+                }
             } else {
                 // 非选择题：需要 AI 批改 + 生成解析（两个独立的 AI 调用并行）
+                // 判分统一委托 AnswerGradingService（与试卷结算同一口径，design D5；v4b 三态可能为 null）
                 CompletableFuture<Boolean> gradeFuture = CompletableFuture.supplyAsync(() ->
-                        aiGradeQuestion(questionContents[idx], correctAnswers[idx],
-                                sub.getStudentAnswer(), subjectName, studentGrade), aiExecutor);
+                        answerGradingService.grade(
+                                questionFormatTypes[idx], questionContents[idx], correctAnswers[idx],
+                                sub.getStudentAnswer(), null, subjectName, studentGrade), aiExecutor);
 
-                CompletableFuture<String> analysisFuture = CompletableFuture.supplyAsync(() -> {
-                    try {
-                        return generateAnalysis(questionContents[idx], correctAnswers[idx],
-                                sub.getStudentAnswer(), subjectName, studentGrade);
-                    } catch (Exception e) {
-                        log.warn("AI 生成解析失败 (non-choice): questionId={}", sub.getQuestionId());
-                        return null;
-                    }
-                }, aiExecutor);
+                CompletableFuture<String> analysisFuture;
+                if (ExamQuestionRefs.SOURCE_EXAM.equals(sub.getQuestionSource())) {
+                    // D7：exam redo 不调用 analysis_gen，直接用试卷解析（可能为 null → 前端"暂无解析"）
+                    analysisFuture = CompletableFuture.completedFuture(sub.getAnalysis());
+                } else {
+                    analysisFuture = CompletableFuture.supplyAsync(() -> {
+                        try {
+                            return generateAnalysis(questionContents[idx], correctAnswers[idx],
+                                    sub.getStudentAnswer(), subjectName, studentGrade);
+                        } catch (Exception e) {
+                            log.warn("AI 生成解析失败 (non-choice): questionId={}", sub.getQuestionId());
+                            return null;
+                        }
+                    }, aiExecutor);
+                }
 
                 futures[idx] = CompletableFuture.allOf(gradeFuture, analysisFuture)
                         .thenAccept(v -> {
@@ -870,14 +937,14 @@ public class HomeworkServiceImpl implements HomeworkService {
         // 等待所有 AI 调用完成
         CompletableFuture.allOf(futures).join();
 
-        // Phase 3: 设置批改结果 + 批量写 DB
+        // Phase 3: 设置批改结果 + 批量写 DB（v4b：null = 不可判定，不计入 correctCount、不触发错题/状态机）
         for (int i = 0; i < submissions.size(); i++) {
             HomeworkSubmissionDetail sub = submissions.get(i);
-            sub.setIsCorrect(isCorrectFlags[i] ? 1 : 0);
+            sub.setIsCorrect(isCorrectFlags[i] == null ? null : (isCorrectFlags[i] ? 1 : 0));
             sub.setUpdateTime(LocalDateTime.now());
             submissionMapper.updateById(sub);
 
-            if (isCorrectFlags[i]) {
+            if (Boolean.TRUE.equals(isCorrectFlags[i])) {
                 correctCount++;
             }
         }
@@ -889,11 +956,18 @@ public class HomeworkServiceImpl implements HomeworkService {
         // batchFlushStates→syncPauseStatus 在同一事务内，执行顺序为：
         // ① 错题入队/推进/重置 → ② 掌握度写入 → ③ syncPauseStatus（幂等，无副作用）
         for (HomeworkSubmissionDetail sub : questionSubmissionMap.values()) {
-            boolean isCorrect = sub.getIsCorrect() != null && sub.getIsCorrect() == 1;
+            // v4b：无法判定（is_correct=NULL，标准答案缺失/作答无法辨识/批处理超时）→ 不推进 stage
+            if (sub.getIsCorrect() == null) {
+                log.debug("[gradeHomework] 该题无法判定，跳过错题状态机: questionId={}", sub.getQuestionId());
+                continue;
+            }
+            boolean isCorrect = sub.getIsCorrect() == 1;
             boolean isRedo = "redo".equals(sub.getQuestionType());
+            boolean isExamSource = ExamQuestionRefs.SOURCE_EXAM.equals(sub.getQuestionSource());
 
             if (isRedo) {
                 // 错题重做：答对 → advanceStage；答错 → resetStage
+                // exam redo 的 submission.questionId 本身是负数（= error_question.question_id），零转换直接命中
                 if (isCorrect) {
                     errorQuestionService.advanceStage(studentId, tenantId,
                             sub.getQuestionId(), planDate);
@@ -903,7 +977,8 @@ public class HomeworkServiceImpl implements HomeworkService {
                 }
             } else {
                 // 非 redo 题（bank/generated）：答错 → recordWrongAnswer 入队
-                if (!isCorrect) {
+                // exam 题只以 redo 形式出现，且已在错题队列中，不重复入队
+                if (!isCorrect && !isExamSource) {
                     errorQuestionService.recordWrongAnswer(
                             studentId, tenantId,
                             sub.getQuestionId(),
@@ -1052,10 +1127,15 @@ public class HomeworkServiceImpl implements HomeworkService {
 
     /**
      * 组装单个 HomeworkVO
+     *
+     * <p>Change 2026-11-11 v3：新增 {@code questionSource="exam"} 分支（试卷原题重做）——
+     * 用 {@link ExamQuestionTextCodec} 从 {@code exam_question.question_content} 还原
+     * 题干/选项/答案/解析/题型，文本过 {@link LlmTextSanitizer}，选项只出文本（约定 #25）。</p>
      */
     private HomeworkVO buildHomeworkVO(Long planId, DailyPlanQuestionRef ref,
                                         Map<Long, QuestionBank> bankMap,
                                         Map<Long, GeneratedQuestion> genMap,
+                                        Map<Long, ExamQuestion> examMap,
                                         Map<Long, HomeworkSubmissionDetail> submissionMap) {
         HomeworkVO.HomeworkVOBuilder builder = HomeworkVO.builder()
                 .planId(planId)
@@ -1080,7 +1160,25 @@ public class HomeworkServiceImpl implements HomeworkService {
                     log.error("题库选择题 questionId={} 缺少有效选项，学生将无法作答", q.getQuestionId());
                 }
             }
-        } else if ("generated".equals(ref.getQuestionSource())) {
+        } else if (ExamQuestionRefs.SOURCE_EXAM.equals(ref.getQuestionSource())) {
+            ExamQuestion examQuestion = examMap.get(ref.getQuestionId());
+            if (examQuestion == null) {
+                log.warn("试卷原题缺失（可能已被删除）: examRefId={}", ref.getQuestionId());
+            } else {
+                ExamQuestionTextCodec.Decoded decoded =
+                        ExamQuestionTextCodec.decode(examQuestion.getQuestionContent());
+                builder.difficulty(examQuestion.getDifficulty())
+                        .knowledgePointId(examQuestion.getKnowledgePointId())
+                        .questionFormatType(examQuestion.getQuestionType())
+                        .questionContent(LlmTextSanitizer.sanitize(decoded.stem()));
+                List<String> choices = resolveChoiceTexts(decoded.choices());
+                if (!choices.isEmpty()) {
+                    builder.choices(choices);
+                } else if ("choice".equals(examQuestion.getQuestionType())) {
+                    log.warn("试卷选择题缺有效选项，将只渲染题干: examQuestionId={}", examQuestion.getId());
+                }
+            }
+        } else if (ExamQuestionRefs.SOURCE_GENERATED.equals(ref.getQuestionSource())) {
             GeneratedQuestion gq = genMap.get(ref.getQuestionId());
             if (gq != null) {
                 builder.difficulty(gq.getDifficulty())
@@ -1112,9 +1210,10 @@ public class HomeworkServiceImpl implements HomeworkService {
             if (submission.getIsCorrect() != null) {
                 builder.isCorrect(submission.getIsCorrect() == 1);
                 // 批改后返回标准答案
-                String correctAnswer = findCorrectAnswer(ref.getQuestionId(), ref.getQuestionSource(), bankMap, genMap);
+                String correctAnswer = findCorrectAnswer(ref.getQuestionId(), ref.getQuestionSource(),
+                        bankMap, genMap, examMap);
                 builder.correctAnswer(correctAnswer);
-                // 批改后返回 AI 解析
+                // 批改后返回解析（exam redo 为试卷解析原文，其余为 AI 解析）
                 builder.analysis(submission.getAnalysis());
             }
         }
@@ -1163,29 +1262,47 @@ public class HomeworkServiceImpl implements HomeworkService {
 
     /**
      * 从题目关联知识点 ID
+     *
+     * <p>Change 2026-11-11 v3：来源白名单加 {@code exam}，kp 从 {@code exam_question.knowledge_point_id} 取
+     * （负 ID 反查，绝不落到 generated 分支）。</p>
      */
     private String findKnowledgePointId(SubmitAnswerRequest request, List<DailyPlanQuestionRef> refs) {
-        // 从 question_bank 或 generated_question 获取 knowledge_point_id
-        if ("bank".equals(request.getQuestionSource())) {
+        String source = request.getQuestionSource();
+        if (ExamQuestionRefs.SOURCE_EXAM.equals(source)) {
+            ExamQuestion examQuestion = examQuestionMapper.selectById(
+                    ExamQuestionRefs.examIdOf(request.getQuestionId()));
+            return examQuestion != null ? examQuestion.getKnowledgePointId() : null;
+        }
+        if (ExamQuestionRefs.SOURCE_BANK.equals(source)) {
             QuestionBank q = questionBankMapper.selectById(request.getQuestionId());
             return q != null ? q.getKnowledgePointId() : null;
-        } else {
+        }
+        if (ExamQuestionRefs.SOURCE_GENERATED.equals(source)) {
             GeneratedQuestion gq = generatedQuestionMapper.selectById(request.getQuestionId());
             return gq != null ? gq.getKnowledgePointId() : null;
         }
+        return null;
     }
 
     /**
      * 查找题目标准答案
-     * IMP-D: bank 题从 question_bank.answer 取；generated 题从 content JSON 的 answer 字段取
+     * IMP-D: bank 题从 question_bank.answer 取；generated 题从 content JSON 的 answer 字段取；
+     * exam 题从 codec 解码的【正确答案】取（Change 2026-11-11 v3）。
      */
     private String findCorrectAnswer(Long questionId, String questionSource,
                                       Map<Long, QuestionBank> bankMap,
-                                      Map<Long, GeneratedQuestion> genMap) {
-        if ("bank".equals(questionSource)) {
+                                      Map<Long, GeneratedQuestion> genMap,
+                                      Map<Long, ExamQuestion> examMap) {
+        if (ExamQuestionRefs.SOURCE_BANK.equals(questionSource)) {
             QuestionBank q = bankMap.get(questionId);
             return q != null ? q.getAnswer() : null;
-        } else {
+        }
+        if (ExamQuestionRefs.SOURCE_EXAM.equals(questionSource)) {
+            ExamQuestion examQuestion = examMap.get(questionId);
+            return examQuestion == null ? null
+                    : ExamQuestionTextCodec.decode(examQuestion.getQuestionContent()).correctAnswer();
+        }
+        if (ExamQuestionRefs.SOURCE_GENERATED.equals(questionSource)) {
             GeneratedQuestion gq = genMap.get(questionId);
             if (gq == null || gq.getContent() == null) {
                 return null;
@@ -1199,6 +1316,7 @@ public class HomeworkServiceImpl implements HomeworkService {
                 return null;
             }
         }
+        return null;
     }
 
     /**
@@ -1206,11 +1324,18 @@ public class HomeworkServiceImpl implements HomeworkService {
      */
     private String getQuestionContent(Long questionId, String questionSource,
                                        Map<Long, QuestionBank> bankMap,
-                                       Map<Long, GeneratedQuestion> genMap) {
-        if ("bank".equals(questionSource)) {
+                                       Map<Long, GeneratedQuestion> genMap,
+                                       Map<Long, ExamQuestion> examMap) {
+        if (ExamQuestionRefs.SOURCE_BANK.equals(questionSource)) {
             QuestionBank q = bankMap.get(questionId);
             return q != null ? q.getContent() : null;
-        } else {
+        }
+        if (ExamQuestionRefs.SOURCE_EXAM.equals(questionSource)) {
+            ExamQuestion examQuestion = examMap.get(questionId);
+            return examQuestion == null ? null
+                    : ExamQuestionTextCodec.decode(examQuestion.getQuestionContent()).stem();
+        }
+        if (ExamQuestionRefs.SOURCE_GENERATED.equals(questionSource)) {
             GeneratedQuestion gq = genMap.get(questionId);
             if (gq == null || gq.getContent() == null) {
                 return null;
@@ -1224,6 +1349,7 @@ public class HomeworkServiceImpl implements HomeworkService {
                 return null;
             }
         }
+        return null;
     }
 
     /**
@@ -1312,11 +1438,17 @@ public class HomeworkServiceImpl implements HomeworkService {
      */
     private String getQuestionFormatType(Long questionId, String questionSource,
                                           Map<Long, QuestionBank> bankMap,
-                                          Map<Long, GeneratedQuestion> genMap) {
-        if ("bank".equals(questionSource)) {
+                                          Map<Long, GeneratedQuestion> genMap,
+                                          Map<Long, ExamQuestion> examMap) {
+        if (ExamQuestionRefs.SOURCE_BANK.equals(questionSource)) {
             QuestionBank q = bankMap.get(questionId);
             return q != null ? q.getType() : null;
-        } else {
+        }
+        if (ExamQuestionRefs.SOURCE_EXAM.equals(questionSource)) {
+            ExamQuestion examQuestion = examMap.get(questionId);
+            return examQuestion == null ? null : examQuestion.getQuestionType();
+        }
+        if (ExamQuestionRefs.SOURCE_GENERATED.equals(questionSource)) {
             GeneratedQuestion gq = genMap.get(questionId);
             if (gq == null || gq.getContent() == null) {
                 return null;
@@ -1330,63 +1462,90 @@ public class HomeworkServiceImpl implements HomeworkService {
                 return null;
             }
         }
+        return null;
+    }
+
+    // ==================== 试卷来源（questionSource=exam）辅助（Change 2026-11-11 v3） ====================
+
+    /**
+     * 批量加载试卷题：1 条 {@code selectBatchIds}，key 为<b>负 ref ID</b>（= -exam_question.id）
+     *
+     * @param examQuestionIds 正数 exam_question.id 集合（可为空）
+     */
+    private Map<Long, ExamQuestion> loadExamQuestionMap(Set<Long> examQuestionIds) {
+        if (examQuestionIds == null || examQuestionIds.isEmpty()) {
+            return Map.of();
+        }
+        List<ExamQuestion> loaded = examQuestionMapper.selectBatchIds(examQuestionIds);
+        if (loaded == null || loaded.isEmpty()) {
+            return Map.of();
+        }
+        Map<Long, ExamQuestion> examMap = new HashMap<>();
+        for (ExamQuestion question : loaded) {
+            examMap.put(ExamQuestionRefs.toRefId(question.getId()), question);
+        }
+        return examMap;
     }
 
     /**
-     * AI 批改填空/解答/主观题
-     * 返回 true=正确, false=错误；AI 调用失败时降级为字符串比较
+     * 试卷题解析原文（D7：exam redo 不调 analysis_gen，直接用试卷解析）
      */
-    private boolean aiGradeQuestion(String questionContent, String correctAnswer,
-                                     String studentAnswer, String subject, String grade) {
-        if (studentAnswer == null || studentAnswer.isBlank()) {
-            return false;
+    private String getExamExplanation(Map<Long, ExamQuestion> examMap, Long refId) {
+        ExamQuestion examQuestion = examMap.get(refId);
+        if (examQuestion == null) {
+            return null;
         }
-        // 降级：如果题目内容或正确答案缺失，回退到字符串比较
-        if (questionContent == null || questionContent.isBlank()
-                || correctAnswer == null || correctAnswer.isBlank()) {
-            return studentAnswer.trim().equalsIgnoreCase(correctAnswer != null ? correctAnswer.trim() : "");
-        }
-        try {
-            String promptTemplate = loadGradingPromptTemplate();
-            String prompt = promptTemplate
-                    .replace("{subject}", subject != null ? subject : "")
-                    .replace("{grade}", analysisGradeLabel(grade))
-                    .replace("{questionContent}", questionContent)
-                    .replace("{correctAnswer}", correctAnswer)
-                    .replace("{studentAnswer}", studentAnswer);
-
-            String result = agentScopeClient.call(prompt);
-            if (result != null) {
-                String trimmed = result.trim();
-                // AI 只应返回"正确"或"错误"
-                if (trimmed.contains("正确")) {
-                    return true;
-                } else if (trimmed.contains("错误")) {
-                    return false;
-                }
-            }
-            // AI 返回内容无法解析，降级为字符串比较
-            log.warn("AI 批改结果无法解析: {}", result);
-            return studentAnswer.trim().equalsIgnoreCase(correctAnswer.trim());
-        } catch (Exception e) {
-            log.warn("AI 批改失败，降级为字符串比较: questionId={}, error={}", questionContent, e.getMessage());
-            return studentAnswer.trim().equalsIgnoreCase(correctAnswer.trim());
-        }
+        return LlmTextSanitizer.sanitize(
+                ExamQuestionTextCodec.decode(examQuestion.getQuestionContent()).explanation());
     }
 
     /**
-     * 从 classpath 加载批改 Prompt 模板
+     * 举一反三源题 exam 兜底（design v3 §7.2.1-6）：题库无源题时，用到期试卷错题适配为临时 QuestionBank
+     *
+     * <p>缺标准答案 → 跳过该 kp + 写 {@code agent_degradation_log}，不阻塞其他知识点。</p>
      */
-    private String loadGradingPromptTemplate() {
-        try {
-            ClassPathResource resource = new ClassPathResource("prompts/versions/grading_v1.txt");
-            try (InputStream is = resource.getInputStream()) {
-                return new String(is.readAllBytes());
-            }
-        } catch (IOException e) {
-            log.error("加载批改 Prompt 模板失败: {}", e.getMessage());
-            throw new BusinessException(ErrorCodes.AGENT_CALL_FAILED, "批改 Prompt 模板加载失败");
+    private QuestionBank resolveExamSourceQuestion(Long studentId, String tenantId,
+                                                   String kpId, LocalDate planDate) {
+        ExamQuestion examSource = errorQuestionMapper.selectDueExamSourceQuestion(
+                studentId, tenantId, kpId, planDate);
+        if (examSource == null) {
+            return null;
         }
+        if (!ExamQuestionSourceAdapter.hasUsableAnswer(examSource)) {
+            log.warn("知识点 {} 试卷源题缺标准答案，跳过举一反三: examQuestionId={}", kpId, examSource.getId());
+            degradationLogger.log(AgentType.QUESTION_CHECK.getCode(),
+                    "kpId=" + kpId + ", examQuestionId=" + examSource.getId(),
+                    "试卷源题缺标准答案（exam source missing answer），跳过举一反三",
+                    "skip_similar_question", tenantId);
+            return null;
+        }
+        QuestionBank adapted = ExamQuestionSourceAdapter.toQuestionBank(examSource);
+        if (adapted == null) {
+            log.warn("知识点 {} 试卷源题无题面，跳过举一反三: examQuestionId={}", kpId, examSource.getId());
+            degradationLogger.log(AgentType.QUESTION_CHECK.getCode(),
+                    "kpId=" + kpId + ", examQuestionId=" + examSource.getId(),
+                    "试卷源题无题面（exam source missing stem），跳过举一反三",
+                    "skip_similar_question", tenantId);
+        }
+        return adapted;
+    }
+
+    /**
+     * 引用去重：按 {@code (questionSource, questionId)} 唯一（design §7.2.1 去重与题量一致性）
+     */
+    private List<DailyPlanQuestionRef> dedupeRefs(List<DailyPlanQuestionRef> refs, Long goalId) {
+        List<DailyPlanQuestionRef> deduped = new ArrayList<>();
+        Set<String> seen = new LinkedHashSet<>();
+        for (DailyPlanQuestionRef ref : refs) {
+            String key = ref.getQuestionSource() + "#" + ref.getQuestionId();
+            if (!seen.add(key)) {
+                log.warn("作业引用重复，已丢弃: goalId={}, source={}, questionId={}",
+                        goalId, ref.getQuestionSource(), ref.getQuestionId());
+                continue;
+            }
+            deduped.add(ref);
+        }
+        return deduped;
     }
 
     /**

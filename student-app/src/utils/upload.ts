@@ -26,7 +26,7 @@ function resolveUseLocal(): boolean {
 
 /**
  * 带 JWT 认证的文件上传（含 401 自动重登 + 单次重试）
- * @param url 上传路径（如 /student/exam/upload）
+ * @param url 上传路径（如 /student/exam/papers/{paperId}/images）
  * @param filePath 本地文件路径
  * @param name 文件字段名（默认 'files'）
  * @param formData 额外表单数据

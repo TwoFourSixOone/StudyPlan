@@ -22,6 +22,16 @@ public interface PlanAdjustmentService {
     AdjustTriggerVO triggerAdjustment(Long goalId);
 
     /**
+     * 触发调整（显式身份重载：Worker 线程无 StudentContext，design §8.2）
+     *
+     * @param goalId    目标 ID
+     * @param studentId 学生 ID（显式入参，不读 ThreadLocal）
+     * @param tenantId  租户 ID（显式入参）
+     * @return 触发结果
+     */
+    AdjustTriggerVO triggerAdjustment(Long goalId, Long studentId, String tenantId);
+
+    /**
      * 确认 diff
      *
      * @param diffId diff ID

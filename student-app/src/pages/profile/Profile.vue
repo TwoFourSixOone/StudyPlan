@@ -61,7 +61,7 @@
           <text class="form-title">创建新目标</text>
           <view class="form-item">
             <text class="form-label">科目</text>
-            <picker :value="goalSubjectIndex" :range="subjectNames" @change="onGoalSubjectChange">
+            <picker :value="goalSubjectIndex" :range="goalSubjectNames" @change="onGoalSubjectChange">
               <view class="form-picker">
                 <text>{{ goalSubjectNames[goalSubjectIndex] || '选择科目' }}</text>
                 <text class="picker-arrow">▼</text>
@@ -114,44 +114,18 @@
         </view>
       </view>
 
-      <view class="menu-item" @click="activeSection = activeSection === 'exam' ? '' : 'exam'">
+      <!-- 试卷上传入口：独立页面（上传完成后该页用 redirectTo 替换自己，返回不会回到已提交的上传页） -->
+      <view class="menu-item" @click="goToExamUpload">
         <text class="menu-icon">📝</text>
         <text class="menu-text">试卷上传</text>
-        <text class="menu-arrow">{{ activeSection === 'exam' ? '▲' : '▼' }}</text>
+        <text class="menu-arrow">▶</text>
       </view>
-      <view class="menu-section" v-if="activeSection === 'exam'">
-        <view class="exam-form">
-          <view class="form-item">
-            <text class="form-label">科目</text>
-            <picker :value="examSubjectIndex" :range="subjectNames" @change="onExamSubjectChange">
-              <view class="form-picker">
-                <text>{{ subjectNames[examSubjectIndex] || '选择科目' }}</text>
-                <text class="picker-arrow">▼</text>
-              </view>
-            </picker>
-          </view>
-          <view class="form-item">
-            <text class="form-label">考试日期</text>
-            <picker mode="date" :value="examForm.examDate" @change="examForm.examDate = $event.detail.value">
-              <view class="form-picker">
-                <text>{{ examForm.examDate || '选择日期' }}</text>
-                <text class="picker-arrow">▼</text>
-              </view>
-            </picker>
-          </view>
-          <view class="form-item">
-            <text class="form-label">试卷类型</text>
-            <picker :value="examPaperTypeIndex" :range="examPaperTypes" @change="onPaperTypeChange">
-              <view class="form-picker">
-                <text>{{ examPaperTypeNames[examPaperTypeIndex] || examForm.paperType }}</text>
-                <text class="picker-arrow">▼</text>
-              </view>
-            </picker>
-          </view>
-          <button class="btn-upload" @click="handleChooseAndUpload" :disabled="examUploading">
-            {{ examUploading ? '上传中...' : '选择图片并上传' }}
-          </button>
-        </view>
+
+      <!-- 历史试卷入口：我的 → 试卷列表 → 试卷详情（最多 3 层） -->
+      <view class="menu-item" @click="goToExamList">
+        <text class="menu-icon">📄</text>
+        <text class="menu-text">历史试卷</text>
+        <text class="menu-arrow">▶</text>
       </view>
 
       <!-- 错题本入口 -->
@@ -276,10 +250,8 @@ import { useAuthStore } from '@/stores/auth';
 import { useAppStore } from '@/stores/app';
 import { useAuthGuard } from '@/utils/useAuthGuard';
 import { createGoal, getActiveGoals, getGoalList, completeGoal } from '@/api/goal';
-import { EXAM_UPLOAD_PATH } from '@/api/exam';
 import { getRecordList, getRecordDetail } from '@/api/record';
 import { triggerAdjustment, getAdjustmentHistory, getDiffDetail, confirmDiff, rejectDiff } from '@/api/plan';
-import { uploadWithAuth } from '@/utils/upload';
 import { showSuccess, showError, showConfirm } from '@/utils/message';
 import { formatDate } from '@/utils/date';
 import { updateGrade } from '@/api/auth';
@@ -310,7 +282,6 @@ const goalForm = ref({
   endDate: ''
 });
 
-const subjectNames = computed(() => appStore.subjectList.map(s => s.name));
 const goalSubjectNames = computed(() => appStore.subjectList.map(s => s.name));
 
 // 计算剩余天数
@@ -320,18 +291,6 @@ function getRemainingDays(endDate) {
   const now = new Date();
   const diff = Math.ceil((end - now) / (1000 * 60 * 60 * 24));
   return diff > 0 ? diff : 0;
-}
-
-// ========== 试卷上传 ==========
-const examSubjectIndex = ref(0);
-const examForm = ref({ examDate: today, paperType: 'midterm' });
-const examUploading = ref(false);
-const examPaperTypes = ['midterm', 'final', 'monthly', 'mock', 'other'];
-const examPaperTypeNames = ['期中考试', '期末考试', '月考', '模拟考试', '其他'];
-const examPaperTypeIndex = computed(() => examPaperTypes.indexOf(examForm.value.paperType));
-
-function onPaperTypeChange(e) {
-  examForm.value.paperType = examPaperTypes[e.detail.value];
 }
 
 // ========== 学习记录 ==========
@@ -490,64 +449,27 @@ async function handleCompleteGoal(goal) {
   }
 }
 
-// ========== 试卷上传 ==========
-function onExamSubjectChange(e) {
-  examSubjectIndex.value = e.detail.value;
+// ========== 试卷上传 / 历史试卷 入口 ==========
+// 页面栈规则：我的（tab）→ 试卷上传（navigateTo）；上传完成后上传页用 redirectTo 替换为试卷详情。
+// 我的（tab）→ 历史试卷（navigateTo）→ 试卷详情（navigateTo，只传 paperId），最多 3 层。
+function goToExamUpload() {
+  uni.navigateTo({
+    url: '/pages/exam-upload/ExamUpload',
+    fail: (err) => {
+      console.error('[Profile] 跳转试卷上传失败:', err);
+      showError('跳转失败，请在开发者工具中重新编译后重试');
+    }
+  });
 }
 
-async function handleChooseAndUpload() {
-  const subject = appStore.subjectList[examSubjectIndex.value];
-  if (!subject) {
-    showError('请先选择科目');
-    return;
-  }
-  if (!examForm.value.examDate) {
-    showError('请选择考试日期');
-    return;
-  }
-
-  // 选择图片
-  let chooseRes;
-  try {
-    chooseRes = await new Promise((resolve, reject) => {
-      uni.chooseImage({
-        count: 1,
-        sizeType: ['compressed'],
-        sourceType: ['album', 'camera'],
-        success: resolve,
-        fail: reject
-      });
-    });
-  } catch (e) {
-    console.warn('[Profile] 选择图片取消或失败');
-    return;
-  }
-
-  const filePath = chooseRes.tempFilePaths[0];
-  if (!filePath) {
-    showError('未选择图片');
-    return;
-  }
-
-  examUploading.value = true;
-  try {
-    await uploadWithAuth(
-      EXAM_UPLOAD_PATH,
-      filePath,
-      'files',
-      {
-        subjectId: subject.subjectId,
-        examDate: examForm.value.examDate,
-        paperType: examForm.value.paperType
-      }
-    );
-    showSuccess('试卷上传成功');
-  } catch (e) {
-    // uploadWithAuth 内部已处理错误提示
-    console.warn('[Profile] 上传失败:', e.message);
-  } finally {
-    examUploading.value = false;
-  }
+function goToExamList() {
+  uni.navigateTo({
+    url: '/pages/exam-list/ExamList',
+    fail: (err) => {
+      console.error('[Profile] 跳转历史试卷失败:', err);
+      showError('跳转失败，请在开发者工具中重新编译后重试');
+    }
+  });
 }
 
 // ========== 学习记录 ==========
@@ -874,7 +796,7 @@ watch(activeSection, (val) => {
 }
 
 /* 表单 */
-.goal-form, .exam-form {
+.goal-form {
   margin-top: $spacing-lg;
 }
 .form-title {
@@ -968,15 +890,6 @@ watch(activeSection, (val) => {
   font-size: $font-md;
   color: $text-primary;
   flex: 1;
-}
-
-/* 试卷上传 */
-.btn-upload {
-  margin-top: $spacing-lg;
-  background-color: $primary-color;
-  color: #fff;
-  font-size: $font-md;
-  border-radius: $radius-md;
 }
 
 /* 学习记录 */

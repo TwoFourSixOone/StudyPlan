@@ -103,11 +103,13 @@ public enum ErrorCodes {
     // 试卷相关（1130-1139）
     EXAM_PAPER_NOT_FOUND(1130, "试卷不存在"),
     EXAM_PAPER_DUPLICATE(1131, "同一科目同一天只能上传一份试卷"),
-    EXAM_PAPER_ALREADY_GRADED(1132, "试卷已批改，请勿重复提交"),
-    EXAM_PAPER_NOT_READY_FOR_GRADE(1133, "试卷尚未完成解析，无法批改"),
-    EXAM_QUESTION_NOT_FOUND(1134, "试卷题目不存在"),
+    // 1132/1133/1134 已随"手工录入成绩"删除（Change 2026-11-11_exam_paper_upload_llm，D9）
     EXAM_TASK_NOT_FOUND(1135, "解析任务不存在"),
     EXAM_RESULT_NOT_FOUND(1136, "分析结果不存在"),
+    /**
+     * @deprecated OCR 链路已退役（试卷改走视觉解析），本错误码无调用方，保留仅为不破坏历史错误码编号
+     */
+    @Deprecated
     OCR_FAILED(1137, "OCR 识别失败"),
     FILE_UPLOAD_FAILED(1138, "文件上传失败"),
     FILE_TYPE_INVALID(1139, "文件类型无效，仅支持 jpg/jpeg/png"),
@@ -145,7 +147,49 @@ public enum ErrorCodes {
     /**
      * 年级取值非法，合法范围 1-12
      */
-    GRADE_INVALID(1181, "年级需为 1-12 的整数");
+    GRADE_INVALID(1181, "年级需为 1-12 的整数"),
+
+    // 试卷图片上传与视觉解析（1182-1191，Change: 2026-11-11_exam_paper_upload_llm）
+    /**
+     * 一次最多 8 张试卷图片（design §2.3 / §13）
+     */
+    EXAM_IMAGE_COUNT_EXCEEDED(1182, "试卷图片最多 8 张"),
+    /**
+     * 未上传任何图片
+     */
+    EXAM_IMAGE_EMPTY(1183, "请至少上传 1 张试卷图片"),
+    /**
+     * 单张图片超过业务上限 9.5MB（容器 multipart 10MB 留 0.5MB 余量，design §2.3 S4）
+     */
+    EXAM_IMAGE_TOO_LARGE(1184, "单张试卷图片不能超过 9.5MB"),
+    /**
+     * 同一份试卷图片累计大小超过 30MB
+     */
+    EXAM_IMAGE_TOTAL_TOO_LARGE(1185, "试卷图片总大小不能超过 30MB"),
+    /**
+     * 上传会话不存在或已过期
+     */
+    EXAM_UPLOAD_SESSION_NOT_FOUND(1186, "上传会话不存在或已过期，请重新上传"),
+    /**
+     * 未上传图片就提交解析
+     */
+    EXAM_UPLOAD_INCOMPLETE(1187, "请先上传至少 1 张试卷图片再提交解析"),
+    /**
+     * 视觉解析失败（全部图片未识别出题目 / 图片读取失败）
+     */
+    EXAM_PARSE_FAILED(1188, "试卷解析失败，请重试"),
+    /**
+     * 该试卷图片数量已达上限
+     */
+    EXAM_PAPER_IMAGE_LIMIT_REACHED(1189, "该试卷图片已达上限"),
+    /**
+     * 仅解析失败且整卷重试次数小于 2 的试卷可重试（整卷重试语义，design D14）
+     */
+    EXAM_RETRY_NOT_ALLOWED(1190, "仅解析失败的试卷可重试，且最多重试 2 次"),
+    /**
+     * 试卷类型非法，仅支持 midterm/final/monthly/mock/other
+     */
+    EXAM_PAPER_TYPE_INVALID(1191, "试卷类型无效，可选：midterm/final/monthly/mock/other");
 
     private final Integer code;
     private final String message;

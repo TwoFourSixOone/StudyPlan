@@ -24,6 +24,13 @@ public interface PlanDiffService {
     Long saveDiff(Long goalId, List<TriggerSignalDTO> signals, PlanDiffDTO diff);
 
     /**
+     * 保存调整 diff（显式租户，design §8.2：Worker/异步线程不读 {@code StudentContext}）
+     *
+     * @param tenantId 租户 ID；非空时直接使用，为空则回退 {@code StudentContext}（HTTP 线程兼容）
+     */
+    Long saveDiff(Long goalId, List<TriggerSignalDTO> signals, PlanDiffDTO diff, String tenantId);
+
+    /**
      * 应用调整 diff（修复 IMP-21：只更新 plan_date >= today 的未来计划）
      *
      * @param diffId diff ID

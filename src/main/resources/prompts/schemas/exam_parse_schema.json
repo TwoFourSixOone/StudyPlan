@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Exam Paper Parse Output Schema",
+  "description": "试卷视觉解析输出（单图）",
+  "type": "object",
+  "required": ["questions"],
+  "properties": {
+    "questions": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": ["questionIndex", "stem", "formatType", "studentAnswer", "answerStatus", "knowledgePointId"],
+        "properties": {
+          "questionIndex": { "type": "integer", "minimum": 1, "maximum": 60 },
+          "stem": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "formatType": { "type": "string", "enum": ["choice", "numeric", "short", "self"] },
+          "knowledgePointId": { "type": "string", "maxLength": 64 },
+          "choices": {
+            "type": "array",
+            "maxItems": 8,
+            "items": {
+              "type": "object",
+              "required": ["label", "text"],
+              "properties": {
+                "label": { "type": "string", "maxLength": 2 },
+                "text": { "type": "string", "minLength": 1, "maxLength": 300 }
+              }
+            }
+          },
+          "correctAnswer": { "type": "string", "maxLength": 500 },
+          "studentAnswer": { "type": "string", "maxLength": 1000 },
+          "answerStatus": { "type": "string", "enum": ["answered", "blank", "unreadable"] },
+          "difficulty": { "type": "string", "enum": ["basic", "standard", "challenge"] },
+          "explanation": { "type": "string", "maxLength": 1000 },
+          "unclearFields": { "type": "array", "maxItems": 6, "items": { "type": "string" } }
+        }
+      }
+    },
+    "imageWarning": { "type": "string", "maxLength": 200 }
+  }
+}

@@ -56,6 +56,37 @@ public class GlobalExceptionHandler {
     }
 
     /**
+     * 容器层文件大小超限兜底（design §2.3 S4）
+     *
+     * <p>{@code spring.servlet.multipart.max-file-size/max-request-size = 10MB} 会让"恰好 10MB"的
+     * 单图在进入 Controller 前就被容器拒绝；这里统一映射为业务错误码 {@code 1184}
+     * （"单张试卷图片不能超过 9.5MB"），避免落到通用 500。</p>
+     *
+     * <p>注意：必须声明在 {@link Exception} 通用兜底之前由 Spring 按最具体类型匹配，
+     * 因此 {@code MaxUploadSizeExceededException}（MultipartException 子类）在此统一处理。</p>
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public Result<Void> handleMaxUploadSizeExceeded(
+            org.springframework.web.multipart.MaxUploadSizeExceededException e,
+            HttpServletRequest request) {
+        log.warn("上传文件超过容器限制: URI={}, message={}", request.getRequestURI(), e.getMessage());
+        return Result.error(ErrorCodes.EXAM_IMAGE_TOO_LARGE.getCode(),
+                ErrorCodes.EXAM_IMAGE_TOO_LARGE.getMessage());
+    }
+
+    /**
+     * multipart 解析失败（非 MaxUploadSizeExceededException 的其他 MultipartException）→ 1184 兜底
+     */
+    @ExceptionHandler(org.springframework.web.multipart.MultipartException.class)
+    public Result<Void> handleMultipartException(
+            org.springframework.web.multipart.MultipartException e,
+            HttpServletRequest request) {
+        log.warn("multipart 请求解析失败: URI={}, message={}", request.getRequestURI(), e.getMessage());
+        return Result.error(ErrorCodes.EXAM_IMAGE_TOO_LARGE.getCode(),
+                ErrorCodes.EXAM_IMAGE_TOO_LARGE.getMessage());
+    }
+
+    /**
      * 处理参数绑定异常（@RequestParam）
      */
     @ExceptionHandler(BindException.class)

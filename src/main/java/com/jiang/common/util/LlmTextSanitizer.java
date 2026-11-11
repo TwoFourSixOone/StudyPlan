@@ -24,6 +24,12 @@ public final class LlmTextSanitizer {
     private static final Pattern SQRT = Pattern.compile("\\\\sqrt\\{([^}]*)}");
     private static final Pattern LEFT_RIGHT = Pattern.compile("\\\\(left|right)");
     private static final Pattern TEXT_CMD = Pattern.compile("\\\\(text|mathrm|mathbf|mathit)\\{([^}]*)}");
+    /**
+     * 花括号上下标（v4/D25）：{@code x^{2}} → {@code x^(2)}、{@code a_{n}} → {@code a_(n)}
+     *
+     * <p>只转换花括号形式，**不移除 {@code ^} 本身**——纯文本 {@code x^2} / {@code a_n} 是允许的写法。</p>
+     */
+    private static final Pattern SUP_SUB_BRACE = Pattern.compile("([\\^_])\\{([^}]*)}");
     private static final Pattern GENERIC_CMD = Pattern.compile("\\\\[a-zA-Z]+");
     private static final Pattern MATH_DELIM = Pattern.compile("\\${1,2}");
     private static final Pattern MARKDOWN = Pattern.compile("(\\*\\*|__|`{1,3}|^#{1,6}\\s*|^[-*+]\\s+)", Pattern.MULTILINE);
@@ -53,6 +59,8 @@ public final class LlmTextSanitizer {
         text = SQRT.matcher(text).replaceAll("√($1)");
         text = LEFT_RIGHT.matcher(text).replaceAll("");
         text = TEXT_CMD.matcher(text).replaceAll("$2");
+        // 2.1 花括号上下标 → 圆括号（保留 ^ / _，纯文本 x^2、a_n 不受影响）
+        text = SUP_SUB_BRACE.matcher(text).replaceAll("$1($2)");
 
         // 3. 常见符号命令
         text = text.replace("\\cdot", "·")
@@ -87,6 +95,10 @@ public final class LlmTextSanitizer {
 
         // 6. 折叠多余空白（保留换行）
         text = text.replaceAll("[ \\t]{2,}", " ").replaceAll("\\n{3,}", "\n\n");
+
+        // 7. v4/D25 兜底：嵌套/残留的花括号（如 \frac{x^{2}}{a_{n}} 的中间态）一律去掉——
+        //    纯文本渲染不接受任何花括号上下标；`x^2` / `a_n` 不受影响
+        text = text.replace("{", "").replace("}", "");
 
         return text.trim();
     }

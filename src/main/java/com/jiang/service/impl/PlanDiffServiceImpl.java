@@ -58,7 +58,16 @@ public class PlanDiffServiceImpl implements PlanDiffService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long saveDiff(Long goalId, List<TriggerSignalDTO> signals, PlanDiffDTO diff) {
-        String tenantId = StudentContext.getTenantId();
+        return saveDiff(goalId, signals, diff, null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Long saveDiff(Long goalId, List<TriggerSignalDTO> signals, PlanDiffDTO diff, String tenantId) {
+        // design §8.2：异步线程不读 StudentContext；调用方显式传租户时优先使用
+        if (tenantId == null || tenantId.isBlank()) {
+            tenantId = StudentContext.getTenantId();
+        }
 
         PlanAdjustmentDiff entity = new PlanAdjustmentDiff();
         entity.setGoalId(goalId);

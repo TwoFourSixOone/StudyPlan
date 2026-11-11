@@ -26,4 +26,19 @@ public class CosFileStorageServiceImpl implements FileStorageService {
     public void delete(String url) {
         log.warn("COS 文件存储尚未实现，请切换到 local 模式");
     }
+
+    /**
+     * COS 模式暂不支持读取（与 {@link #upload} 一致抛业务异常），试卷视觉解析需切回 local
+     */
+    @Override
+    public byte[] readBytes(String url) {
+        log.warn("COS 文件存储尚未实现文件读取，请切换到 local 模式");
+        throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED);
+    }
+
+    @Override
+    public long size(String url) {
+        log.warn("COS 文件存储尚未实现文件大小查询，请切换到 local 模式");
+        return 0L;
+    }
 }

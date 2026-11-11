@@ -7,6 +7,7 @@ import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
 import com.jiang.common.util.MasteryFormulaUtil;
 import com.jiang.dto.AdminMasteryQueryRequest;
+import com.jiang.dto.ExamMasteryEvent;
 import com.jiang.mapper.GeneratedQuestionMapper;
 import com.jiang.mapper.HomeworkSubmissionDetailMapper;
 import com.jiang.mapper.KnowledgePointMapper;
@@ -19,7 +20,9 @@ import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.MasteryChangeLog;
 import com.jiang.model.entity.QuestionBank;
 import com.jiang.model.entity.StudentKnowledgeState;
+import com.jiang.model.entity.ExamQuestion;
 import com.jiang.model.enums.ChangeType;
+import com.jiang.model.enums.QuestionDifficulty;
 import com.jiang.security.StudentContext;
 import com.jiang.service.ErrorQuestionService;
 import com.jiang.service.MasteryService;
@@ -32,12 +35,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +56,9 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class MasteryServiceImpl implements MasteryService {
+
+    /** 单次批量写入上限（design §11.4：≤100 条/批） */
+    private static final int BATCH_SIZE = 100;
 
     @Autowired
     private StudentKnowledgeStateMapper stateMapper;
@@ -67,6 +77,10 @@ public class MasteryServiceImpl implements MasteryService {
 
     @Autowired
     private GeneratedQuestionMapper generatedQuestionMapper;
+
+    /** 试卷来源难度读取（Change 2026-11-11：exam 来源 D_norm 复用 exam_question.difficulty） */
+    @Autowired
+    private com.jiang.mapper.ExamQuestionMapper examQuestionMapper;
 
     @Autowired
     private ErrorQuestionService errorQuestionService;
@@ -115,8 +129,15 @@ public class MasteryServiceImpl implements MasteryService {
                 .collect(Collectors.toList());
 
         for (HomeworkSubmissionDetail submission : sorted) {
+            // v4b：is_correct=NULL（不可判定：标准答案缺失/作答无法辨识/超时）→ 不更新掌握度
+            // （原实现把 null 当答错，会错误压低掌握度）
+            if (submission.getIsCorrect() == null) {
+                log.debug("[updateMasteryFromHomework] 该题无法判定，跳过掌握度: submissionId={}",
+                        submission.getSubmissionId());
+                continue;
+            }
             String kpId = submission.getKnowledgePointId();
-            boolean isCorrect = submission.getIsCorrect() != null && submission.getIsCorrect() == 1;
+            boolean isCorrect = submission.getIsCorrect() == 1;
             BigDecimal dNorm = calculateDNorm(submission, tenantId);
 
             StudentKnowledgeState state = stateCache.get(kpId);
@@ -255,6 +276,198 @@ public class MasteryServiceImpl implements MasteryService {
         changeLog.setMasteryAfter(mNew);
         changeLog.setTenantId(tenantId);
         changeLogMapper.insert(changeLog);
+    }
+
+    /**
+     * 试卷结算：批量更新掌握度（答对/答错都更新，W_source=1.0，design §7.3）
+     *
+     * <p>SQL 条数与聚合：</p>
+     * <ol>
+     *   <li>1 条：批量查 state（IN kpIds）</li>
+     *   <li>≤2 条：缺失 state 批量 INSERT IGNORE + 重查一次</li>
+     *   <li>1 条：题库难度分布（同知识点历史均值，用于 D_norm 偏离校验）</li>
+     *   <li>≤100/批：批量 UPDATE state 终值（同知识点多题已在内存聚合）</li>
+     *   <li>≤100/批：批量 INSERT mastery_change_log（每事件一条，逐题可追溯）</li>
+     *   <li>按去重 kp 逐个 syncPauseStatus（幂等，kp 数 ≤ 题数）</li>
+     * </ol>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public void updateMasteryFromExam(Long studentId, String tenantId, Long paperId,
+                                      List<ExamMasteryEvent> events) {
+        if (events == null || events.isEmpty()) {
+            return;
+        }
+
+        // 1. 按知识点分组（保持事件先后顺序：同知识点多题依次演进）
+        Map<String, List<ExamMasteryEvent>> eventsByKp = new LinkedHashMap<>();
+        for (ExamMasteryEvent event : events) {
+            if (event == null || event.knowledgePointId() == null) {
+                continue;
+            }
+            eventsByKp.computeIfAbsent(event.knowledgePointId(), k -> new ArrayList<>()).add(event);
+        }
+        if (eventsByKp.isEmpty()) {
+            return;
+        }
+        List<String> kpIds = new ArrayList<>(eventsByKp.keySet());
+
+        // 2. 1 条 SQL 批量查 state
+        Map<String, StudentKnowledgeState> stateMap = new LinkedHashMap<>();
+        for (StudentKnowledgeState state : stateMapper.selectByStudentAndKpIds(studentId, tenantId, kpIds)) {
+            stateMap.put(state.getKnowledgePointId(), state);
+        }
+
+        // 3. 缺失 state 批量创建（INSERT IGNORE）后重查一次
+        List<StudentKnowledgeState> missing = new ArrayList<>();
+        for (String kpId : kpIds) {
+            if (stateMap.containsKey(kpId)) {
+                continue;
+            }
+            StudentKnowledgeState state = new StudentKnowledgeState();
+            state.setStudentId(studentId);
+            state.setKnowledgePointId(kpId);
+            state.setMasteryScore(MasteryFormulaUtil.MASTERY_INITIAL);
+            state.setConfidence(MasteryFormulaUtil.CONFIDENCE_INITIAL);
+            state.setSource(ChangeType.EXAM.getCode());
+            state.setLastAssessedAt(LocalDateTime.now());
+            state.setTenantId(tenantId);
+            missing.add(state);
+        }
+        if (!missing.isEmpty()) {
+            for (int from = 0; from < missing.size(); from += BATCH_SIZE) {
+                int to = Math.min(from + BATCH_SIZE, missing.size());
+                stateMapper.batchInsertIgnore(missing.subList(from, to));
+            }
+            for (StudentKnowledgeState state : stateMapper.selectByStudentAndKpIds(studentId, tenantId, kpIds)) {
+                stateMap.put(state.getKnowledgePointId(), state);
+            }
+        }
+
+        // 4. 1 条 SQL 取同知识点题库难度分布 → 历史均值
+        Map<String, BigDecimal> avgDifficultyByKp = loadAvgDifficultyMap(tenantId, kpIds);
+
+        // 5. 内存套公式（同知识点多题依次演进）+ 收集日志
+        String sourceCode = ChangeType.EXAM.getCode();
+        BigDecimal wSource = ChangeType.EXAM.getSourceWeight();
+        LocalDateTime now = LocalDateTime.now();
+        List<StudentKnowledgeState> updatedStates = new ArrayList<>();
+        List<MasteryChangeLog> changeLogs = new ArrayList<>();
+        Set<String> affectedKpIds = new LinkedHashSet<>();
+
+        for (Map.Entry<String, List<ExamMasteryEvent>> entry : eventsByKp.entrySet()) {
+            String kpId = entry.getKey();
+            StudentKnowledgeState state = stateMap.get(kpId);
+            if (state == null) {
+                // INSERT IGNORE 后被并发删除等极端情况：跳过该知识点，不阻塞其他知识点
+                log.warn("[updateMasteryFromExam] 掌握度状态缺失，跳过: kpId={}", kpId);
+                continue;
+            }
+            for (ExamMasteryEvent event : entry.getValue()) {
+                BigDecimal declared = resolveDeclaredDifficulty(event.difficulty());
+                BigDecimal dNorm = MasteryFormulaUtil.validateDNorm(declared, avgDifficultyByKp.get(kpId));
+
+                BigDecimal masteryBefore = state.getMasteryScore();
+                BigDecimal confidence = state.getConfidence();
+                BigDecimal mNew = event.isCorrect()
+                        ? MasteryFormulaUtil.calculateMasteryCorrect(masteryBefore, wSource, dNorm, confidence)
+                        : MasteryFormulaUtil.calculateMasteryIncorrect(masteryBefore, wSource, dNorm, confidence);
+                BigDecimal delta = mNew.subtract(masteryBefore);
+
+                state.setMasteryScore(mNew);
+                state.setConfidence(MasteryFormulaUtil.updateConfidence(confidence));
+                state.setSource(sourceCode);
+                state.setLastAssessedAt(now);
+
+                MasteryChangeLog changeLog = new MasteryChangeLog();
+                changeLog.setStudentId(studentId);
+                changeLog.setKnowledgePointId(kpId);
+                changeLog.setChangeType(sourceCode);
+                changeLog.setSourceId(paperId);
+                changeLog.setDelta(delta);
+                changeLog.setMasteryBefore(masteryBefore);
+                changeLog.setMasteryAfter(mNew);
+                changeLog.setTenantId(tenantId);
+                changeLogs.add(changeLog);
+            }
+            updatedStates.add(state);
+            affectedKpIds.add(kpId);
+        }
+
+        // 6. 批量写回 state 终值（≤100/批）
+        for (int from = 0; from < updatedStates.size(); from += BATCH_SIZE) {
+            int to = Math.min(from + BATCH_SIZE, updatedStates.size());
+            stateMapper.batchUpdateMastery(studentId, tenantId,
+                    updatedStates.subList(from, to), sourceCode, now);
+        }
+
+        // 7. 批量写日志（每事件一条，≤100/批）
+        for (int from = 0; from < changeLogs.size(); from += BATCH_SIZE) {
+            int to = Math.min(from + BATCH_SIZE, changeLogs.size());
+            changeLogMapper.batchInsert(changeLogs.subList(from, to));
+        }
+
+        // 8. 掌握度联动错题暂停/重新入队（幂等）
+        for (String kpId : affectedKpIds) {
+            StudentKnowledgeState state = stateMap.get(kpId);
+            if (state != null) {
+                errorQuestionService.syncPauseStatus(studentId, tenantId, kpId, state.getMasteryScore());
+            }
+        }
+
+        log.info("[updateMasteryFromExam] 掌握度批量更新完成: studentId={}, paperId={}, events={}, kps={}",
+                studentId, paperId, changeLogs.size(), affectedKpIds.size());
+    }
+
+    /**
+     * 声明难度 → 数值；非法/缺失 → 0.5（design §7.3 B1：不走枚举兜底 0.6）
+     */
+    private BigDecimal resolveDeclaredDifficulty(String difficulty) {
+        try {
+            return MasteryFormulaUtil.mapDifficulty(difficulty);
+        } catch (IllegalArgumentException e) {
+            return MasteryFormulaUtil.D_NORM_DEFAULT;
+        }
+    }
+
+    /**
+     * 同知识点题库难度历史均值（1 条 SQL + 内存按题量加权）
+     *
+     * @return kpId → 均值（无数据/全部非法时不含该 kp）
+     */
+    private Map<String, BigDecimal> loadAvgDifficultyMap(String tenantId, List<String> kpIds) {
+        Map<String, BigDecimal> result = new HashMap<>();
+        List<Map<String, Object>> rows = questionBankMapper.selectDifficultyDistributionByKpIds(kpIds, tenantId);
+        if (rows == null || rows.isEmpty()) {
+            return result;
+        }
+        Map<String, BigDecimal> weightedSum = new HashMap<>();
+        Map<String, Long> counts = new HashMap<>();
+        for (Map<String, Object> row : rows) {
+            String kpId = (String) row.get("knowledge_point_id");
+            String difficulty = (String) row.get("difficulty");
+            Number cnt = (Number) row.get("cnt");
+            if (kpId == null || difficulty == null || cnt == null) {
+                continue;
+            }
+            long count = cnt.longValue();
+            if (count <= 0) {
+                continue;
+            }
+            BigDecimal mapped;
+            try {
+                mapped = MasteryFormulaUtil.mapDifficulty(difficulty);
+            } catch (IllegalArgumentException e) {
+                continue;
+            }
+            weightedSum.merge(kpId, mapped.multiply(BigDecimal.valueOf(count)), BigDecimal::add);
+            counts.merge(kpId, count, Long::sum);
+        }
+        for (Map.Entry<String, Long> entry : counts.entrySet()) {
+            result.put(entry.getKey(), weightedSum.get(entry.getKey())
+                    .divide(BigDecimal.valueOf(entry.getValue()), 4, RoundingMode.HALF_UP));
+        }
+        return result;
     }
 
     // ===== 学生端查询 =====
@@ -495,9 +708,37 @@ public class MasteryServiceImpl implements MasteryService {
             BigDecimal avgDifficulty = questionBankMapper.selectAvgDifficultyByKp(kpId, tenantId);
 
             return MasteryFormulaUtil.validateDNorm(declaredDifficulty, avgDifficulty);
+        } else if ("exam".equals(questionSource)) {
+            // 试卷来源（Change 2026-11-11，design v3）：难度来自 exam_question.difficulty（视觉模型声明），
+            // 与"新题难度需与同知识点历史均值偏离 ≤0.2"同一口径：非法/缺失/无历史/偏离>0.2 → 0.5
+            return calculateExamDNorm(submission, kpId, tenantId);
         }
 
         return MasteryFormulaUtil.D_NORM_DEFAULT;
+    }
+
+    /**
+     * 试卷来源 D_norm：{@code exam_question.difficulty} → {@link QuestionDifficulty#getDNorm()}
+     * → {@code MasteryFormulaUtil.validateDNorm(declared, 同知识点题库历史均值)}
+     */
+    private BigDecimal calculateExamDNorm(HomeworkSubmissionDetail submission, String kpId, String tenantId) {
+        ExamQuestion question = examQuestionMapper.selectById(submission.getQuestionId());
+        if (question == null) {
+            log.warn("Question not found for submission {}, questionSource=exam, questionId={}, using D_NORM_DEFAULT",
+                    submission.getSubmissionId(), submission.getQuestionId());
+            return MasteryFormulaUtil.D_NORM_DEFAULT;
+        }
+        BigDecimal declared;
+        try {
+            declared = QuestionDifficulty.fromCode(question.getDifficulty()).getDNorm();
+        } catch (IllegalArgumentException e) {
+            // 试卷难度缺失/非法（视觉模型没给或给了未知值）→ 0.5，不走枚举兜底 0.6
+            log.warn("试卷难度非法，D_norm 降级 0.5: questionId={}, difficulty={}",
+                    question.getId(), question.getDifficulty());
+            return MasteryFormulaUtil.D_NORM_DEFAULT;
+        }
+        BigDecimal avgDifficulty = questionBankMapper.selectAvgDifficultyByKp(kpId, tenantId);
+        return MasteryFormulaUtil.validateDNorm(declared, avgDifficulty);
     }
 
     /**

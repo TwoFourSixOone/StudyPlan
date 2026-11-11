@@ -80,4 +80,10 @@ public class ErrorQuestionVO {
      * 题目难度（JOIN question_bank.difficulty，COALESCE 兜底）
      */
     private String questionDifficulty;
+
+    /**
+     * 是否支持"原题重做"（Change 2026-11-11 v3：试卷错题也参与原题重做，
+     * 因此恒为 {@code true}；字段保留以兼容前端既有判断）
+     */
+    private Boolean redoSupported;
 }

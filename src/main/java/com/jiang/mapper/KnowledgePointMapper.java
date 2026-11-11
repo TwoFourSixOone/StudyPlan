@@ -60,6 +60,16 @@ public interface KnowledgePointMapper extends BaseMapper<KnowledgePoint> {
                                                               @Param("tenantId") String tenantId);
 
     /**
+     * 查询科目下全部已启用知识点（v4 候选构造用；显式列名，禁 select *）
+     *
+     * <p>年级过滤、排序与上限由 {@code ExamKpCandidateService} 在内存完成（零 DDL）。</p>
+     */
+    @Select("SELECT knowledge_point_id, name, grade_range FROM knowledge_point " +
+            "WHERE tenant_id = #{tenantId} AND subject = #{subject} AND status = 'active'")
+    List<KnowledgePoint> selectActiveBySubject(@Param("tenantId") String tenantId,
+                                                @Param("subject") String subject);
+
+    /**
      * 根据学科查询知识点 ID 列表
      */
     @Select("SELECT knowledge_point_id FROM knowledge_point WHERE tenant_id = #{tenantId} AND subject = #{subject}")

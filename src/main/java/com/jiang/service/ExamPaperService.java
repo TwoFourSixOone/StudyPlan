@@ -1,15 +1,20 @@
 package com.jiang.service;
 
 import com.jiang.common.result.PageResult;
-import com.jiang.dto.ExamGradeRequest;
-import com.jiang.vo.*;
+import com.jiang.vo.ExamImageUploadVO;
+import com.jiang.vo.ExamPaperDetailVO;
+import com.jiang.vo.ExamPaperListItemVO;
+import com.jiang.vo.ExamSubmitVO;
+import com.jiang.vo.ExamTaskProgressVO;
+import com.jiang.vo.ExamUploadVO;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
-import java.util.List;
 
 /**
- * 试卷服务接口
+ * 试卷服务接口（Change 2026-11-11：三段式上传 + 视觉解析 + 自动判分/结算）
+ *
+ * <p>接口收敛到 {@code /api/student/exam/papers*}（design D9）；手工录入成绩已删除（拍板 #4）。</p>
  *
  * @author StudyMate Team
  * @since 2026-11-04
@@ -17,37 +22,50 @@ import java.util.List;
 public interface ExamPaperService {
 
     /**
-     * 上传试卷
-     * 修复 IMP-6：文件上传在事务外，仅 DB 写入在事务内
+     * 创建试卷上传会话（不存在则新建；30 分钟内 uploading 会话复用，超期重置后复用）
      *
-     * @param subjectId 科目 ID
-     * @param examDate  考试日期
-     * @param paperType 试卷类型
-     * @param files     试卷图片文件列表
-     * @return 上传结果
+     * @param subjectId  科目 ID
+     * @param examDate   考试日期
+     * @param paperType  试卷类型（midterm/final/monthly/mock/other，空按 midterm，非法 1191）
+     * @param imageCount 声明张数（[1,8]）
+     * @return 会话信息
      */
-    ExamUploadVO uploadExamPaper(Long subjectId, LocalDate examDate, String paperType, List<MultipartFile> files);
+    ExamUploadVO createPaper(Long subjectId, LocalDate examDate, String paperType, Integer imageCount);
 
     /**
-     * 处理试卷解析任务（由 Worker 调用）
-     * 修复 BLOCK-5：同步处理，不使用 @Async
+     * 追加一张试卷图片（逐张上传，单张 ≤9.5MB、累计 ≤30MB、最多 8 张）
+     *
+     * @param paperId 试卷 ID（必须属于当前学生 + 租户）
+     * @param file    图片（multipart 字段名固定 {@code file}）
+     * @return 已上传张数与状态（达到 8 张上限时自动创建解析任务）
+     */
+    ExamImageUploadVO uploadImage(Long paperId, MultipartFile file);
+
+    /**
+     * 提交解析（正常触发路径；uploadedCount ≥ 1，重复提交 1186）
+     *
+     * @param paperId 试卷 ID
+     * @return 任务信息
+     */
+    ExamSubmitVO submitPaper(Long paperId);
+
+    /**
+     * 重试解析（仅 {@code failed} 且整卷重试次数 < 2，复用原图）
+     *
+     * @param paperId 试卷 ID
+     * @return 任务信息（含累计整卷重试次数）
+     */
+    ExamSubmitVO retryPaper(Long paperId);
+
+    /**
+     * 处理试卷解析任务（由 Worker 调用）：解析落库 → 自动判分 → 结算（错题/掌握度/学习记录）→ 异步信号
      *
      * @param taskId 任务 ID
      */
     void processExamAnalysis(Long taskId);
 
     /**
-     * 提交考试成绩
-     * 修复 BLOCK-6：学生手动录入成绩后触发掌握度更新和错题入队
-     * 修复 IMP-25：错题入队先于掌握度更新
-     *
-     * @param resultId 试卷 ID
-     * @param request  成绩明细
-     */
-    void submitExamGrade(Long resultId, ExamGradeRequest request);
-
-    /**
-     * 查询解析任务进度
+     * 查询解析任务进度（task → paper 归属校验，越权 1135）
      *
      * @param taskId 任务 ID
      * @return 进度信息
@@ -55,19 +73,19 @@ public interface ExamPaperService {
     ExamTaskProgressVO getTaskProgress(Long taskId);
 
     /**
-     * 获取分析结果详情
+     * 历史试卷列表（design §10.1：固定 2 条 SQL，按考试日期倒序）
      *
-     * @param resultId 试卷 ID
-     * @return 详情
+     * @param page 页码（从 1 开始，<1 置 1）
+     * @param size 每页条数（1–50，>50 夹到 50）
+     * @return 分页结果（含科目名 / 题数 / 正确数 / 已判定数 / 得分）
      */
-    ExamResultDetailVO getResultDetail(Long resultId);
+    PageResult<ExamPaperListItemVO> getPapers(Integer page, Integer size);
 
     /**
-     * 获取分析结果历史列表
+     * 试卷详情 + 全部题目（design §10.2：固定 3 条 SQL；他人 paperId 返回 1136，不泄漏存在性）
      *
-     * @param page 页码（从 1 开始）
-     * @param size 每页大小
-     * @return 分页结果
+     * @param paperId 试卷 ID
+     * @return 详情（题目按题号升序；解析中/失败时题目可能为空数组，但试卷头信息照常返回）
      */
-    PageResult<ExamResultListVO> getResultHistory(Integer page, Integer size);
+    ExamPaperDetailVO getPaperDetail(Long paperId);
 }

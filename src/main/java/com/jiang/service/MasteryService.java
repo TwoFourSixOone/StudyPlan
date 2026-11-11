@@ -52,6 +52,22 @@ public interface MasteryService {
                                   String knowledgePointId, ChangeType changeType,
                                   Long sourceId, boolean isCorrect, BigDecimal dNorm);
 
+    /**
+     * 根据试卷结算结果批量更新掌握度（Change 2026-11-11，design §7.3）
+     *
+     * <p><b>答对、答错都更新</b>（W_source = 1.0）；同一知识点多题在内存按事件顺序套用公式，
+     * 只写一次终值；每个事件写一条 {@code mastery_change_log}（保留逐题可追溯）。
+     * {@code D_norm} 走 {@code MasteryFormulaUtil.validateDNorm(declared, 同知识点题库历史均值)}，
+     * 非法/缺失/无历史/偏离 >0.2 一律 0.5。</p>
+     *
+     * @param studentId 学生 ID
+     * @param tenantId  租户 ID
+     * @param paperId   试卷 ID（写日志的 source_id，用于 SIG-2 追溯）
+     * @param events    事件列表（知识点 + 对错 + 难度）
+     */
+    void updateMasteryFromExam(Long studentId, String tenantId, Long paperId,
+                               List<com.jiang.dto.ExamMasteryEvent> events);
+
     // ===== 学生端查询 =====
 
     /**

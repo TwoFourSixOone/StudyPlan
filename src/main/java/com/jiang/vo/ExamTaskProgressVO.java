@@ -21,6 +21,11 @@ public class ExamTaskProgressVO {
     private Long taskId;
 
     /**
+     * 试卷 ID（上传页轮询 / 越权排查用）
+     */
+    private Long paperId;
+
+    /**
      * 状态：pending/processing/completed/failed
      */
     private String status;

@@ -87,6 +87,10 @@ class MasteryServiceTest {
     @Mock
     private ErrorQuestionService errorQuestionService;
 
+    /** 试卷来源难度读取（Change 2026-11-11）：exam 来源 D_norm 走 exam_question.difficulty */
+    @Mock
+    private com.jiang.mapper.ExamQuestionMapper examQuestionMapper;
+
     @InjectMocks
     private MasteryServiceImpl masteryService;
 
@@ -529,5 +533,269 @@ class MasteryServiceTest {
         log.setTenantId(TENANT_ID);
         log.setCreateTime(LocalDateTime.now());
         return log;
+    }
+
+    // ==================== 试卷结算批量入口（Change 2026-11-11，design §7.3） ====================
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("updateMasteryFromExam 试卷掌握度批量更新")
+    class ExamMasteryTests {
+
+        private StudentKnowledgeState state(String kpId, String mastery, String confidence) {
+            StudentKnowledgeState state = new StudentKnowledgeState();
+            state.setStudentId(STUDENT_ID);
+            state.setKnowledgePointId(kpId);
+            state.setMasteryScore(new BigDecimal(mastery));
+            state.setConfidence(new BigDecimal(confidence));
+            state.setTenantId(TENANT_ID);
+            state.setVersion(1);
+            return state;
+        }
+
+        private java.util.Map<String, Object> difficultyRow(String kpId, String difficulty, int count) {
+            java.util.Map<String, Object> row = new java.util.HashMap<>();
+            row.put("knowledge_point_id", kpId);
+            row.put("difficulty", difficulty);
+            row.put("cnt", count);
+            return row;
+        }
+
+        @Test
+        @DisplayName("答对答错都更新：同知识点多题依次演进，只写一次终值 + 每事件一条日志")
+        void should_updateBothCorrectAndIncorrect_withAggregatedState() {
+            String kpId = "kp-1";
+            when(stateMapper.selectByStudentAndKpIds(eq(STUDENT_ID), eq(TENANT_ID), anyList()))
+                    .thenReturn(List.of(state(kpId, "0.5000", "0.1000")));
+            // 题库同 kp 历史难度：basic 1 道 → 均值 0.3（validated 保留 declared 0.3）
+            when(questionBankMapper.selectDifficultyDistributionByKpIds(anyList(), eq(TENANT_ID)))
+                    .thenReturn(List.of(difficultyRow(kpId, "basic", 1)));
+
+            masteryService.updateMasteryFromExam(STUDENT_ID, TENANT_ID, 10L, List.of(
+                    new com.jiang.dto.ExamMasteryEvent(kpId, true, "basic"),
+                    new com.jiang.dto.ExamMasteryEvent(kpId, false, "basic")));
+
+            // 1) state 只写一次（批量 CASE WHEN），终值按事件顺序演进
+            ArgumentCaptor<List<StudentKnowledgeState>> stateCaptor = ArgumentCaptor.forClass(List.class);
+            verify(stateMapper).batchUpdateMastery(eq(STUDENT_ID), eq(TENANT_ID),
+                    stateCaptor.capture(), eq("exam"), any());
+            assertEquals(1, stateCaptor.getValue().size());
+
+            BigDecimal m0 = new BigDecimal("0.5000");
+            BigDecimal c0 = new BigDecimal("0.1000");
+            BigDecimal dNorm = new BigDecimal("0.3");
+            BigDecimal m1 = com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                    m0, ChangeType.EXAM.getSourceWeight(), dNorm, c0);
+            BigDecimal m2 = com.jiang.common.util.MasteryFormulaUtil.calculateMasteryIncorrect(
+                    m1, ChangeType.EXAM.getSourceWeight(), dNorm,
+                    com.jiang.common.util.MasteryFormulaUtil.updateConfidence(c0));
+            assertEquals(0, m2.compareTo(stateCaptor.getValue().get(0).getMasteryScore()),
+                    "终值应为 答对→答错 依次演进的结果");
+            assertEquals("exam", stateCaptor.getValue().get(0).getSource());
+
+            // 2) 日志：每事件一条，字段完整（change_type/source_id/delta/before/after）
+            ArgumentCaptor<List<MasteryChangeLog>> logCaptor = ArgumentCaptor.forClass(List.class);
+            verify(changeLogMapper).batchInsert(logCaptor.capture());
+            List<MasteryChangeLog> logs = logCaptor.getValue();
+            assertEquals(2, logs.size());
+            assertEquals("exam", logs.get(0).getChangeType());
+            assertEquals(10L, logs.get(0).getSourceId());
+            assertEquals(0, m0.compareTo(logs.get(0).getMasteryBefore()));
+            assertEquals(0, m1.compareTo(logs.get(0).getMasteryAfter()));
+            assertEquals(0, m1.subtract(m0).compareTo(logs.get(0).getDelta()));
+            assertTrue(logs.get(0).getDelta().signum() > 0, "答对 delta 为正");
+            assertTrue(logs.get(1).getDelta().signum() < 0, "答错 delta 为负");
+
+            // 3) 掌握度联动错题：按去重 kp 调一次
+            verify(errorQuestionService, times(1)).syncPauseStatus(
+                    eq(STUDENT_ID), eq(TENANT_ID), eq(kpId), any());
+        }
+
+        @Test
+        @DisplayName("D_norm 四条断言：阈值内保留 declared / 偏离>0.2 / 无历史 / 非法缺失 → 0.5")
+        void should_validateDNorm_when_difficultyDeclared() {
+            String withinKp = "kp-within";
+            String deviatedKp = "kp-deviated";
+            String noHistoryKp = "kp-nohistory";
+            String invalidKp = "kp-invalid";
+
+            when(stateMapper.selectByStudentAndKpIds(eq(STUDENT_ID), eq(TENANT_ID), anyList()))
+                    .thenReturn(List.of(
+                            state(withinKp, "0.5000", "0.1000"),
+                            state(deviatedKp, "0.5000", "0.1000"),
+                            state(noHistoryKp, "0.5000", "0.1000"),
+                            state(invalidKp, "0.5000", "0.1000")));
+            when(questionBankMapper.selectDifficultyDistributionByKpIds(anyList(), eq(TENANT_ID)))
+                    .thenReturn(List.of(
+                            difficultyRow(withinKp, "basic", 2),       // 均值 0.3，declared 0.3 → 保留
+                            difficultyRow(deviatedKp, "basic", 1),     // 均值 0.3，declared 0.9 → 降级 0.5
+                            difficultyRow(invalidKp, "standard", 1)));  // 均值存在但 declared 非法 → 0.5
+
+            masteryService.updateMasteryFromExam(STUDENT_ID, TENANT_ID, 10L, List.of(
+                    new com.jiang.dto.ExamMasteryEvent(withinKp, true, "basic"),
+                    new com.jiang.dto.ExamMasteryEvent(deviatedKp, true, "challenge"),
+                    new com.jiang.dto.ExamMasteryEvent(noHistoryKp, true, "standard"),
+                    new com.jiang.dto.ExamMasteryEvent(invalidKp, true, "weird")));
+
+            ArgumentCaptor<List<StudentKnowledgeState>> stateCaptor = ArgumentCaptor.forClass(List.class);
+            verify(stateMapper).batchUpdateMastery(eq(STUDENT_ID), eq(TENANT_ID),
+                    stateCaptor.capture(), eq("exam"), any());
+
+            java.util.Map<String, BigDecimal> masteryByKp = new java.util.HashMap<>();
+            for (StudentKnowledgeState state : stateCaptor.getValue()) {
+                masteryByKp.put(state.getKnowledgePointId(), state.getMasteryScore());
+            }
+            BigDecimal m0 = new BigDecimal("0.5000");
+            BigDecimal c0 = new BigDecimal("0.1000");
+            BigDecimal w = ChangeType.EXAM.getSourceWeight();
+
+            // ① 阈值内：declared 0.3 保留
+            assertEquals(0, com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                            m0, w, new BigDecimal("0.3"), c0).compareTo(masteryByKp.get(withinKp)));
+            // ② 偏离 >0.2：0.9 与均值 0.3 相差 0.6 → 0.5
+            assertEquals(0, com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                            m0, w, new BigDecimal("0.5"), c0).compareTo(masteryByKp.get(deviatedKp)));
+            // ③ 无历史 → 0.5
+            assertEquals(0, com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                            m0, w, new BigDecimal("0.5"), c0).compareTo(masteryByKp.get(noHistoryKp)));
+            // ④ 非法难度 → 0.5
+            assertEquals(0, com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                            m0, w, new BigDecimal("0.5"), c0).compareTo(masteryByKp.get(invalidKp)));
+        }
+
+        @Test
+        @DisplayName("缺失 state → 批量 INSERT IGNORE 后重查一次，再批量更新（无历史也能建档并写日志）")
+        void should_createMissingStatesInBatch() {
+            String kpId = "kp-new";
+            when(stateMapper.selectByStudentAndKpIds(eq(STUDENT_ID), eq(TENANT_ID), anyList()))
+                    .thenReturn(List.of())
+                    .thenReturn(List.of(state(kpId, "0.5000", "0.1000")));
+            when(questionBankMapper.selectDifficultyDistributionByKpIds(anyList(), eq(TENANT_ID)))
+                    .thenReturn(List.of());
+
+            masteryService.updateMasteryFromExam(STUDENT_ID, TENANT_ID, 10L,
+                    List.of(new com.jiang.dto.ExamMasteryEvent(kpId, true, null)));
+
+            // 1) 无记录时按 findOrCreateState 语义批量建档：初始掌握度 0.5 / 置信度 0.1 / source=exam
+            ArgumentCaptor<List<StudentKnowledgeState>> createdCaptor = ArgumentCaptor.forClass(List.class);
+            verify(stateMapper).batchInsertIgnore(createdCaptor.capture());
+            StudentKnowledgeState created = createdCaptor.getValue().get(0);
+            assertEquals(kpId, created.getKnowledgePointId());
+            assertEquals(0, com.jiang.common.util.MasteryFormulaUtil.MASTERY_INITIAL
+                    .compareTo(created.getMasteryScore()));
+            assertEquals(0, com.jiang.common.util.MasteryFormulaUtil.CONFIDENCE_INITIAL
+                    .compareTo(created.getConfidence()));
+            assertEquals("exam", created.getSource());
+            assertEquals(TENANT_ID, created.getTenantId());
+
+            verify(stateMapper, times(2)).selectByStudentAndKpIds(eq(STUDENT_ID), eq(TENANT_ID), anyList());
+            verify(stateMapper).batchUpdateMastery(eq(STUDENT_ID), eq(TENANT_ID), anyList(), eq("exam"), any());
+
+            // 2) 没有掌握度数据也必须写一条 mastery_change_log
+            ArgumentCaptor<List<MasteryChangeLog>> logCaptor = ArgumentCaptor.forClass(List.class);
+            verify(changeLogMapper).batchInsert(logCaptor.capture());
+            assertEquals(1, logCaptor.getValue().size());
+            assertEquals("exam", logCaptor.getValue().get(0).getChangeType());
+            assertEquals(10L, logCaptor.getValue().get(0).getSourceId());
+            assertTrue(logCaptor.getValue().get(0).getDelta().signum() > 0);
+        }
+
+        @Test
+        @DisplayName("空事件 / 全空知识点 → 不写库")
+        void should_skip_when_noEvents() {
+            masteryService.updateMasteryFromExam(STUDENT_ID, TENANT_ID, 10L, List.of());
+            masteryService.updateMasteryFromExam(STUDENT_ID, TENANT_ID, 10L,
+                    List.of(new com.jiang.dto.ExamMasteryEvent(null, true, "basic")));
+
+            verify(stateMapper, never()).batchUpdateMastery(any(), any(), anyList(), any(), any());
+            verify(changeLogMapper, never()).batchInsert(anyList());
+        }
+
+        @Test
+        @DisplayName("exam 来源作业题 D_norm：difficulty→getDNorm→validateDNorm（阈值内保留）")
+        void should_useExamQuestionDifficulty_forExamSourceDNorm() {
+            String kpId = "kp-exam";
+            HomeworkSubmissionDetail submission = examSubmission(500L, kpId);
+            when(submissionDetailMapper.selectBatchIds(anyList())).thenReturn(List.of(submission));
+
+            com.jiang.model.entity.ExamQuestion question = new com.jiang.model.entity.ExamQuestion();
+            question.setId(500L);
+            question.setDifficulty("standard");
+            when(examQuestionMapper.selectById(500L)).thenReturn(question);
+            when(questionBankMapper.selectAvgDifficultyByKp(kpId, TENANT_ID))
+                    .thenReturn(new BigDecimal("0.6"));
+
+            StudentKnowledgeState existing = state(kpId, "0.5000", "0.1000");
+            when(stateMapper.selectOne(any())).thenReturn(existing);
+            when(stateMapper.updateById(any(StudentKnowledgeState.class))).thenReturn(1);
+
+            masteryService.updateMasteryFromHomework(STUDENT_ID, TENANT_ID, List.of(1L));
+
+            BigDecimal expected = com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                    new BigDecimal("0.5000"), ChangeType.HOMEWORK.getSourceWeight(),
+                    new BigDecimal("0.6"), new BigDecimal("0.1000"));
+            assertEquals(0, expected.compareTo(existing.getMasteryScore()), "dNorm 应保留 declared 0.6");
+        }
+
+        @Test
+        @DisplayName("exam 来源作业题 D_norm：无题库历史 → 0.5")
+        void should_fallbackExamDNorm_when_noHistory() {
+            String kpId = "kp-exam-nohistory";
+            when(submissionDetailMapper.selectBatchIds(anyList()))
+                    .thenReturn(List.of(examSubmission(501L, kpId)));
+
+            com.jiang.model.entity.ExamQuestion question = new com.jiang.model.entity.ExamQuestion();
+            question.setId(501L);
+            question.setDifficulty("challenge");
+            when(examQuestionMapper.selectById(501L)).thenReturn(question);
+            when(questionBankMapper.selectAvgDifficultyByKp(kpId, TENANT_ID)).thenReturn(null);
+
+            StudentKnowledgeState existing = state(kpId, "0.5000", "0.1000");
+            when(stateMapper.selectOne(any())).thenReturn(existing);
+            when(stateMapper.updateById(any(StudentKnowledgeState.class))).thenReturn(1);
+
+            masteryService.updateMasteryFromHomework(STUDENT_ID, TENANT_ID, List.of(1L));
+
+            BigDecimal expected = com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                    new BigDecimal("0.5000"), ChangeType.HOMEWORK.getSourceWeight(),
+                    new BigDecimal("0.5000"), new BigDecimal("0.1000"));
+            assertEquals(0, expected.compareTo(existing.getMasteryScore()), "无历史 → D_NORM_DEFAULT 0.5");
+        }
+
+        @Test
+        @DisplayName("exam 来源作业题 D_norm：难度缺失/非法 → 0.5（不是枚举兜底 0.6）")
+        void should_fallbackExamDNorm_when_difficultyInvalid() {
+            String kpId = "kp-exam-invalid";
+            when(submissionDetailMapper.selectBatchIds(anyList()))
+                    .thenReturn(List.of(examSubmission(502L, kpId)));
+
+            com.jiang.model.entity.ExamQuestion question = new com.jiang.model.entity.ExamQuestion();
+            question.setId(502L);
+            question.setDifficulty("weird");
+            when(examQuestionMapper.selectById(502L)).thenReturn(question);
+
+            StudentKnowledgeState existing = state(kpId, "0.5000", "0.1000");
+            when(stateMapper.selectOne(any())).thenReturn(existing);
+            when(stateMapper.updateById(any(StudentKnowledgeState.class))).thenReturn(1);
+
+            masteryService.updateMasteryFromHomework(STUDENT_ID, TENANT_ID, List.of(1L));
+
+            BigDecimal expected = com.jiang.common.util.MasteryFormulaUtil.calculateMasteryCorrect(
+                    new BigDecimal("0.5000"), ChangeType.HOMEWORK.getSourceWeight(),
+                    new BigDecimal("0.5000"), new BigDecimal("0.1000"));
+            assertEquals(0, expected.compareTo(existing.getMasteryScore()), "非法难度 → 0.5");
+            verify(questionBankMapper, never()).selectAvgDifficultyByKp(anyString(), anyString());
+        }
+
+        private HomeworkSubmissionDetail examSubmission(Long questionId, String kpId) {
+            HomeworkSubmissionDetail submission = new HomeworkSubmissionDetail();
+            submission.setSubmissionId(1L);
+            submission.setQuestionId(questionId);
+            submission.setQuestionSource("exam");
+            submission.setKnowledgePointId(kpId);
+            submission.setIsCorrect(1);
+            submission.setStudentId(STUDENT_ID);
+            submission.setTenantId(TENANT_ID);
+            return submission;
+        }
     }
 }

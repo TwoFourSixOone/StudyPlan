@@ -224,7 +224,10 @@ public class LearningRecordServiceImpl implements LearningRecordService {
         }
         vo.setDetail(detail);
 
-        vo.setMasteryChanges(getMasteryChangesBySource(id, "EXAM"));
+        // 修复既有缺陷（design §7.6）：落库值是 ChangeType.EXAM.getCode() = 小写 exam，
+        // 原实现传大写 "EXAM" 导致学习记录详情的"掌握度变更"永远为空
+        vo.setMasteryChanges(getMasteryChangesBySource(id,
+                com.jiang.model.enums.ChangeType.EXAM.getCode()));
 
         return vo;
     }

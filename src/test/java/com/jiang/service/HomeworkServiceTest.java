@@ -111,9 +111,15 @@ class HomeworkServiceTest {
     private ErrorQuestionMapper errorQuestionMapper;
     @Mock
     private PlatformTransactionManager transactionManager;
+    /** 判分公共组件内部的 LLM 客户端（Change 2026-11-11：判分已委托 AnswerGradingService） */
+    @Mock
+    private com.jiang.client.AgentScopeClient agentScopeClient;
 
     @InjectMocks
     private HomeworkServiceImpl homeworkService;
+
+    /** 真实判分组件 + mock LLM：保证"判分口径委托公共组件"这条路径被真实覆盖 */
+    private com.jiang.service.impl.AnswerGradingServiceImpl answerGradingService;
 
     private MockedStatic<StudentContext> mockedStudentContext;
 
@@ -144,6 +150,12 @@ class HomeworkServiceTest {
         aiExecutor = new ThreadPoolExecutor(1, 1, 0L, TimeUnit.MILLISECONDS,
                 new LinkedBlockingQueue<>());
         ReflectionTestUtils.setField(homeworkService, "aiExecutor", aiExecutor);
+
+        // 判分已委托 AnswerGradingService（design D5）：注入真实实现 + mock LLM
+        answerGradingService = new com.jiang.service.impl.AnswerGradingServiceImpl();
+        ReflectionTestUtils.setField(answerGradingService, "agentScopeClient", agentScopeClient);
+        ReflectionTestUtils.setField(answerGradingService, "gradingExecutor", aiExecutor);
+        ReflectionTestUtils.setField(homeworkService, "answerGradingService", answerGradingService);
     }
 
     @AfterEach
@@ -667,6 +679,109 @@ class HomeworkServiceTest {
         verify(dailyPlanMapper).updateStatusWithCheck(
                 eq(PLAN_ID), eq(PlanStatus.IN_PROGRESS.getCode()),
                 eq(PlanStatus.PENDING.getCode()), eq(TENANT_ID));
+    }
+
+    // ==================== 试卷错题回流（v3 / tasks D5） ====================
+
+    private com.jiang.vo.DueErrorQuestionVO dueError(Long questionId) {
+        return com.jiang.vo.DueErrorQuestionVO.builder()
+                .errorQuestionId(Math.abs(questionId))
+                .questionId(questionId)
+                .knowledgePointId("kp_001")
+                .currentStage(1)
+                .nextDueDate(PLAN_DATE)
+                .build();
+    }
+
+    private java.util.Map<String, Object> errorCountRow(String kpId, int count) {
+        java.util.Map<String, Object> row = new java.util.HashMap<>();
+        row.put("knowledge_point_id", kpId);
+        row.put("error_count", count);
+        return row;
+    }
+
+    /**
+     * 生成作业公共 stub（含到期错题与活跃错题计数）
+     */
+    private void stubGenerationWithErrors(java.util.List<com.jiang.vo.DueErrorQuestionVO> dueErrors,
+                                          int rawActiveCount) {
+        stubActiveGoal();
+        stubSubject();
+        when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(stateMapper.selectActiveStatesWithKpInfo(STUDENT_ID, TENANT_ID, SUBJECT_NAME, false))
+                .thenReturn(List.of(buildStudentState("kp_001", new BigDecimal("0.5"))));
+        when(knowledgePointMapper.selectList(any(LambdaQueryWrapper.class)))
+                .thenReturn(List.of(buildKnowledgePoint("kp_001")));
+
+        java.util.Map<String, java.util.List<com.jiang.vo.DueErrorQuestionVO>> dueMap =
+                new java.util.LinkedHashMap<>();
+        dueMap.put("kp_001", dueErrors);
+        when(errorQuestionService.getDueErrorQuestions(eq(STUDENT_ID), eq(TENANT_ID), eq(PLAN_DATE)))
+                .thenReturn(dueMap);
+        lenient().when(errorQuestionMapper.selectActiveErrorCountGroupByKp(eq(STUDENT_ID), eq(TENANT_ID)))
+                .thenReturn(java.util.List.of(errorCountRow("kp_001", rawActiveCount)));
+        doAnswer(invocation -> {
+            DailyPlan p = invocation.getArgument(0);
+            p.setPlanId(PLAN_ID);
+            return 1;
+        }).when(dailyPlanMapper).insert(any(DailyPlan.class));
+        lenient().when(dailyPlanMapper.updateContentAndStatus(eq(PLAN_ID), anyString(), anyString(),
+                anyString(), anyString())).thenReturn(1);
+    }
+
+    @Test
+    @DisplayName("D5-T1：某 kp 5 道试卷错题 → 作业生成不失败，进作业的 redo ≤3（其余顺延）")
+    void should_notFailGeneration_when_kpHasFiveExamWrongQuestions() {
+        stubGenerationWithErrors(
+                List.of(dueError(-501L), dueError(-502L), dueError(-503L))
+                , 5);
+        lenient().when(bankQuestionPicker.pick(anyString(), anyString(), anyInt(),
+                nullable(Integer.class), nullable(String.class), anySet())).thenReturn(List.of());
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<DailyPlanQuestionRef>> refsCaptor = ArgumentCaptor.forClass(List.class);
+        when(contentParser.serialize(refsCaptor.capture())).thenReturn("[]");
+
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> homeworkService.generateDailyHomework(
+                STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
+
+        List<DailyPlanQuestionRef> refs = refsCaptor.getValue();
+        long examRedo = refs.stream()
+                .filter(r -> "exam".equals(r.getQuestionSource()) && "redo".equals(r.getTaskType()))
+                .count();
+        assertEquals(3, examRedo, "每 kp 每日 redo ≤3（LIMIT 3），5 道里其余 2 道次日顺延");
+    }
+
+    @Test
+    @DisplayName("D5-T2：题库 3 + 试卷 3 = 6 → 传给配额计算器的 map 按 kp 合计夹取到 KP_MAX=4")
+    void should_clampKpErrorCountToKpMax_byTotal() {
+        stubGenerationWithErrors(
+                List.of(dueError(101L), dueError(102L), dueError(103L),
+                        dueError(-501L), dueError(-502L), dueError(-503L)),
+                6);
+        lenient().when(bankQuestionPicker.pick(anyString(), anyString(), anyInt(),
+                nullable(Integer.class), nullable(String.class), anySet())).thenReturn(List.of());
+        when(contentParser.serialize(anyList())).thenReturn("[]");
+
+        java.util.concurrent.atomic.AtomicReference<java.util.Map<String, Integer>> capturedMap =
+                new java.util.concurrent.atomic.AtomicReference<>();
+        try (MockedStatic<com.jiang.common.util.HomeworkQuotaCalculator> mocked =
+                     mockStatic(com.jiang.common.util.HomeworkQuotaCalculator.class,
+                             org.mockito.Answers.CALLS_REAL_METHODS)) {
+            mocked.when(() -> com.jiang.common.util.HomeworkQuotaCalculator.calculate(
+                            anyInt(), anySet(), anyMap(), anyMap(), anyInt()))
+                    .thenAnswer(invocation -> {
+                        capturedMap.set(invocation.getArgument(3));
+                        return invocation.callRealMethod();
+                    });
+
+            org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> homeworkService.generateDailyHomework(
+                    STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE));
+        }
+
+        assertNotNull(capturedMap.get());
+        assertEquals(4, capturedMap.get().get("kp_001"),
+                "按 kp 合计夹取（3 题库 + 3 试卷 = 6 → 4），不是各算 4");
     }
 
     // ==================== gradeHomework ====================

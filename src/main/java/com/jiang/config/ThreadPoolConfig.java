@@ -98,6 +98,25 @@ public class ThreadPoolConfig {
         return createExecutor("planning-refine", planningCoreSize, planningCoreSize, planningQueueCapacity);
     }
 
+    // ==================== 试卷视觉解析线程池 ====================
+
+    @Value("${thread-pool.exam-parse.core-size:3}")
+    private int examParseCoreSize;
+
+    @Value("${thread-pool.exam-parse.queue-capacity:16}")
+    private int examParseQueueCapacity;
+
+    /**
+     * 试卷视觉解析线程池（每张图片一个任务，8 图 → 3 波）
+     * <p>
+     * 拒绝策略：CallerRunsPolicy（背压）。
+     * 队列/线程数有界，配合全局 {@code LlmConcurrencyLimiter}（Semaphore 3）保证在途 LLM 调用 ≤3。
+     */
+    @Bean(name = "examParseExecutor", destroyMethod = "")
+    public ThreadPoolExecutor examParseExecutor() {
+        return createExecutor("exam-parse", examParseCoreSize, examParseCoreSize, examParseQueueCapacity);
+    }
+
     // ==================== 优雅关闭管理器 ====================
 
     /**
@@ -109,13 +128,16 @@ public class ThreadPoolConfig {
             @Qualifier("aiExecutor") ThreadPoolExecutor aiExecutor,
             @Qualifier("examAnalysisExecutor") ThreadPoolExecutor examAnalysisExecutor,
             @Qualifier("planningExecutor") ThreadPoolExecutor planningExecutor,
+            @Qualifier("examParseExecutor") ThreadPoolExecutor examParseExecutor,
             @Value("${thread-pool.ai.await-terminate-seconds:30}") int aiWaitSec,
             @Value("${thread-pool.exam-analysis.await-terminate-seconds:60}") int examWaitSec,
-            @Value("${thread-pool.planning.await-terminate-seconds:60}") int planningWaitSec) {
+            @Value("${thread-pool.planning.await-terminate-seconds:60}") int planningWaitSec,
+            @Value("${thread-pool.exam-parse.await-terminate-seconds:60}") int examParseWaitSec) {
         return new ExecutorShutdownManager(Map.of(
                 "aiExecutor", new PoolRef(aiExecutor, aiWaitSec),
                 "examAnalysisExecutor", new PoolRef(examAnalysisExecutor, examWaitSec),
-                "planningExecutor", new PoolRef(planningExecutor, planningWaitSec)));
+                "planningExecutor", new PoolRef(planningExecutor, planningWaitSec),
+                "examParseExecutor", new PoolRef(examParseExecutor, examParseWaitSec)));
     }
 
     // ==================== 工厂方法 ====================

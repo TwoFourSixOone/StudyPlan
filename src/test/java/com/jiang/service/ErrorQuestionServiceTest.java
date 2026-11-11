@@ -682,4 +682,158 @@ class ErrorQuestionServiceTest {
         eq.setTenantId(TENANT_ID);
         return eq;
     }
+
+    // ==================== 批量入队（Change 2026-11-11，design §7.2） ====================
+    @Nested
+    @DisplayName("recordWrongAnswers 批量入队")
+    class BatchRecordWrongAnswersTests {
+
+        private com.jiang.dto.WrongQuestionRef ref(Long questionId, String kpId) {
+            return new com.jiang.dto.WrongQuestionRef(questionId, kpId);
+        }
+
+        @Test
+        @DisplayName("先批量查已存在（1 条 SQL）：已存在 → 批量 UPDATE；不存在 → 批量 INSERT")
+        void should_insertNew_and_updateExisting() {
+            when(errorQuestionMapper.selectExistingQuestionIds(STUDENT_ID, TENANT_ID,
+                    List.of(-1L, -2L, -3L))).thenReturn(List.of(-1L));
+            when(errorQuestionMapper.batchInsert(anyList())).thenReturn(2);
+            when(errorQuestionMapper.batchResetExisting(any(), any(), anyList(), any(), any(), any(), any()))
+                    .thenReturn(1);
+
+            int affected = errorQuestionService.recordWrongAnswers(STUDENT_ID, TENANT_ID,
+                    List.of(ref(-1L, KP_ID), ref(-2L, KP_ID), ref(-3L, KP_ID)),
+                    ErrorQuestionSourceType.EXAM, 88L, TODAY);
+
+            assertEquals(3, affected);
+
+            ArgumentCaptor<List<ErrorQuestion>> insertCaptor = ArgumentCaptor.forClass(List.class);
+            verify(errorQuestionMapper).batchInsert(insertCaptor.capture());
+            List<ErrorQuestion> inserted = insertCaptor.getValue();
+            assertEquals(2, inserted.size());
+            assertEquals(-2L, inserted.get(0).getQuestionId());
+            assertEquals(KP_ID, inserted.get(0).getKnowledgePointId());
+            assertEquals(1, inserted.get(0).getCurrentStage());
+            assertEquals(TODAY, inserted.get(0).getFirstWrongDate());
+            assertEquals(TODAY.plusDays(1), inserted.get(0).getNextDueDate());
+            assertEquals("active", inserted.get(0).getStatus());
+            assertEquals("exam", inserted.get(0).getSourceType());
+            assertEquals(88L, inserted.get(0).getSourceId());
+
+            ArgumentCaptor<List<Long>> updateCaptor = ArgumentCaptor.forClass(List.class);
+            verify(errorQuestionMapper).batchResetExisting(eq(STUDENT_ID), eq(TENANT_ID),
+                    updateCaptor.capture(), eq("exam"), eq(88L), eq(TODAY), eq(TODAY.plusDays(1)));
+            assertEquals(List.of(-1L), updateCaptor.getValue());
+        }
+
+        @Test
+        @DisplayName("批量 INSERT 撞唯一键 → 整批回退为批量 UPDATE（幂等）")
+        void should_fallbackToUpdate_when_insertDuplicated() {
+            when(errorQuestionMapper.selectExistingQuestionIds(any(), any(), anyList()))
+                    .thenReturn(List.of());
+            when(errorQuestionMapper.batchInsert(anyList()))
+                    .thenThrow(new DuplicateKeyException("uk_student_question"));
+            when(errorQuestionMapper.batchResetExisting(any(), any(), anyList(), any(), any(), any(), any()))
+                    .thenReturn(2);
+
+            int affected = errorQuestionService.recordWrongAnswers(STUDENT_ID, TENANT_ID,
+                    List.of(ref(-1L, KP_ID), ref(-2L, KP_ID)),
+                    ErrorQuestionSourceType.EXAM, 88L, TODAY);
+
+            assertEquals(2, affected);
+            verify(errorQuestionMapper).batchResetExisting(eq(STUDENT_ID), eq(TENANT_ID),
+                    anyList(), eq("exam"), eq(88L), eq(TODAY), eq(TODAY.plusDays(1)));
+        }
+
+        @Test
+        @DisplayName("无知识点（待人工归因）的题不入队；空列表不发 SQL")
+        void should_skip_when_noKnowledgePoint() {
+            assertEquals(0, errorQuestionService.recordWrongAnswers(STUDENT_ID, TENANT_ID,
+                    List.of(ref(-1L, null)), ErrorQuestionSourceType.EXAM, 88L, TODAY));
+            assertEquals(0, errorQuestionService.recordWrongAnswers(STUDENT_ID, TENANT_ID,
+                    List.of(), ErrorQuestionSourceType.EXAM, 88L, TODAY));
+
+            verify(errorQuestionMapper, never()).selectExistingQuestionIds(any(), any(), anyList());
+            verify(errorQuestionMapper, never()).batchInsert(anyList());
+        }
+    }
+
+    // ==================== 试卷来源题面展示（v3 / S9） ====================
+
+    @Nested
+    @DisplayName("getErrorQuestions/getErrorQuestionDetail（exam 来源）")
+    class ExamSourceDisplayTests {
+
+        private String encodedExamContent() {
+            return com.jiang.common.util.ExamQuestionTextCodec.encode(
+                    "下列各数中，最小的数是（ ）",
+                    List.of(java.util.Map.of("label", "A", "text", "-3"),
+                            java.util.Map.of("label", "B", "text", "0")),
+                    "A", "负数最小");
+        }
+
+        @Test
+        @DisplayName("列表：exam 来源题面解码成纯题干，redoSupported 恒 true")
+        void should_decodeExamStem_andMarkRedoSupported() {
+            java.util.Map<String, Object> row = new java.util.HashMap<>();
+            row.put("error_question_id", 5L);
+            row.put("question_id", -501L);
+            row.put("knowledge_point_id", KP_ID);
+            row.put("kp_name", "集合与函数");
+            row.put("source_type", "exam");
+            row.put("first_wrong_date", TODAY.minusDays(1));
+            row.put("last_wrong_date", TODAY);
+            row.put("current_stage", 1);
+            row.put("next_due_date", TODAY.plusDays(1));
+            row.put("status", "active");
+            row.put("question_content", encodedExamContent());
+            row.put("question_difficulty", "basic");
+            when(errorQuestionMapper.selectPageWithDetail(eq(STUDENT_ID), eq(TENANT_ID),
+                    any(), any(), anyInt(), anyInt())).thenReturn(List.of(row));
+            when(errorQuestionMapper.selectCount(eq(STUDENT_ID), eq(TENANT_ID), any(), any()))
+                    .thenReturn(1);
+
+            PageResult<ErrorQuestionVO> page = errorQuestionService.getErrorQuestions(
+                    STUDENT_ID, TENANT_ID, null, null, 1, 10);
+
+            ErrorQuestionVO vo = page.getRecords().get(0);
+            assertEquals("下列各数中，最小的数是（ ）", vo.getQuestionContent(),
+                    "错题本不得展示 【题干】 标记原文");
+            assertEquals(Boolean.TRUE, vo.getRedoSupported());
+            assertEquals(-501L, vo.getQuestionId());
+        }
+
+        @Test
+        @DisplayName("详情：exam 来源的选项/答案/解析从 question_content 解码补齐")
+        void should_decodeExamDetail_choicesAnswerAnalysis() {
+            java.util.Map<String, Object> row = new java.util.HashMap<>();
+            row.put("error_question_id", 5L);
+            row.put("question_id", -501L);
+            row.put("knowledge_point_id", KP_ID);
+            row.put("kp_name", "集合与函数");
+            row.put("source_type", "exam");
+            row.put("first_wrong_date", TODAY.minusDays(1));
+            row.put("last_wrong_date", TODAY);
+            row.put("current_stage", 1);
+            row.put("next_due_date", TODAY.plusDays(1));
+            row.put("status", "active");
+            row.put("question_content", encodedExamContent());
+            row.put("question_difficulty", "basic");
+            row.put("question_type", "choice");
+            row.put("question_choices", null);
+            row.put("correct_answer", "");
+            row.put("question_analysis", "");
+            when(errorQuestionMapper.selectDetailById(STUDENT_ID, TENANT_ID, 5L)).thenReturn(row);
+
+            ErrorQuestionDetailVO detail = errorQuestionService.getErrorQuestionDetail(
+                    STUDENT_ID, TENANT_ID, 5L);
+
+            assertEquals("下列各数中，最小的数是（ ）", detail.getQuestionContent());
+            assertEquals("choice", detail.getQuestionType());
+            assertEquals("A", detail.getCorrectAnswer());
+            assertEquals("负数最小", detail.getAnalysis());
+            assertTrue(detail.getOptions().contains("\"label\":\"A\""));
+            assertTrue(detail.getOptions().contains("-3"));
+        }
+    }
 }

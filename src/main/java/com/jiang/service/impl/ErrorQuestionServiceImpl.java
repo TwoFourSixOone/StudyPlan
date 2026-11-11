@@ -2,9 +2,11 @@ package com.jiang.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
+import com.jiang.common.util.ExamQuestionTextCodec;
 import com.jiang.mapper.ErrorQuestionMapper;
 import com.jiang.model.entity.ErrorQuestion;
 import com.jiang.model.enums.EbbinghausStage;
@@ -25,9 +27,11 @@ import com.jiang.common.util.BusinessDate;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * 错题管理 Service 实现
@@ -50,6 +54,11 @@ public class ErrorQuestionServiceImpl implements ErrorQuestionService {
      * BLOCK-H 修复：每个知识点最多取 3 道到期错题
      */
     private static final int MAX_QUESTIONS_PER_KP = 3;
+
+    /** 单次批量写入上限（design §11.4：批量 ≤100 条/批） */
+    private static final int BATCH_SIZE = 100;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Autowired
     private ErrorQuestionMapper errorQuestionMapper;
@@ -117,6 +126,91 @@ public class ErrorQuestionServiceImpl implements ErrorQuestionService {
         if (existing == null) {
             throw new BusinessException(ErrorCodes.ERROR_QUESTION_NOT_FOUND);
         }
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    @Override
+    public int recordWrongAnswers(Long studentId, String tenantId,
+                                  List<com.jiang.dto.WrongQuestionRef> items,
+                                  ErrorQuestionSourceType sourceType, Long sourceId,
+                                  LocalDate wrongDate) {
+        if (items == null || items.isEmpty()) {
+            return 0;
+        }
+
+        // 1. 归一：无 questionId / 无知识点（待人工归因）的错题不入队；同一题只处理一次
+        Map<Long, String> kpByQuestionId = new LinkedHashMap<>();
+        for (com.jiang.dto.WrongQuestionRef item : items) {
+            if (item == null || item.questionId() == null || item.knowledgePointId() == null) {
+                continue;
+            }
+            kpByQuestionId.putIfAbsent(item.questionId(), item.knowledgePointId());
+        }
+        if (kpByQuestionId.isEmpty()) {
+            return 0;
+        }
+        List<Long> questionIds = new ArrayList<>(kpByQuestionId.keySet());
+
+        // 2. 先批量查已存在（1 条 SQL，避免逐题查库与唯一键冲突）
+        List<Long> existing = errorQuestionMapper.selectExistingQuestionIds(studentId, tenantId, questionIds);
+        Set<Long> existingIds = new LinkedHashSet<>(existing == null ? List.of() : existing);
+
+        // 3. 不存在的批量 INSERT（≤100/批）
+        List<ErrorQuestion> toInsert = new ArrayList<>();
+        for (Long questionId : questionIds) {
+            if (existingIds.contains(questionId)) {
+                continue;
+            }
+            toInsert.add(buildWrongQuestion(studentId, tenantId, questionId,
+                    kpByQuestionId.get(questionId), sourceType, sourceId, wrongDate));
+        }
+        int insertFailed = 0;
+        for (int from = 0; from < toInsert.size(); from += BATCH_SIZE) {
+            int to = Math.min(from + BATCH_SIZE, toInsert.size());
+            List<ErrorQuestion> chunk = toInsert.subList(from, to);
+            try {
+                errorQuestionMapper.batchInsert(chunk);
+            } catch (DuplicateKeyException e) {
+                // 并发入队：整批回退为 UPDATE（与 recordWrongAnswer 的 DUPLICATE 回退一致）
+                log.debug("[recordWrongAnswers] 批量插入撞唯一键，回退批量 UPDATE: count={}", chunk.size());
+                insertFailed += chunk.size();
+                existingIds.addAll(chunk.stream().map(ErrorQuestion::getQuestionId).toList());
+            }
+        }
+
+        // 4. 已存在（含插入回退）的批量 UPDATE
+        if (!existingIds.isEmpty()) {
+            List<Long> updateIds = new ArrayList<>(existingIds);
+            for (int from = 0; from < updateIds.size(); from += BATCH_SIZE) {
+                int to = Math.min(from + BATCH_SIZE, updateIds.size());
+                errorQuestionMapper.batchResetExisting(studentId, tenantId,
+                        updateIds.subList(from, to), sourceType.getCode(), sourceId,
+                        wrongDate, wrongDate.plusDays(1));
+            }
+        }
+
+        log.info("[recordWrongAnswers] 错题批量入队完成: total={}, inserted={}, updated={}, insertFallback={}",
+                questionIds.size(), toInsert.size() - insertFailed, existingIds.size(), insertFailed);
+        return questionIds.size();
+    }
+
+    private ErrorQuestion buildWrongQuestion(Long studentId, String tenantId, Long questionId,
+                                             String knowledgePointId,
+                                             ErrorQuestionSourceType sourceType, Long sourceId,
+                                             LocalDate wrongDate) {
+        ErrorQuestion errorQuestion = new ErrorQuestion();
+        errorQuestion.setStudentId(studentId);
+        errorQuestion.setQuestionId(questionId);
+        errorQuestion.setKnowledgePointId(knowledgePointId);
+        errorQuestion.setSourceType(sourceType.getCode());
+        errorQuestion.setSourceId(sourceId);
+        errorQuestion.setFirstWrongDate(wrongDate);
+        errorQuestion.setLastWrongDate(wrongDate);
+        errorQuestion.setCurrentStage(1);
+        errorQuestion.setNextDueDate(wrongDate.plusDays(1));
+        errorQuestion.setStatus("active");
+        errorQuestion.setTenantId(tenantId);
+        return errorQuestion;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -315,22 +409,30 @@ public class ErrorQuestionServiceImpl implements ErrorQuestionService {
         // 转换为 ErrorQuestionVO
         List<ErrorQuestionVO> voList = new ArrayList<>(rows.size());
         for (Map<String, Object> row : rows) {
+            String sourceType = (String) row.get("source_type");
+            String questionContent = row.get("question_content") != null
+                    ? (String) row.get("question_content") : "[题目已删除]";
+            // Change 2026-11-11 v3：试卷来源题面在 question_content 里是分段文本，展示前用 codec 解码成纯题干
+            if (ErrorQuestionSourceType.EXAM.getCode().equals(sourceType)) {
+                questionContent = decodeExamStem(questionContent);
+            }
             ErrorQuestionVO vo = ErrorQuestionVO.builder()
                     .errorQuestionId(toLong(row.get("error_question_id")))
                     .questionId(toLong(row.get("question_id")))
                     .knowledgePointId((String) row.get("knowledge_point_id"))
                     .knowledgePointName((String) row.get("kp_name"))
-                    .sourceType((String) row.get("source_type"))
+                    .sourceType(sourceType)
                     .firstWrongDate(toLocalDate(row.get("first_wrong_date")))
                     .lastWrongDate(toLocalDate(row.get("last_wrong_date")))
                     .currentStage(toInt(row.get("current_stage")))
                     .nextDueDate(toLocalDate(row.get("next_due_date")))
                     .status((String) row.get("status"))
                     // IMP-G: 防御性兜底
-                    .questionContent(row.get("question_content") != null
-                            ? (String) row.get("question_content") : "[题目已删除]")
+                    .questionContent(questionContent)
                     .questionDifficulty(row.get("question_difficulty") != null
                             ? (String) row.get("question_difficulty") : "unknown")
+                    // Change 2026-11-11 v3：试卷错题一视同仁参与原题重做，redoSupported 恒 true
+                    .redoSupported(Boolean.TRUE)
                     .build();
             voList.add(vo);
         }
@@ -348,27 +450,71 @@ public class ErrorQuestionServiceImpl implements ErrorQuestionService {
             throw new BusinessException(ErrorCodes.ERROR_QUESTION_NOT_FOUND);
         }
 
+        String sourceType = (String) row.get("source_type");
+        String questionContent = row.get("question_content") != null
+                ? (String) row.get("question_content") : "[题目已删除]";
+        String questionType = (String) row.get("question_type");
+        String options = (String) row.get("question_choices");
+        String correctAnswer = (String) row.get("correct_answer");
+        String analysis = (String) row.get("question_analysis");
+        if (ErrorQuestionSourceType.EXAM.getCode().equals(sourceType)) {
+            // Change 2026-11-11 v3（S9）：试卷来源题面/选项/答案/解析均从 question_content 解码，
+            // 与错题本/作业展示一致（question_bank 无对应行）
+            ExamQuestionTextCodec.Decoded decoded = ExamQuestionTextCodec.decode(questionContent);
+            questionContent = decoded.stem();
+            if (decoded.choices() != null && !decoded.choices().isEmpty()) {
+                options = toJson(decoded.choices());
+            }
+            if (decoded.correctAnswer() != null && !decoded.correctAnswer().isBlank()) {
+                correctAnswer = decoded.correctAnswer();
+            }
+            if (decoded.explanation() != null && !decoded.explanation().isBlank()) {
+                analysis = decoded.explanation();
+            }
+        }
+
         return ErrorQuestionDetailVO.builder()
                 .errorQuestionId(toLong(row.get("error_question_id")))
                 .questionId(toLong(row.get("question_id")))
                 .knowledgePointId((String) row.get("knowledge_point_id"))
                 .knowledgePointName((String) row.get("kp_name"))
-                .sourceType((String) row.get("source_type"))
+                .sourceType(sourceType)
                 .firstWrongDate(toLocalDate(row.get("first_wrong_date")))
                 .lastWrongDate(toLocalDate(row.get("last_wrong_date")))
                 .currentStage(toInt(row.get("current_stage")))
                 .nextDueDate(toLocalDate(row.get("next_due_date")))
                 .status((String) row.get("status"))
                 // IMP-G 同款防御性兑底（COALESCE + 二次判空）
-                .questionContent(row.get("question_content") != null
-                        ? (String) row.get("question_content") : "[题目已删除]")
+                .questionContent(questionContent)
                 .questionDifficulty(row.get("question_difficulty") != null
                         ? (String) row.get("question_difficulty") : "unknown")
-                .questionType((String) row.get("question_type"))
-                .options((String) row.get("question_choices"))
-                .correctAnswer((String) row.get("correct_answer"))
-                .analysis((String) row.get("question_analysis"))
+                .questionType(questionType)
+                .options(options)
+                .correctAnswer(correctAnswer)
+                .analysis(analysis)
                 .build();
+    }
+
+    /**
+     * 试卷来源题面解码（非试卷来源或旧数据无标记时原样返回）
+     */
+    private String decodeExamStem(String questionContent) {
+        try {
+            String stem = ExamQuestionTextCodec.decode(questionContent).stem();
+            return (stem == null || stem.isBlank()) ? questionContent : stem;
+        } catch (Exception e) {
+            log.warn("试卷题面解码失败，按原文返回: {}", e.getMessage());
+            return questionContent;
+        }
+    }
+
+    private String toJson(Object value) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(value);
+        } catch (Exception e) {
+            log.warn("错题选项序列化失败: {}", e.getMessage());
+            return null;
+        }
     }
 
     @Override

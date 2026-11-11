@@ -132,4 +132,56 @@ public interface StudentKnowledgeStateMapper extends BaseMapper<StudentKnowledge
     List<StudentKnowledgeState> selectByStudentAndSubject(@Param("studentId") Long studentId,
                                                            @Param("subject") String subject,
                                                            @Param("tenantId") String tenantId);
+
+    // ==================== 批量掌握度（Change 2026-11-11，design §7.3） ====================
+
+    /**
+     * 批量查询学生在一批知识点上的状态（1 条 SQL，禁止 N+1）
+     */
+    @Select("<script>" +
+            "SELECT state_id, student_id, knowledge_point_id, mastery_score, confidence, source, " +
+            "last_assessed_at, version, tenant_id, create_time, update_time " +
+            "FROM student_knowledge_state " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} AND knowledge_point_id IN " +
+            "<foreach collection='kpIds' item='kpId' open='(' separator=',' close=')'>#{kpId}</foreach>" +
+            "</script>")
+    List<StudentKnowledgeState> selectByStudentAndKpIds(@Param("studentId") Long studentId,
+                                                        @Param("tenantId") String tenantId,
+                                                        @Param("kpIds") List<String> kpIds);
+
+    /**
+     * 批量创建缺失的掌握度状态（INSERT IGNORE：命中 uk_student_kp 时忽略，随后重查一次）
+     */
+    @org.apache.ibatis.annotations.Insert("<script>" +
+            "INSERT IGNORE INTO student_knowledge_state " +
+            "(student_id, knowledge_point_id, mastery_score, confidence, source, last_assessed_at, " +
+            "version, tenant_id, create_time, update_time) VALUES " +
+            "<foreach collection='states' item='s' separator=','>" +
+            "(#{s.studentId}, #{s.knowledgePointId}, #{s.masteryScore}, #{s.confidence}, #{s.source}, " +
+            "#{s.lastAssessedAt}, 0, #{s.tenantId}, NOW(), NOW())" +
+            "</foreach>" +
+            "</script>")
+    int batchInsertIgnore(@Param("states") List<StudentKnowledgeState> states);
+
+    /**
+     * 批量更新掌握度终值（CASE WHEN，≤100 条/批；同知识点多题已在内存聚合为一次写入）
+     */
+    @org.apache.ibatis.annotations.Update("<script>" +
+            "UPDATE student_knowledge_state SET " +
+            "mastery_score = CASE knowledge_point_id " +
+            "<foreach collection='states' item='s'>WHEN #{s.knowledgePointId} THEN " +
+            "#{s.masteryScore,jdbcType=DECIMAL} </foreach>END, " +
+            "confidence = CASE knowledge_point_id " +
+            "<foreach collection='states' item='s'>WHEN #{s.knowledgePointId} THEN " +
+            "#{s.confidence,jdbcType=DECIMAL} </foreach>END, " +
+            "source = #{source}, last_assessed_at = #{lastAssessedAt}, " +
+            "version = version + 1, update_time = NOW() " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} AND knowledge_point_id IN " +
+            "<foreach collection='states' item='s' open='(' separator=',' close=')'>#{s.knowledgePointId}</foreach>" +
+            "</script>")
+    int batchUpdateMastery(@Param("studentId") Long studentId,
+                           @Param("tenantId") String tenantId,
+                           @Param("states") List<StudentKnowledgeState> states,
+                           @Param("source") String source,
+                           @Param("lastAssessedAt") java.time.LocalDateTime lastAssessedAt);
 }

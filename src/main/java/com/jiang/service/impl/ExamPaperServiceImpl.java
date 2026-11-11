@@ -1,55 +1,85 @@
 package com.jiang.service.impl;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jiang.agent.AttributionAgent;
-import com.jiang.common.exception.AttributionException;
+import com.jiang.agent.AgentDegradationLogger;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
-import com.jiang.common.exception.OcrException;
 import com.jiang.common.result.PageResult;
-import com.jiang.dto.ExamGradeItemVO;
-import com.jiang.dto.ExamGradeRequest;
-import com.jiang.dto.ExamQuestionAttributionDTO;
-import com.jiang.dto.ExamQuestionOcrDTO;
-import com.jiang.mapper.*;
+import com.jiang.common.util.BusinessDate;
+import com.jiang.common.util.ExamPaperTypeUtil;
+import com.jiang.common.util.ExamQuestionTextCodec;
+import com.jiang.common.util.GradeMatcher;
+import com.jiang.dto.ExamMasteryEvent;
+import com.jiang.dto.ExamParseOutcome;
+import com.jiang.dto.GradeRequest;
+import com.jiang.dto.ParsedQuestion;
+import com.jiang.dto.WrongQuestionRef;
+import com.jiang.mapper.ExamAnalysisResultMapper;
+import com.jiang.mapper.ExamAnalysisTaskMapper;
+import com.jiang.mapper.ExamPaperMapper;
+import com.jiang.mapper.ExamQuestionMapper;
+import com.jiang.mapper.KnowledgePointMapper;
+import com.jiang.mapper.StudentMapper;
+import com.jiang.mapper.SubjectMapper;
+import com.jiang.model.entity.ExamAnalysisResult;
 import com.jiang.model.entity.ExamAnalysisTask;
 import com.jiang.model.entity.ExamPaper;
 import com.jiang.model.entity.ExamQuestion;
+import com.jiang.model.entity.Student;
 import com.jiang.model.entity.Subject;
+import com.jiang.model.enums.ErrorQuestionSourceType;
 import com.jiang.security.StudentContext;
+import com.jiang.service.AnswerGradingService;
 import com.jiang.service.ErrorQuestionService;
 import com.jiang.service.ExamPaperService;
+import com.jiang.service.ExamParseService;
+import com.jiang.service.ExamSignalAdjustService;
+import com.jiang.service.ExamUploadValidator;
 import com.jiang.service.FileStorageService;
 import com.jiang.service.MasteryService;
-import com.jiang.service.OcrService;
-import com.jiang.vo.*;
+import com.jiang.vo.ExamImageUploadVO;
+import com.jiang.vo.ExamPaperDetailVO;
+import com.jiang.vo.ExamPaperListItemVO;
+import com.jiang.vo.ExamQuestionItemVO;
+import com.jiang.vo.ExamSubmitVO;
+import com.jiang.vo.ExamTaskProgressVO;
+import com.jiang.vo.ExamUploadVO;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.TransactionStatus;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import com.jiang.common.util.BusinessDate;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 试卷服务实现
- * 修复 BLOCK-5/6 + IMP-6/7/11/25/26
+ * 试卷服务实现（Change 2026-11-11：≤8 图上传 → 视觉解析 → 全量落库 → 自动判分 → 错题/掌握度/学习记录 → 信号）
+ *
+ * <p>事务边界（约定 #10）：</p>
+ * <ul>
+ *   <li>文件落盘 / LLM 调用（视觉解析、归因、判分）全部在事务外</li>
+ *   <li>TX-A：题目批量插入 + paper=completed（短事务，仅 DB 写）</li>
+ *   <li>TX-B：判分结果批量回写 + grade_status CAS + 错题批量入队 + 掌握度批量更新 + 学习记录 + task 完成
+ *       （短事务，仅 DB 写；幂等由 grade_status CAS 保证）</li>
+ * </ul>
  *
  * @author StudyMate Team
  * @since 2026-11-04
@@ -61,6 +91,33 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     private static final String QUEUE_NAME = "exam_analysis_queue";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
+    /** 单次批量写入的题目条数上限（design §11.4，禁止逐题单条 insert/update） */
+    static final int QUESTION_BATCH_SIZE = 100;
+
+    /** 任务错误信息/告警的最大长度（约定 #12） */
+    private static final int ERROR_MESSAGE_MAX_LENGTH = 500;
+
+    /** 任务类型：视觉解析 + 归因（design §5.1；Worker 不按 task_type 过滤，兼容旧值） */
+    static final String TASK_TYPE_VISION_PARSE = "vision_parse_attribution";
+
+    /** 上传会话复用窗口（分钟）：30 分钟内的 uploading 会话直接续传（design §2.3） */
+    static final int UPLOAD_SESSION_REUSE_MINUTES = 30;
+
+    /** 试卷名称最大长度（{@code exam_analysis_result.exam_name} VARCHAR(200)） */
+    private static final int EXAM_NAME_MAX_LENGTH = 200;
+
+    /** 历史列表分页上限（design §10.1 / 约定 #3：size ≤ 50） */
+    private static final int MAX_PAGE_SIZE = 50;
+
+    /** A3：同卷上传串行化分段锁（数组长度取 2 的幂，按 paperId 取模） */
+    private static final Object[] UPLOAD_LOCK_STRIPES = new Object[64];
+
+    static {
+        for (int i = 0; i < UPLOAD_LOCK_STRIPES.length; i++) {
+            UPLOAD_LOCK_STRIPES[i] = new Object();
+        }
+    }
+
     @Autowired
     private ExamPaperMapper examPaperMapper;
     @Autowired
@@ -68,218 +125,924 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     @Autowired
     private ExamAnalysisTaskMapper examAnalysisTaskMapper;
     @Autowired
+    private ExamAnalysisResultMapper examAnalysisResultMapper;
+    @Autowired
     private SubjectMapper subjectMapper;
     @Autowired
     private KnowledgePointMapper knowledgePointMapper;
+    @Autowired
+    private StudentMapper studentMapper;
 
     @Autowired
     private FileStorageService fileStorageService;
     @Autowired
-    private OcrService ocrService;
-    @Autowired
-    private AttributionAgent attributionAgent;
-    @Autowired
     private MasteryService masteryService;
     @Autowired
     private ErrorQuestionService errorQuestionService;
+
+    /** 视觉解析编排（多图并发 + 合并 + 归因，LLM 调用全部在事务外） */
+    @Autowired
+    private ExamParseService examParseService;
+
+    /** 上传校验（≤8 张 / 单张 9.5MB / 累计 30MB / 仅 jpg-jpeg-png） */
+    @Autowired
+    private ExamUploadValidator examUploadValidator;
+
+    /** 判分公共组件（与作业批改同一口径） */
+    @Autowired
+    private AnswerGradingService answerGradingService;
+
+    /** 结算后异步信号检测与自动调整 */
+    @Autowired
+    private ExamSignalAdjustService examSignalAdjustService;
+
+    /** 降级日志（脱敏 + 截断 500，约定 #12） */
+    @Autowired
+    private AgentDegradationLogger degradationLogger;
 
     @Autowired
     private TransactionTemplate transactionTemplate;
     @Autowired
     private RedisTemplate<String, Object> redisTemplate;
 
-    /**
-     * 上传试卷
-     * 修复 IMP-6：文件上传在事务外，仅 DB 写入在事务内
-     */
+    /** 判分批处理预算（秒） */
+    @Value("${exam.parse.grading-timeout-seconds:60}")
+    private int gradingTimeoutSeconds;
+
+    /** 判分并发提示（实际由全局 LlmConcurrencyLimiter 限制在途 ≤3） */
+    @Value("${exam.parse.grading-concurrency:3}")
+    private int gradingConcurrency;
+
+    // ==================== 上传会话 ====================
+
     @Override
-    public ExamUploadVO uploadExamPaper(Long subjectId, LocalDate examDate,
-                                         String paperType, List<MultipartFile> files) {
+    public ExamUploadVO createPaper(Long subjectId, LocalDate examDate, String paperType, Integer imageCount) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
 
-        // 1. 校验科目存在
-        Subject subject = subjectMapper.selectById(subjectId);
+        // 1. 科目校验（A7：必须带 tenant_id，避免跨租户命中同名科目）
+        Subject subject = subjectMapper.selectByIdAndTenant(subjectId, tenantId);
         if (subject == null) {
             throw new BusinessException(ErrorCodes.SUBJECT_NOT_FOUND);
         }
+        // 2. 试卷类型白名单（design §2.4 / S13：5 值，空按 midterm，非法 1191）
+        String normalizedType = ExamPaperTypeUtil.normalize(paperType);
+        if (!ExamPaperTypeUtil.isValid(normalizedType)) {
+            throw new BusinessException(ErrorCodes.EXAM_PAPER_TYPE_INVALID,
+                    "试卷类型无效，可选：" + ExamPaperTypeUtil.allowedValues());
+        }
+        // 3. 声明张数 [1,8]
+        examUploadValidator.validateImageCount(imageCount);
 
-        // 2. 校验文件大小与类型（限制单张 ≤ 10MB，仅 jpg/jpeg/png）
-        validateFiles(files);
+        // 4. 同学生 + 科目 + 日期去重（1131）；uploading 会话 30 分钟内复用，超期清空后复用
+        ExamPaper existing = examPaperMapper.selectByStudentSubjectDate(studentId, subjectId, examDate, tenantId);
+        if (existing != null) {
+            if (!"uploading".equals(existing.getStatus())) {
+                log.warn("试卷重复上传: studentId={}, subjectId={}, examDate={}, status={}",
+                        studentId, subjectId, examDate, existing.getStatus());
+                throw new BusinessException(ErrorCodes.EXAM_PAPER_DUPLICATE);
+            }
+            boolean reusable = existing.getCreateTime() == null
+                    || existing.getCreateTime().isAfter(LocalDateTime.now()
+                    .minusMinutes(UPLOAD_SESSION_REUSE_MINUTES));
+            if (!reusable) {
+                examPaperMapper.resetImageUrls(existing.getId(), tenantId);
+                log.info("超期 uploading 会话已重置并复用: paperId={}", existing.getId());
+            }
+            return ExamUploadVO.builder()
+                    .paperId(existing.getId())
+                    .status("uploading")
+                    .imageCount(imageCount)
+                    .reused(true)
+                    .build();
+        }
 
-        // 3. 文件上传（事务外）
-        List<String> imageUrls = files.stream()
-                .map(file -> fileStorageService.upload(file, "exam-papers/" + studentId))
-                .collect(Collectors.toList());
-
-        // 4. 事务内写入 DB
+        // 5. 新建会话（image_urls NOT NULL，先写空数组）
+        ExamPaper paper = new ExamPaper();
+        paper.setStudentId(studentId);
+        paper.setSubjectId(subjectId);
+        paper.setExamDate(examDate);
+        paper.setPaperType(normalizedType);
+        paper.setImageUrls("[]");
+        paper.setStatus("uploading");
+        paper.setGradeStatus("ungraded");
+        paper.setTenantId(tenantId);
         try {
-            return transactionTemplate.execute(status -> {
-                // 4a. 创建 exam_paper 记录
-                ExamPaper examPaper = new ExamPaper();
-                examPaper.setStudentId(studentId);
-                examPaper.setSubjectId(subjectId);
-                examPaper.setExamDate(examDate);
-                examPaper.setPaperType(paperType);
-                examPaper.setImageUrls(toJson(imageUrls));
-                examPaper.setStatus("pending");
-                examPaper.setGradeStatus("ungraded");
-                examPaper.setTenantId(tenantId);
-                examPaperMapper.insert(examPaper);
-
-                // 4b. 创建 exam_analysis_task 记录
-                ExamAnalysisTask task = new ExamAnalysisTask();
-                task.setExamPaperId(examPaper.getId());
-                task.setTaskType("ocr_attribution");
-                task.setStatus("pending");
-                task.setTenantId(tenantId);
-                examAnalysisTaskMapper.insert(task);
-
-                // 4c. 推入 Redis 队列
-                redisTemplate.opsForList().leftPush(QUEUE_NAME, task.getId());
-
-                // 4d. 返回
-                return ExamUploadVO.builder()
-                        .taskId(task.getId())
-                        .examPaperId(examPaper.getId())
-                        .status("pending")
-                        .build();
-            });
+            examPaperMapper.insert(paper);
         } catch (DuplicateKeyException e) {
-            // 修复 BLOCK-4：同一学生同一科目同一天重复上传
-            log.warn("试卷重复上传: studentId={}, subjectId={}, examDate={}", studentId, subjectId, examDate);
             throw new BusinessException(ErrorCodes.EXAM_PAPER_DUPLICATE);
         }
+
+        log.info("试卷上传会话已创建: paperId={}, studentId={}, subjectId={}, imageCount={}",
+                paper.getId(), studentId, subjectId, imageCount);
+        return ExamUploadVO.builder()
+                .paperId(paper.getId())
+                .status("uploading")
+                .imageCount(imageCount)
+                .reused(false)
+                .build();
     }
 
-    /**
-     * 处理试卷解析任务（由 Worker 调用）
-     * 修复 BLOCK-5：同步处理，不使用 @Async
-     * 修复 IMP-7：最多重试 2 次 = 总共 3 次尝试
-     * 修复 IMP-11：task 状态变更时联动更新 paper 状态
-     * 修复 IMP-26：OCR 全部降级时跳过归因 Agent
-     */
     @Override
-    public void processExamAnalysis(Long taskId) {
-        // 1. 查询任务
-        ExamAnalysisTask task = examAnalysisTaskMapper.selectById(taskId);
-        if (task == null || !"pending".equals(task.getStatus())) {
-            return;
-        }
-
-        // 2. 更新 task 状态为 processing，联动 paper 状态
-        updateTaskAndPaperStatus(task, "processing");
-
-        try {
-            // 3. OCR 切题（修复 IMP-7：最多重试 2 次）
-            List<ExamQuestionOcrDTO> ocrResults = ocrWithRetry(task, 2);
-
-            // 修复 IMP-26：判断 OCR 是否全部降级
-            boolean allOcrDegraded = ocrResults.stream()
-                    .allMatch(r -> "pending_manual_review".equals(r.getAttributionStatus()));
-
-            List<ExamQuestionAttributionDTO> attributionResults;
-            if (allOcrDegraded) {
-                // OCR 全部失败，跳过归因 Agent，直接标记待人工处理
-                log.warn("OCR 全部降级，跳过归因 Agent: taskId={}", task.getId());
-                attributionResults = ocrResults.stream()
-                        .map(ocr -> {
-                            ExamQuestionAttributionDTO dto = new ExamQuestionAttributionDTO();
-                            dto.setQuestionContent(ocr.getQuestionContent());
-                            dto.setAttributionStatus("pending_manual_review");
-                            dto.setKnowledgePointId(null);
-                            return dto;
-                        })
-                        .collect(Collectors.toList());
-            } else {
-                // 4. 归因 Agent（最多重试 2 次）
-                attributionResults = attributionWithRetry(ocrResults, task, 2);
-            }
-
-            // 5. 事务内写入数据库
-            // 修复 Sev-2：Worker 线程无 StudentContext，从 task 对象获取 tenantId 并显式传入
-            String tenantId = task.getTenantId();
-            transactionTemplate.execute(status -> {
-                saveExamQuestions(task.getExamPaperId(), attributionResults, tenantId);
-                updateTaskAndPaperStatus(task, "completed");
-                return null;
-            });
-
-            // 6. 不再自动触发掌握度更新和错题入队
-            // 等待学生通过 submitExamGrade 手动录入成绩后触发
-
-        } catch (Exception e) {
-            log.error("试卷解析失败: taskId={}", taskId, e);
-            updateTaskAndPaperStatus(task, "failed");
-            task.setErrorMessage(truncate(e.getMessage(), 500));
-            examAnalysisTaskMapper.updateById(task);
-        }
-    }
-
-    /**
-     * 提交考试成绩
-     * 修复 BLOCK-6：学生手动录入成绩后触发掌握度更新和错题入队
-     * 修复 IMP-25：错题入队先于掌握度更新
-     * 修复 BLOCK-A：方法签名删除 request 参数
-     */
-    @Override
-    @Transactional(rollbackFor = Exception.class)
-    public void submitExamGrade(Long resultId, ExamGradeRequest request) {
+    public ExamImageUploadVO uploadImage(Long paperId, MultipartFile file) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
 
-        // 1. 查询试卷
-        ExamPaper examPaper = examPaperMapper.selectById(resultId);
-        if (examPaper == null || !tenantId.equals(examPaper.getTenantId())) {
+        // 1. 归属 + 状态快速校验
+        requireOwnedPaper(paperId, studentId, tenantId);
+        // 2. 单张校验（空/大小/类型/魔数）
+        examUploadValidator.validateSingleFile(file);
+
+        // 3. A3：同卷追加串行化（单实例 JVM 内分段锁）+ 追加前复核张数/累计大小，消除 TOCTOU
+        synchronized (uploadLock(paperId)) {
+            ExamPaper paper = requireOwnedPaper(paperId, studentId, tenantId);
+            if (!"uploading".equals(paper.getStatus())) {
+                throw new BusinessException(ErrorCodes.EXAM_UPLOAD_SESSION_NOT_FOUND);
+            }
+            List<String> imageUrls = fromJson(paper.getImageUrls());
+            int maxImages = examUploadValidator.getMaxImages();
+            if (imageUrls.size() >= maxImages) {
+                throw new BusinessException(ErrorCodes.EXAM_PAPER_IMAGE_LIMIT_REACHED);
+            }
+            long accumulatedBytes = sumImageSizes(imageUrls);
+            examUploadValidator.validateTotalBytes(accumulatedBytes, file.getSize());
+
+            // 4. 文件落盘（事务外）
+            String url = fileStorageService.upload(file, "exam-papers/" + studentId);
+
+            // 5. 原子追加 URL（单条 JSON_ARRAY_APPEND + JSON_LENGTH 守卫，>=8 张时不生效）
+            int appended = examPaperMapper.appendImageUrl(paperId, tenantId, url, maxImages);
+            if (appended == 0) {
+                // 条件更新失败：状态已被提交/复用，或并发追加把张数打满
+                ExamPaper latest = examPaperMapper.selectById(paperId);
+                if (latest != null && "uploading".equals(latest.getStatus())
+                        && fromJson(latest.getImageUrls()).size() >= maxImages) {
+                    throw new BusinessException(ErrorCodes.EXAM_PAPER_IMAGE_LIMIT_REACHED);
+                }
+                throw new BusinessException(ErrorCodes.EXAM_UPLOAD_SESSION_NOT_FOUND);
+            }
+            int uploadedCount = imageUrls.size() + 1;
+
+            // 6. 达到 8 张上限自动触发解析（兜底路径；正常路径由 submit 显式触发）
+            Long taskId = null;
+            if (uploadedCount >= maxImages) {
+                taskId = triggerAnalysis(paperId, tenantId);
+            }
+            return ExamImageUploadVO.builder()
+                    .paperId(paperId)
+                    .uploadedCount(uploadedCount)
+                    .status(taskId == null ? "uploading" : "pending")
+                    .taskId(taskId)
+                    .build();
+        }
+    }
+
+    /**
+     * 同卷上传分段锁（A3）：只在单实例内串行化"复核 + 落盘 + 追加"，配合 SQL 的
+     * {@code JSON_LENGTH(image_urls) < 8} 条件在多发实例下兜底。
+     */
+    private Object uploadLock(Long paperId) {
+        long key = paperId == null ? 0L : paperId;
+        int index = (int) Math.floorMod(key, UPLOAD_LOCK_STRIPES.length);
+        return UPLOAD_LOCK_STRIPES[index];
+    }
+
+    private long sumImageSizes(List<String> imageUrls) {
+        long accumulatedBytes = 0L;
+        for (String url : imageUrls) {
+            accumulatedBytes += fileStorageService.size(url);
+        }
+        return accumulatedBytes;
+    }
+
+    @Override
+    public ExamSubmitVO submitPaper(Long paperId) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+
+        ExamPaper paper = requireOwnedPaper(paperId, studentId, tenantId);
+        List<String> imageUrls = fromJson(paper.getImageUrls());
+        if (imageUrls.isEmpty()) {
+            throw new BusinessException(ErrorCodes.EXAM_UPLOAD_INCOMPLETE);
+        }
+
+        // CAS uploading → pending（与"达量自动触发"只生效一次）
+        Long taskId = triggerAnalysis(paperId, tenantId);
+        if (taskId == null) {
+            throw new BusinessException(ErrorCodes.EXAM_UPLOAD_SESSION_NOT_FOUND);
+        }
+        return ExamSubmitVO.builder()
+                .paperId(paperId)
+                .taskId(taskId)
+                .status("pending")
+                .build();
+    }
+
+    @Override
+    public ExamSubmitVO retryPaper(Long paperId) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+
+        ExamPaper paper = requireOwnedPaper(paperId, studentId, tenantId);
+        if (!"failed".equals(paper.getStatus())) {
+            throw new BusinessException(ErrorCodes.EXAM_RETRY_NOT_ALLOWED);
+        }
+        ExamAnalysisTask task = examAnalysisTaskMapper.selectLatestByPaper(paperId, tenantId);
+        if (task == null) {
+            throw new BusinessException(ErrorCodes.EXAM_TASK_NOT_FOUND);
+        }
+        // 整卷重试 CAS：failed → pending 且 ocr_retry_count < 2（0 行 = 不可重试）
+        int retried = examAnalysisTaskMapper.casFailedToPendingForRetry(task.getId(), tenantId);
+        if (retried == 0) {
+            throw new BusinessException(ErrorCodes.EXAM_RETRY_NOT_ALLOWED);
+        }
+        if (examPaperMapper.casFailedToPending(paperId, tenantId) == 0) {
+            throw new BusinessException(ErrorCodes.EXAM_RETRY_NOT_ALLOWED);
+        }
+        redisTemplate.opsForList().leftPush(QUEUE_NAME, task.getId());
+
+        int retryCount = (task.getOcrRetryCount() == null ? 0 : task.getOcrRetryCount()) + 1;
+        log.info("试卷解析重试已入队: paperId={}, taskId={}, ocrRetryCount={}", paperId, task.getId(), retryCount);
+        return ExamSubmitVO.builder()
+                .paperId(paperId)
+                .taskId(task.getId())
+                .status("pending")
+                .ocrRetryCount(retryCount)
+                .build();
+    }
+
+    /**
+     * 创建解析任务并入队（CAS uploading → pending；0 行表示已被提交过）
+     */
+    private Long triggerAnalysis(Long paperId, String tenantId) {
+        int cas = examPaperMapper.casToPending(paperId, tenantId);
+        if (cas == 0) {
+            return null;
+        }
+        ExamAnalysisTask task = new ExamAnalysisTask();
+        task.setExamPaperId(paperId);
+        task.setTaskType(TASK_TYPE_VISION_PARSE);
+        task.setStatus("pending");
+        task.setTenantId(tenantId);
+        examAnalysisTaskMapper.insert(task);
+        redisTemplate.opsForList().leftPush(QUEUE_NAME, task.getId());
+        log.info("试卷解析任务已入队: paperId={}, taskId={}", paperId, task.getId());
+        return task.getId();
+    }
+
+    /**
+     * 归属校验：不存在 / 非本人 / 非本租户统一 1130（不区分存在性，避免探测）
+     */
+    private ExamPaper requireOwnedPaper(Long paperId, Long studentId, String tenantId) {
+        ExamPaper paper = examPaperMapper.selectById(paperId);
+        if (paper == null || !studentId.equals(paper.getStudentId())
+                || !tenantId.equals(paper.getTenantId())) {
             throw new BusinessException(ErrorCodes.EXAM_PAPER_NOT_FOUND);
         }
-        if ("graded".equals(examPaper.getGradeStatus())) {
-            throw new BusinessException(ErrorCodes.EXAM_PAPER_ALREADY_GRADED);
-        }
-        if (!"completed".equals(examPaper.getStatus())) {
-            throw new BusinessException(ErrorCodes.EXAM_PAPER_NOT_READY_FOR_GRADE);
-        }
+        return paper;
+    }
 
-        // 2. 逐题更新成绩
-        List<ExamQuestion> questions = examQuestionMapper.selectList(
-                new LambdaQueryWrapper<ExamQuestion>()
-                        .eq(ExamQuestion::getExamPaperId, resultId)
-                        .eq(ExamQuestion::getTenantId, tenantId));
-        for (ExamGradeItemVO item : request.getItems()) {
-            ExamQuestion question = questions.stream()
-                    .filter(q -> q.getQuestionIndex().equals(item.getQuestionIndex()))
-                    .findFirst()
-                    .orElseThrow(() -> new BusinessException(ErrorCodes.EXAM_QUESTION_NOT_FOUND));
+    // ==================== Worker：解析 → 判分 → 结算 ====================
 
-            question.setStudentAnswer(item.getStudentAnswer());
-            question.setIsCorrect(item.getIsCorrect());
-            question.setScore(item.getScore());
-            question.setFullScore(item.getFullScore());
-            examQuestionMapper.updateById(question);
+    @Override
+    public void processExamAnalysis(Long taskId) {
+        ExamAnalysisTask task = examAnalysisTaskMapper.selectById(taskId);
+        if (task == null) {
+            log.warn("试卷解析任务不存在，忽略: taskId={}", taskId);
+            return;
         }
 
-        // 3. 更新试卷状态
-        examPaper.setGradeStatus("graded");
-        examPaper.setTotalScore(request.getTotalScore());
-        examPaperMapper.updateById(examPaper);
+        // 1. CAS 抢占：只有 pending → processing 成功者才消费（重复投递/并发消费只处理一次）
+        int cas = examAnalysisTaskMapper.casToProcessing(taskId, LocalDateTime.now());
+        if (cas == 0) {
+            log.info("试卷解析任务已被处理或状态非 pending，跳过: taskId={}", taskId);
+            return;
+        }
+        task = examAnalysisTaskMapper.selectById(taskId);
+        String tenantId = task.getTenantId();
 
-        // 4. 错题入队（修复 IMP-25：先于掌握度更新）
-        recordWrongAnswers(resultId, questions);
+        // 2. Worker 线程没有 HTTP 上下文：design §9.1 要求身份显式传参，这里不再 set/clear StudentContext
+        //    （下游 parsePaper / settle / 掌握度 / 错题 / 学习记录 / 信号调整全部接收显式 tenantId+studentId）
+        try {
+            ExamPaper paper = examPaperMapper.selectById(task.getExamPaperId());
+            if (paper == null) {
+                failAnalysis(task, "试卷不存在: paperId=" + task.getExamPaperId());
+                return;
+            }
+            // 消费时试卷已 completed/failed → 直接返回（重投不重跑）
+            if (!"pending".equals(paper.getStatus()) && !"processing".equals(paper.getStatus())) {
+                log.info("试卷状态非 pending/processing，跳过解析: paperId={}, status={}",
+                        paper.getId(), paper.getStatus());
+                return;
+            }
+            markPaperProcessing(paper);
 
-        // 5. 更新掌握度（W_source=1.0）
-        updateMasteryFromExam(resultId, questions);
+            // 3. B7：TX-A 已提交过（库中已有题目）→ 跳过视觉解析与归因，直接用库中行判分
+            ExamParseOutcome outcome = null;
+            if (!hasPersistedQuestions(paper.getId(), tenantId)) {
+                List<String> imageUrls = fromJson(paper.getImageUrls());
+                outcome = examParseService.parsePaper(
+                        paper.getId(), paper.getSubjectId(), paper.getStudentId(), tenantId, imageUrls);
+                if (outcome.getQuestions().isEmpty()) {
+                    String reason = "试卷解析失败：所有图片均未识别出有效题目";
+                    if (outcome.getImageWarnings() != null && !outcome.getImageWarnings().isEmpty()) {
+                        reason = reason + "（" + String.join("；", outcome.getImageWarnings()) + "）";
+                    }
+                    throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, reason);
+                }
+                persistQuestions(task, paper, outcome);
+            } else {
+                log.info("试卷已存在题目，跳过视觉解析与归因（重试幂等）: paperId={}, taskId={}",
+                        paper.getId(), taskId);
+            }
+
+            // 4. 自动判分 + TX-B 结算（错题 / 掌握度 / 学习记录 / task 完成）
+            settle(task, paper, outcome);
+        } catch (Exception e) {
+            log.error("试卷解析/结算失败: taskId={}", taskId, e);
+            failAnalysis(task, e.getMessage());
+        }
+    }
+
+    /**
+     * TX-A：批量插入题目（≤100/批，题号升序稳定），同时写试卷状态与告警备注
+     *
+     * <p>所有解析出的题目都落库：答对/答错/未作答/无法判定（{@code is_correct} 统一为 NULL，
+     * 判分在 TX-B 写），因此 0 题的图只留下告警，不影响其他题。</p>
+     */
+    private void persistQuestions(ExamAnalysisTask task, ExamPaper paper, ExamParseOutcome outcome) {
+        String tenantId = task.getTenantId();
+        List<ParsedQuestion> questions = outcome.getQuestions();
+        String imageWarning = buildImageWarning(outcome);
+
+        transactionTemplate.execute(status -> {
+            // 题号稳定升序落库（防御：即使上游顺序抖动也按 questionIndex 排一次）
+            List<ParsedQuestion> sortedQuestions = questions.stream()
+                    .sorted(Comparator.comparingInt(q -> q.getQuestionIndex() == null
+                            ? Integer.MAX_VALUE : q.getQuestionIndex()))
+                    .collect(Collectors.toList());
+
+            List<ExamQuestion> entities = new ArrayList<>(sortedQuestions.size());
+            for (ParsedQuestion question : sortedQuestions) {
+                ExamQuestion entity = new ExamQuestion();
+                entity.setExamPaperId(paper.getId());
+                entity.setQuestionIndex(question.getQuestionIndex());
+                // 零 DDL：题干/选项/正确答案/解析/作答状态编码进 question_content（design §4.1）
+                entity.setQuestionContent(ExamQuestionTextCodec.encode(
+                        question.getStem(), question.getChoices(),
+                        question.getCorrectAnswer(), question.getExplanation(),
+                        question.getAnswerStatus()));
+                entity.setKnowledgePointId(question.getKnowledgePointId());
+                entity.setAttributionStatus(question.getAttributionStatus() == null
+                        ? "pending_manual_review" : question.getAttributionStatus());
+                entity.setStudentAnswer(question.getStudentAnswer());
+                entity.setQuestionType(question.getFormatType());
+                entity.setDifficulty(question.getDifficulty());
+                entity.setTenantId(tenantId);
+                entities.add(entity);
+            }
+
+            // 批量插入，禁止逐题单条 insert（design §11.4）
+            for (int from = 0; from < entities.size(); from += QUESTION_BATCH_SIZE) {
+                int to = Math.min(from + QUESTION_BATCH_SIZE, entities.size());
+                examQuestionMapper.batchInsert(entities.subList(from, to));
+            }
+
+            // 归因重试次数落库（单图切题重试只在内存，不写 ocr_retry_count，design D14）
+            ExamAnalysisTask taskUpdate = new ExamAnalysisTask();
+            taskUpdate.setId(task.getId());
+            taskUpdate.setAttributionRetryCount(outcome.getAttributionRetryCount());
+            examAnalysisTaskMapper.updateById(taskUpdate);
+
+            // 题目已落库 → 试卷 completed（grade_status 仍 ungraded，TX-B 结算后置 graded）
+            ExamPaper paperUpdate = new ExamPaper();
+            paperUpdate.setId(paper.getId());
+            paperUpdate.setStatus("completed");
+            paperUpdate.setRemark(imageWarning);
+            examPaperMapper.updateById(paperUpdate);
+            return null;
+        });
+    }
+
+    /**
+     * 自动判分 + TX-B 结算
+     *
+     * <p>判分输入统一来自库中行（按 {@code exam_question.id} 对齐，design B7），因此首次解析与
+     * "重试直接用库中行"两条路径行为一致；无法判定的题（unreadable）保持 {@code is_correct = NULL}，
+     * 不参与掌握度/错题记账。</p>
+     */
+    private void settle(ExamAnalysisTask task, ExamPaper paper, ExamParseOutcome outcome) {
+        Long paperId = paper.getId();
+        Long studentId = paper.getStudentId();
+        Long subjectId = paper.getSubjectId();
+        String tenantId = task.getTenantId();
+
+        // 1. 判分输入（按题号升序，显式列名）
+        List<ExamQuestion> questions = examQuestionMapper.selectByPaperOrderByIndex(paperId, tenantId);
+        if (questions == null || questions.isEmpty()) {
+            throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, "试卷没有可判分的题目");
+        }
+
+        // 2. 判分（LLM 调用在事务外，≤3 并发 + 60s 预算；choice/空白同步处理）
+        Map<Long, Boolean> judgedByQuestionId = judgeQuestions(questions, subjectId, studentId, tenantId);
+
+        // 3. A6：判分 key 一致性校验已前移到 judgeQuestions（gradeBatch 返回处），此处不再重复
+        //    （原 size 比较形同虚设：judgeQuestions 总是按题目 id 逐条 get，条数恒等）
+
+        // 4. 组装判分结果（1 题 1 分制；is_correct NULL → score/full_score 都 NULL）
+        int judgedCount = 0;
+        int correctCount = 0;
+        List<ExamQuestion> judgedRows = new ArrayList<>(questions.size());
+        for (ExamQuestion question : questions) {
+            Boolean isCorrect = judgedByQuestionId.get(question.getId());
+            ExamQuestion row = new ExamQuestion();
+            row.setId(question.getId());
+            if (isCorrect == null) {
+                row.setIsCorrect(null);
+                row.setScore(null);
+                row.setFullScore(null);
+            } else {
+                judgedCount++;
+                if (isCorrect) {
+                    correctCount++;
+                }
+                row.setIsCorrect(isCorrect ? 1 : 0);
+                row.setScore(isCorrect ? BigDecimal.ONE : BigDecimal.ZERO);
+                row.setFullScore(BigDecimal.ONE);
+            }
+            judgedRows.add(row);
+        }
+
+        final int finalJudgedCount = judgedCount;
+        final int finalCorrectCount = correctCount;
+        // v4b：判分不可判定（is_correct NULL）单独计数，与 kp 维度独立
+        final int finalUnjudgedCount = questions.size() - judgedCount;
+        final Map<String, Object> finalStats = buildOutcomeStats(outcome, questions, finalUnjudgedCount);
+
+        // 5. TX-B（短事务、仅 DB 写）
+        Boolean settled = transactionTemplate.execute(status -> {
+            // 5a. 结算 CAS：0 行 = 已被结算过 → 跳过错题/掌握度/学习记录，只把 task 收尾
+            int cas = examPaperMapper.casToGraded(paperId, tenantId, BigDecimal.valueOf(finalJudgedCount));
+            if (cas == 0) {
+                log.info("试卷已结算过，跳过记账: paperId={}", paperId);
+                examAnalysisTaskMapper.casToCompleted(task.getId(), LocalDateTime.now());
+                return false;
+            }
+
+            // 5b. 判分结果批量回写（CASE WHEN，≤100/批）
+            for (int from = 0; from < judgedRows.size(); from += QUESTION_BATCH_SIZE) {
+                int to = Math.min(from + QUESTION_BATCH_SIZE, judgedRows.size());
+                examQuestionMapper.batchUpdateJudgeResult(paperId, tenantId, judgedRows.subList(from, to));
+            }
+
+            // 5c. 错题批量入队（负 ID 命名空间；无知识点的题不入队）
+            List<WrongQuestionRef> wrongItems = new ArrayList<>();
+            for (ExamQuestion question : questions) {
+                Boolean isCorrect = judgedByQuestionId.get(question.getId());
+                if (Boolean.FALSE.equals(isCorrect) && question.getKnowledgePointId() != null) {
+                    wrongItems.add(new WrongQuestionRef(-question.getId(), question.getKnowledgePointId()));
+                }
+            }
+            if (!wrongItems.isEmpty()) {
+                errorQuestionService.recordWrongAnswers(studentId, tenantId, wrongItems,
+                        ErrorQuestionSourceType.EXAM, paperId, BusinessDate.today());
+            }
+
+            // 5d. 掌握度批量更新（答对答错都更新，W_source=1.0；D_norm 内部走 validateDNorm）
+            List<ExamMasteryEvent> events = new ArrayList<>();
+            for (ExamQuestion question : questions) {
+                Boolean isCorrect = judgedByQuestionId.get(question.getId());
+                if (isCorrect == null || question.getKnowledgePointId() == null) {
+                    continue;
+                }
+                events.add(new ExamMasteryEvent(question.getKnowledgePointId(), isCorrect,
+                        question.getDifficulty()));
+            }
+            if (!events.isEmpty()) {
+                masteryService.updateMasteryFromExam(studentId, tenantId, paperId, events);
+            }
+
+            // 5e. 学习记录（规则 #9：一条试卷一条记录，写前按 exam_name 查重）
+            writeLearningRecord(paper, questions, judgedByQuestionId, finalJudgedCount, finalCorrectCount,
+                    finalStats, tenantId);
+
+            // 5f. task 完成
+            examAnalysisTaskMapper.casToCompleted(task.getId(), LocalDateTime.now());
+            return true;
+        });
+
+        log.info("试卷结算完成: paperId={}, taskId={}, judged={}, correct={}, settled={}",
+                paperId, task.getId(), finalJudgedCount, finalCorrectCount, settled);
+
+        // 6. 结算提交后异步检测信号并自动调整（不影响试卷状态）
+        examSignalAdjustService.triggerAfterSettlement(paperId, studentId, subjectId, tenantId);
+    }
+
+    /**
+     * 判分：按 {@code exam_question.id} 对齐返回结果（value 为 null 表示无法判定）
+     */
+    private Map<Long, Boolean> judgeQuestions(List<ExamQuestion> questions, Long subjectId,
+                                             Long studentId, String tenantId) {
+        String subjectName = getSubjectName(subjectId, tenantId);
+        String gradeLabel = getStudentGradeLabel(studentId);
+
+        List<GradeRequest> requests = new ArrayList<>(questions.size());
+        Map<Integer, Long> indexToQuestionId = new LinkedHashMap<>();
+        for (int index = 0; index < questions.size(); index++) {
+            ExamQuestion question = questions.get(index);
+            ExamQuestionTextCodec.Decoded decoded = ExamQuestionTextCodec.decode(question.getQuestionContent());
+            requests.add(GradeRequest.builder()
+                    .key(index)
+                    .formatType(question.getQuestionType())
+                    .questionContent(decoded.stem())
+                    .correctAnswer(decoded.correctAnswer())
+                    .studentAnswer(question.getStudentAnswer())
+                    .answerStatus(decoded.answerStatus())
+                    .build());
+            indexToQuestionId.put(index, question.getId());
+        }
+
+        Map<Integer, Boolean> batchResult = answerGradingService.gradeBatch(requests, subjectName, gradeLabel,
+                Duration.ofSeconds(Math.max(1, gradingTimeoutSeconds)), Math.max(1, gradingConcurrency));
+
+        // A6：判分返回的 key 集合必须与待判题索引集合一致（原 settle 里的 size 比较不可达：
+        // 这里按 indexToQuestionId 逐条 get，key 永远"齐全"；真正丢判定只会表现为 value 缺失）
+        Set<Integer> expectedKeys = indexToQuestionId.keySet();
+        if (!batchResult.keySet().equals(expectedKeys)) {
+            Set<Integer> missing = new HashSet<>(expectedKeys);
+            missing.removeAll(batchResult.keySet());
+            Set<Integer> unexpected = new HashSet<>(batchResult.keySet());
+            unexpected.removeAll(expectedKeys);
+            String reason = "判分结果 key 与待判题索引不一致: missing=" + missing
+                    + ", unexpected=" + unexpected + ", questions=" + questions.size();
+            log.warn("{}: studentId={}", reason, studentId);
+            degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                    "studentId=" + studentId + ", questionCount=" + questions.size(), reason,
+                    "judge_key_mismatch", tenantId);
+            // 缺失 key 的题保持 NULL（不写 is_correct），不整体失败
+        }
+
+        Map<Long, Boolean> judgedByQuestionId = new LinkedHashMap<>();
+        for (Map.Entry<Integer, Long> entry : indexToQuestionId.entrySet()) {
+            judgedByQuestionId.put(entry.getValue(), batchResult.get(entry.getKey()));
+        }
+        return judgedByQuestionId;
+    }
+
+    /**
+     * 学习记录写入（design §7.5 / 规则 #9）
+     *
+     * <p>字段：{@code exam_name = 科目 + 试卷类型中文 + 空格 + 考试日期}；得分为 1 题 1 分制；
+     * {@code questions} 只存轻量摘要（内嵌 paperId，不存题干全文）；写前按 exam_name 查重（一条试卷一条记录）。</p>
+     */
+    private void writeLearningRecord(ExamPaper paper, List<ExamQuestion> questions,
+                                     Map<Long, Boolean> judgedByQuestionId,
+                                     int judgedCount, int correctCount,
+                                     Map<String, Object> stats, String tenantId) {
+        String subjectName = getSubjectName(paper.getSubjectId(), tenantId);
+        String examName = truncate(buildExamName(subjectName, paper.getPaperType(), paper.getExamDate()),
+                EXAM_NAME_MAX_LENGTH);
+
+        int exists = examAnalysisResultMapper.countCompletedByExamName(
+                paper.getStudentId(), tenantId, examName);
+        if (exists > 0) {
+            log.warn("学习记录已存在，跳过写入: studentId={}, examName={}", paper.getStudentId(), examName);
+            return;
+        }
+
+        List<Map<String, Object>> items = new ArrayList<>(questions.size());
+        for (ExamQuestion question : questions) {
+            Boolean isCorrect = judgedByQuestionId.get(question.getId());
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("questionIndex", question.getQuestionIndex());
+            item.put("knowledgePointId", question.getKnowledgePointId());
+            item.put("questionType", question.getQuestionType());
+            item.put("difficulty", question.getDifficulty());
+            item.put("isCorrect", isCorrect == null ? null : (isCorrect ? 1 : 0));
+            items.add(item);
+        }
+        Map<String, Object> payload = new LinkedHashMap<>();
+        payload.put("paperId", paper.getId());
+        payload.put("source", "exam_paper");
+        // v4/v4b：四档统计（kp 直出/兜底/未决 + 判分不可判定），零 DDL 存 JSON
+        payload.put("stats", stats);
+        payload.put("items", items);
+
+        ExamAnalysisResult record = new ExamAnalysisResult();
+        record.setStudentId(paper.getStudentId());
+        record.setSubjectId(paper.getSubjectId());
+        record.setExamName(examName);
+        record.setImageUrls(paper.getImageUrls());
+        record.setQuestions(toJson(payload));
+        record.setTotalScore(BigDecimal.valueOf(judgedCount));
+        record.setUserScore(BigDecimal.valueOf(correctCount));
+        record.setStatus("completed");
+        record.setAnalyzedAt(LocalDateTime.now());
+        record.setTenantId(tenantId);
+        examAnalysisResultMapper.insert(record);
+        log.info("学习记录已写入: studentId={}, examName={}, userScore={}, totalScore={}",
+                paper.getStudentId(), examName, correctCount, judgedCount);
+    }
+
+    /**
+     * 试卷名称：科目 + 试卷类型中文 + 空格 + 考试日期（如"数学期中考试 2026-11-11"）
+     */
+    private String buildExamName(String subjectName, String paperType, LocalDate examDate) {
+        String subject = (subjectName == null || subjectName.isBlank()) ? "考试" : subjectName;
+        String type = ExamPaperTypeUtil.displayName(paperType);
+        String date = examDate == null ? "" : " " + examDate;
+        return subject + type + date;
+    }
+
+    private String getSubjectName(Long subjectId, String tenantId) {
+        if (subjectId == null) {
+            return null;
+        }
+        Subject subject = subjectMapper.selectByIdAndTenant(subjectId, tenantId);
+        return subject == null ? null : subject.getName();
+    }
+
+    /**
+     * 年级中文名（约定 #23；空值"当前"）
+     */
+    private String getStudentGradeLabel(Long studentId) {
+        if (studentId == null) {
+            return "当前";
+        }
+        Student student = studentMapper.selectById(studentId);
+        if (student == null || student.getGrade() == null || student.getGrade().isBlank()) {
+            return "当前";
+        }
+        String displayName = GradeMatcher.displayName(student.getGrade());
+        return (displayName == null || displayName.isBlank()) ? "当前" : displayName;
+    }
+
+    /**
+     * 学习记录 stats（v4 §5 / v4b）：直出/兜底/未决 + kp 总量与截断 + 判分不可判定
+     *
+     * <p>B7 重试路径没有解析 outcome：此时 direct 用"库中行有 kp"近似、fallback=0、unresolved=无 kp 题数。</p>
+     */
+    private Map<String, Object> buildOutcomeStats(ExamParseOutcome outcome, List<ExamQuestion> questions,
+                                                  int unjudgedCount) {
+        Map<String, Object> stats = new LinkedHashMap<>();
+        if (outcome != null) {
+            stats.put("kpDirect", outcome.getDirectKpCount());
+            stats.put("kpFallback", outcome.getFallbackKpCount());
+            stats.put("kpUnresolved", outcome.getUnresolvedKpCount());
+            stats.put("kpTotal", outcome.getKpTotal());
+            stats.put("kpTruncated", outcome.getKpTruncated());
+        } else {
+            long withKp = questions.stream().filter(q -> q.getKnowledgePointId() != null).count();
+            stats.put("kpDirect", (int) withKp);
+            stats.put("kpFallback", 0);
+            stats.put("kpUnresolved", questions.size() - (int) withKp);
+            stats.put("kpTotal", null);
+            stats.put("kpTruncated", null);
+        }
+        stats.put("unjudged", unjudgedCount);
+        stats.put("judged", questions.size() - unjudgedCount);
+        return stats;
+    }
+
+    /**
+     * 部分图片未识别时的用户提示（零 DDL：存 {@code exam_paper.remark}，由详情接口带出）
+     */
+    private String buildImageWarning(ExamParseOutcome outcome) {
+        List<String> warnings = outcome.getImageWarnings();
+        if (warnings == null || warnings.isEmpty()) {
+            return null;
+        }
+        String joined = warnings.stream()
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("；"));
+        if (joined.isBlank()) {
+            return null;
+        }
+        String sanitized = AgentDegradationLogger.sanitize(joined);
+        return truncate(sanitized, ERROR_MESSAGE_MAX_LENGTH);
+    }
+
+    /**
+     * 任务失败收尾：task/paper 均置 failed，error_message 脱敏截断 500 + 降级日志
+     */
+    private void failAnalysis(ExamAnalysisTask task, String reason) {
+        String message = truncate(AgentDegradationLogger.sanitize(
+                reason == null ? "试卷解析失败" : reason), ERROR_MESSAGE_MAX_LENGTH);
+
+        try {
+            ExamAnalysisTask taskUpdate = new ExamAnalysisTask();
+            taskUpdate.setId(task.getId());
+            taskUpdate.setStatus("failed");
+            taskUpdate.setCompletedAt(LocalDateTime.now());
+            taskUpdate.setErrorMessage(message);
+            examAnalysisTaskMapper.updateById(taskUpdate);
+
+            ExamPaper paperUpdate = new ExamPaper();
+            paperUpdate.setId(task.getExamPaperId());
+            paperUpdate.setStatus("failed");
+            examPaperMapper.updateById(paperUpdate);
+        } catch (Exception e) {
+            log.error("试卷解析失败状态落库异常: taskId={}", task.getId(), e);
+        }
+
+        degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                "taskId=" + task.getId() + ", paperId=" + task.getExamPaperId(),
+                message, "task_failed", task.getTenantId());
+    }
+
+    private boolean hasPersistedQuestions(Long examPaperId, String tenantId) {
+        return examQuestionMapper.countByPaper(examPaperId, tenantId) > 0;
+    }
+
+    private void markPaperProcessing(ExamPaper paper) {
+        ExamPaper update = new ExamPaper();
+        update.setId(paper.getId());
+        update.setStatus("processing");
+        examPaperMapper.updateById(update);
+        paper.setStatus("processing");
+    }
+
+    // ==================== 历史试卷读接口（design §10.1/§10.2，固定 SQL 条数） ====================
+
+    @Override
+    public PageResult<ExamPaperListItemVO> getPapers(Integer page, Integer size) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+
+        // clamp：page ≥ 1，size 1..50（design §10.1 / 约定 #3）
+        int safePage = (page == null || page < 1) ? 1 : page;
+        int safeSize = (size == null || size < 1) ? 10 : Math.min(size, MAX_PAGE_SIZE);
+        int offset = (safePage - 1) * safeSize;
+
+        // 固定 2 条 SQL：count + 分页（派生表聚合题数/正确数/已判定数）
+        long total = examPaperMapper.countByStudent(studentId, tenantId);
+        List<Map<String, Object>> rows = examPaperMapper.selectPageWithStats(
+                studentId, tenantId, offset, safeSize);
+
+        List<ExamPaperListItemVO> records = rows.stream()
+                .map(this::toPaperListItem)
+                .collect(Collectors.toList());
+        return PageResult.of(total, safePage, safeSize, records);
+    }
+
+    @Override
+    public ExamPaperDetailVO getPaperDetail(Long paperId) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+
+        // 固定 3 条 SQL：① paper + 科目名（含归属校验）② 题目按题号升序 ③ 知识点名称批量
+        Map<String, Object> paperRow = examPaperMapper.selectDetailWithSubject(paperId, studentId, tenantId);
+        if (paperRow == null) {
+            // 不存在 / 非本人 / 非本租户统一 1136，不区分存在性（避免枚举探测）
+            throw new BusinessException(ErrorCodes.EXAM_RESULT_NOT_FOUND);
+        }
+
+        List<ExamQuestion> questions = examQuestionMapper.selectByPaperOrderByIndex(paperId, tenantId);
+        // 复制为可变列表后排序（防御性：Mapper 可能返回不可变集合；题号升序稳定）
+        questions = questions == null ? new ArrayList<>() : new ArrayList<>(questions);
+        questions.sort(Comparator.comparingInt(q -> q.getQuestionIndex() == null
+                ? Integer.MAX_VALUE : q.getQuestionIndex()));
+
+        Set<String> kpIds = questions.stream()
+                .map(ExamQuestion::getKnowledgePointId)
+                .filter(Objects::nonNull)
+                .filter(id -> !id.isBlank())
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+        Map<String, String> kpNames = new HashMap<>();
+        if (!kpIds.isEmpty()) {
+            List<Map<String, Object>> kpRows = knowledgePointMapper.selectNamesByIds(
+                    new ArrayList<>(kpIds), tenantId);
+            if (kpRows != null) {
+                for (Map<String, Object> row : kpRows) {
+                    kpNames.put(String.valueOf(row.get("knowledge_point_id")),
+                            (String) row.get("name"));
+                }
+            }
+        }
+
+        List<ExamQuestionItemVO> questionItems = new ArrayList<>(questions.size());
+        int correctCount = 0;
+        int judgedCount = 0;
+        for (ExamQuestion question : questions) {
+            if (question.getIsCorrect() != null) {
+                judgedCount++;
+                if (question.getIsCorrect() == 1) {
+                    correctCount++;
+                }
+            }
+            questionItems.add(toQuestionItem(question, kpNames.get(question.getKnowledgePointId())));
+        }
+
+        List<String> imageUrls = fromJson((String) paperRow.get("imageUrls"));
+        String paperType = (String) paperRow.get("paperType");
+
+        return ExamPaperDetailVO.builder()
+                .paperId(toLong(paperRow.get("paperId")))
+                .subjectId(toLong(paperRow.get("subjectId")))
+                .subjectName((String) paperRow.get("subjectName"))
+                .examDate(toLocalDate(paperRow.get("examDate")))
+                .paperType(paperType)
+                .paperTypeName(ExamPaperTypeUtil.displayName(paperType))
+                .status((String) paperRow.get("status"))
+                .gradeStatus((String) paperRow.get("gradeStatus"))
+                .imageUrls(imageUrls)
+                .imageCount(imageUrls.size())
+                .imageWarning((String) paperRow.get("remark"))
+                .questionCount(questions.size())
+                .correctCount(correctCount)
+                .judgedCount(judgedCount)
+                .userScore(BigDecimal.valueOf(correctCount))
+                .totalScore(BigDecimal.valueOf(judgedCount))
+                .createTime(toLocalDateTime(paperRow.get("createTime")))
+                .questions(questionItems)
+                .build();
+    }
+
+    /**
+     * 列表行 → VO（Map 来自 selectPageWithStats，1 题 1 分制）
+     */
+    private ExamPaperListItemVO toPaperListItem(Map<String, Object> row) {
+        int correctCount = toInt(row.get("correctCount"));
+        int judgedCount = toInt(row.get("judgedCount"));
+        String paperType = (String) row.get("paperType");
+        return ExamPaperListItemVO.builder()
+                .paperId(toLong(row.get("paperId")))
+                .subjectId(toLong(row.get("subjectId")))
+                .subjectName((String) row.get("subjectName"))
+                .examDate(toLocalDate(row.get("examDate")))
+                .paperType(paperType)
+                .paperTypeName(ExamPaperTypeUtil.displayName(paperType))
+                .status((String) row.get("status"))
+                .gradeStatus((String) row.get("gradeStatus"))
+                .questionCount(toInt(row.get("questionCount")))
+                .correctCount(correctCount)
+                .judgedCount(judgedCount)
+                .userScore(BigDecimal.valueOf(correctCount))
+                .totalScore(BigDecimal.valueOf(judgedCount))
+                .createTime(toLocalDateTime(row.get("createTime")))
+                .build();
+    }
+
+    /**
+     * 题目实体 → 详情 VO（零 DDL：题干/选项/答案/解析由 codec 解码，约定 #25 选项只放文本）
+     */
+    private ExamQuestionItemVO toQuestionItem(ExamQuestion question, String knowledgePointName) {
+        ExamQuestionTextCodec.Decoded decoded = ExamQuestionTextCodec.decode(question.getQuestionContent());
+        List<String> choices = decoded.choices() == null ? List.of()
+                : decoded.choices().stream()
+                .map(option -> option.get("text"))
+                .filter(text -> text != null && !text.isBlank())
+                .collect(Collectors.toList());
+
+        Boolean isCorrect = question.getIsCorrect() == null ? null : question.getIsCorrect() == 1;
+        String answerState;
+        if ("unreadable".equals(decoded.answerStatus())) {
+            answerState = "unreadable";
+        } else if (question.getStudentAnswer() == null || question.getStudentAnswer().isBlank()) {
+            answerState = "blank";
+        } else {
+            answerState = "judged";
+        }
+
+        return ExamQuestionItemVO.builder()
+                .questionId(question.getId())
+                .questionIndex(question.getQuestionIndex())
+                .questionType(question.getQuestionType())
+                .difficulty(question.getDifficulty())
+                .questionContent(decoded.stem())
+                .stem(decoded.stem())
+                .choices(choices)
+                .correctAnswer(decoded.correctAnswer())
+                .explanation(decoded.explanation())
+                .studentAnswer(question.getStudentAnswer())
+                .isCorrect(isCorrect)
+                .score(question.getScore())
+                .fullScore(question.getFullScore())
+                .knowledgePointId(question.getKnowledgePointId())
+                .knowledgePointName(knowledgePointName)
+                .attributionStatus(question.getAttributionStatus())
+                .answerState(answerState)
+                .build();
     }
 
     @Override
     public ExamTaskProgressVO getTaskProgress(Long taskId) {
+        Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
         ExamAnalysisTask task = examAnalysisTaskMapper.selectById(taskId);
-        if (task == null || !tenantId.equals(task.getTenantId())) {
+        if (task == null) {
+            throw new BusinessException(ErrorCodes.EXAM_TASK_NOT_FOUND);
+        }
+        // B4：task → paper 校验 student_id + tenant_id（越权/不存在统一 1135，不区分存在性）
+        ExamPaper paper = examPaperMapper.selectById(task.getExamPaperId());
+        if (paper == null || !studentId.equals(paper.getStudentId())
+                || !tenantId.equals(paper.getTenantId())) {
             throw new BusinessException(ErrorCodes.EXAM_TASK_NOT_FOUND);
         }
 
         return ExamTaskProgressVO.builder()
                 .taskId(task.getId())
+                .paperId(task.getExamPaperId())
                 .status(task.getStatus())
                 .ocrRetryCount(task.getOcrRetryCount())
                 .attributionRetryCount(task.getAttributionRetryCount())
@@ -289,304 +1052,7 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                 .build();
     }
 
-    @Override
-    public ExamResultDetailVO getResultDetail(Long resultId) {
-        Long studentId = StudentContext.getStudentId();
-        String tenantId = StudentContext.getTenantId();
-
-        ExamPaper examPaper = examPaperMapper.selectById(resultId);
-        if (examPaper == null || !tenantId.equals(examPaper.getTenantId())
-                || !studentId.equals(examPaper.getStudentId())) {
-            throw new BusinessException(ErrorCodes.EXAM_RESULT_NOT_FOUND);
-        }
-
-        // 查询题目列表
-        List<ExamQuestion> questions = examQuestionMapper.selectList(
-                new LambdaQueryWrapper<ExamQuestion>()
-                        .eq(ExamQuestion::getExamPaperId, resultId)
-                        .eq(ExamQuestion::getTenantId, tenantId)
-                        .orderByAsc(ExamQuestion::getQuestionIndex));
-
-        // 查询科目名称
-        Subject subject = subjectMapper.selectById(examPaper.getSubjectId());
-        String subjectName = subject != null ? subject.getName() : null;
-
-        // 构建题目详情
-        List<ExamQuestionDetailVO> questionDetails = questions.stream()
-                .map(q -> {
-                    String kpName = null;
-                    if (q.getKnowledgePointId() != null) {
-                        var kp = knowledgePointMapper.selectById(q.getKnowledgePointId());
-                        kpName = kp != null ? kp.getName() : null;
-                    }
-                    return ExamQuestionDetailVO.builder()
-                            .questionId(q.getId())
-                            .questionIndex(q.getQuestionIndex())
-                            .questionContent(q.getQuestionContent())
-                            .questionImageUrl(q.getQuestionImageUrl())
-                            .knowledgePointId(q.getKnowledgePointId())
-                            .knowledgePointName(kpName)
-                            .attributionStatus(q.getAttributionStatus())
-                            .studentAnswer(q.getStudentAnswer())
-                            .isCorrect(q.getIsCorrect())
-                            .score(q.getScore())
-                            .fullScore(q.getFullScore())
-                            .questionType(q.getQuestionType())
-                            .difficulty(q.getDifficulty())
-                            .build();
-                })
-                .collect(Collectors.toList());
-
-        return ExamResultDetailVO.builder()
-                .examPaperId(examPaper.getId())
-                .subjectId(examPaper.getSubjectId())
-                .subjectName(subjectName)
-                .examDate(examPaper.getExamDate())
-                .paperType(examPaper.getPaperType())
-                .imageUrls(fromJson(examPaper.getImageUrls()))
-                .status(examPaper.getStatus())
-                .gradeStatus(examPaper.getGradeStatus())
-                .totalScore(examPaper.getTotalScore())
-                .questions(questionDetails)
-                .createTime(examPaper.getCreateTime())
-                .build();
-    }
-
-    @Override
-    public PageResult<ExamResultListVO> getResultHistory(Integer page, Integer size) {
-        Long studentId = StudentContext.getStudentId();
-        String tenantId = StudentContext.getTenantId();
-
-        // 修复 Issue-4：统一使用 MyBatis-Plus Page 分页
-        Page<ExamPaper> pageParam = new Page<>(page, size);
-        LambdaQueryWrapper<ExamPaper> wrapper = new LambdaQueryWrapper<ExamPaper>()
-                .eq(ExamPaper::getStudentId, studentId)
-                .eq(ExamPaper::getTenantId, tenantId)
-                .orderByDesc(ExamPaper::getCreateTime);
-
-        Page<ExamPaper> result = examPaperMapper.selectPage(pageParam, wrapper);
-        List<ExamPaper> papers = result.getRecords();
-
-        // 修复 Issue-1：批量查询科目名称，避免 N+1
-        List<Long> subjectIds = papers.stream()
-                .map(ExamPaper::getSubjectId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .collect(Collectors.toList());
-        Map<Long, String> subjectNameMap = subjectIds.isEmpty()
-                ? Collections.emptyMap()
-                : subjectMapper.selectNamesByIds(subjectIds).stream()
-                        .collect(Collectors.toMap(
-                                m -> ((Number) m.get("subject_id")).longValue(),
-                                m -> (String) m.get("name")));
-
-        List<ExamResultListVO> records = papers.stream()
-                .map(p -> ExamResultListVO.builder()
-                .examPaperId(p.getId())
-                .subjectId(p.getSubjectId())
-                .subjectName(subjectNameMap.getOrDefault(p.getSubjectId(), null))
-                .examDate(p.getExamDate())
-                .paperType(p.getPaperType())
-                .status(p.getStatus())
-                .gradeStatus(p.getGradeStatus())
-                .totalScore(p.getTotalScore())
-                .build())
-                .collect(Collectors.toList());
-
-        return PageResult.of(result.getTotal(), page, size, records);
-    }
-
-    // ========== 私有方法 ==========
-
-    private void validateFiles(List<MultipartFile> files) {
-        if (files == null || files.isEmpty()) {
-            throw new BusinessException(ErrorCodes.FILE_UPLOAD_FAILED);
-        }
-        for (MultipartFile file : files) {
-            if (file.getSize() > 10 * 1024 * 1024) {
-                throw new BusinessException(ErrorCodes.FILE_TYPE_INVALID);
-            }
-            String contentType = file.getContentType();
-            if (contentType == null || !contentType.matches("image/(jpeg|jpg|png)")) {
-                throw new BusinessException(ErrorCodes.FILE_TYPE_INVALID);
-            }
-        }
-    }
-
-    private List<ExamQuestionOcrDTO> ocrWithRetry(ExamAnalysisTask task, int maxRetries) {
-        int retryCount = 0;
-        Exception lastException = null;
-
-        ExamPaper examPaper = examPaperMapper.selectById(task.getExamPaperId());
-        List<String> imageUrls = fromJson(examPaper.getImageUrls());
-
-        while (retryCount <= maxRetries) {
-            try {
-                List<ExamQuestionOcrDTO> results = new ArrayList<>();
-                for (String imageUrl : imageUrls) {
-                    results.addAll(ocrService.recognize(imageUrl));
-                }
-                return results;
-            } catch (OcrException e) {
-                lastException = e;
-                retryCount++;
-                task.setOcrRetryCount(retryCount);
-                examAnalysisTaskMapper.updateById(task);
-                log.warn("OCR 切题失败，重试 {}/{}: taskId={}", retryCount, maxRetries, task.getId());
-            }
-        }
-
-        // 重试耗尽：降级处理
-        log.error("OCR 切题重试耗尽，降级为待人工归因: taskId={}", task.getId(), lastException);
-        return imageUrls.stream()
-                .map(url -> {
-                    ExamQuestionOcrDTO dto = new ExamQuestionOcrDTO();
-                    dto.setQuestionContent("[OCR 识别失败，待人工处理]");
-                    dto.setAttributionStatus("pending_manual_review");
-                    return dto;
-                })
-                .collect(Collectors.toList());
-    }
-
-    private List<ExamQuestionAttributionDTO> attributionWithRetry(
-            List<ExamQuestionOcrDTO> ocrResults, ExamAnalysisTask task, int maxRetries) {
-        int retryCount = 0;
-        Exception lastException = null;
-
-        while (retryCount <= maxRetries) {
-            try {
-                ExamPaper paper = examPaperMapper.selectById(task.getExamPaperId());
-                return attributionAgent.attribute(ocrResults, paper.getSubjectId(), task.getTenantId());
-            } catch (AttributionException e) {
-                lastException = e;
-                retryCount++;
-                task.setAttributionRetryCount(retryCount);
-                examAnalysisTaskMapper.updateById(task);
-                log.warn("归因 Agent 失败，重试 {}/{}: taskId={}", retryCount, maxRetries, task.getId());
-            }
-        }
-
-        // 重试耗尽：降级处理
-        log.error("归因 Agent 重试耗尽，降级为待人工归因: taskId={}", task.getId(), lastException);
-        return ocrResults.stream()
-                .map(ocr -> {
-                    ExamQuestionAttributionDTO dto = new ExamQuestionAttributionDTO();
-                    dto.setQuestionContent(ocr.getQuestionContent());
-                    dto.setAttributionStatus("pending_manual_review");
-                    dto.setKnowledgePointId(null);
-                    return dto;
-                })
-                .collect(Collectors.toList());
-    }
-
-    /**
-     * 修复 Sev-2：tenantId 由调用方传入，不再依赖 StudentContext
-     */
-    private void saveExamQuestions(Long examPaperId, List<ExamQuestionAttributionDTO> results, String tenantId) {
-        for (int i = 0; i < results.size(); i++) {
-            ExamQuestionAttributionDTO dto = results.get(i);
-            ExamQuestion question = new ExamQuestion();
-            question.setExamPaperId(examPaperId);
-            question.setQuestionIndex(dto.getQuestionIndex() != null ? dto.getQuestionIndex() : i + 1);
-            question.setQuestionContent(dto.getQuestionContent());
-            question.setKnowledgePointId(dto.getKnowledgePointId());
-            question.setAttributionStatus(dto.getAttributionStatus());
-            question.setQuestionType(dto.getQuestionType());
-            question.setDifficulty(dto.getDifficulty());
-            question.setTenantId(tenantId);
-            examQuestionMapper.insert(question);
-        }
-    }
-
-    private void updateTaskAndPaperStatus(ExamAnalysisTask task, String newTaskStatus) {
-        task.setStatus(newTaskStatus);
-        if ("processing".equals(newTaskStatus)) {
-            task.setStartedAt(LocalDateTime.now());
-        } else if ("completed".equals(newTaskStatus) || "failed".equals(newTaskStatus)) {
-            task.setCompletedAt(LocalDateTime.now());
-        }
-        examAnalysisTaskMapper.updateById(task);
-
-        // 联动更新 paper 状态
-        ExamPaper paper = examPaperMapper.selectById(task.getExamPaperId());
-        if (paper != null) {
-            paper.setStatus(aggregatePaperStatus(paper.getId(), task.getTenantId()));
-            examPaperMapper.updateById(paper);
-        }
-    }
-
-    private String aggregatePaperStatus(Long examPaperId, String tenantId) {
-        List<ExamAnalysisTask> tasks = examAnalysisTaskMapper.selectList(
-                new LambdaQueryWrapper<ExamAnalysisTask>()
-                        .eq(ExamAnalysisTask::getExamPaperId, examPaperId)
-                        .eq(ExamAnalysisTask::getTenantId, tenantId));
-        boolean hasFailed = tasks.stream().anyMatch(t -> "failed".equals(t.getStatus()));
-        boolean hasProcessing = tasks.stream().anyMatch(t -> "processing".equals(t.getStatus()));
-        boolean allCompleted = tasks.stream().allMatch(t -> "completed".equals(t.getStatus()));
-
-        if (allCompleted) return "completed";
-        if (hasProcessing) return "processing";
-        if (hasFailed) return "failed";
-        return "pending";
-    }
-
-    /**
-     * 修复 BLOCK-A：删除 request 参数，仅使用 questions
-     */
-    private void updateMasteryFromExam(Long examPaperId, List<ExamQuestion> questions) {
-        Long studentId = StudentContext.getStudentId();
-        String tenantId = StudentContext.getTenantId();
-        for (ExamQuestion q : questions) {
-            if (q.getKnowledgePointId() == null || q.getIsCorrect() == null) {
-                continue;
-            }
-            // 将 difficulty 转换为 dNorm
-            BigDecimal dNorm = convertDifficultyToDNorm(q.getDifficulty());
-            masteryService.updateMasteryFromResult(
-                    studentId, tenantId,
-                    q.getKnowledgePointId(),
-                    com.jiang.model.enums.ChangeType.EXAM,
-                    examPaperId,
-                    q.getIsCorrect() == 1,
-                    dNorm
-            );
-        }
-    }
-
-    /**
-     * 修复 Sev-1：使用 QuestionDifficulty 枚举统一 D_norm 映射，避免与产品规则不一致
-     */
-    private BigDecimal convertDifficultyToDNorm(String difficulty) {
-        try {
-            return com.jiang.model.enums.QuestionDifficulty.fromCode(difficulty).getDNorm();
-        } catch (IllegalArgumentException e) {
-            return new BigDecimal("0.5");
-        }
-    }
-
-    /**
-     * 修复 BLOCK-A：删除 request 参数，仅使用 questions
-     */
-    private void recordWrongAnswers(Long examPaperId, List<ExamQuestion> questions) {
-        Long studentId = StudentContext.getStudentId();
-        String tenantId = StudentContext.getTenantId();
-        LocalDate today = BusinessDate.today();
-        for (ExamQuestion q : questions) {
-            if (q.getIsCorrect() != null && q.getIsCorrect() == 0 && q.getKnowledgePointId() != null) {
-                // 考试错题入队
-                // 注意：exam_question 没有 question_id 字段（OCR 切题后未关联题库），
-                // 这里传 null 作为 questionId，表示这是一道"游离"错题
-                errorQuestionService.recordWrongAnswer(
-                        studentId, tenantId,
-                        null, // questionId（考试 OCR 未关联题库）
-                        q.getKnowledgePointId(),
-                        com.jiang.model.enums.ErrorQuestionSourceType.EXAM,
-                        examPaperId,
-                        today
-                );
-            }
-        }
-    }
+    // ==================== 工具方法 ====================
 
     private String toJson(Object obj) {
         try {
@@ -596,20 +1062,76 @@ public class ExamPaperServiceImpl implements ExamPaperService {
         }
     }
 
-    private <T> T fromJson(String json, TypeReference<T> typeRef) {
+    private List<String> fromJson(String json) {
+        if (json == null || json.isBlank()) {
+            return new ArrayList<>();
+        }
         try {
-            return OBJECT_MAPPER.readValue(json, typeRef);
+            List<String> values = OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {});
+            return values == null ? new ArrayList<>() : values.stream()
+                    .filter(url -> url != null && !url.isBlank())
+                    .collect(Collectors.toList());
         } catch (Exception e) {
-            return null;
+            log.warn("解析试卷图片列表失败，按空处理: {}", e.getMessage());
+            return new ArrayList<>();
         }
     }
 
-    private List<String> fromJson(String json) {
-        return fromJson(json, new TypeReference<List<String>>() {});
+    private String truncate(String str, int maxLen) {
+        if (str == null) {
+            return null;
+        }
+        return str.length() > maxLen ? str.substring(0, maxLen) : str;
     }
 
-    private String truncate(String str, int maxLen) {
-        if (str == null) return null;
-        return str.length() > maxLen ? str.substring(0, maxLen) : str;
+    // ==================== Map 行转换（读接口显式列名 → VO） ====================
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        return Long.parseLong(value.toString());
+    }
+
+    private int toInt(Object value) {
+        if (value == null) {
+            return 0;
+        }
+        if (value instanceof Number number) {
+            return number.intValue();
+        }
+        return Integer.parseInt(value.toString());
+    }
+
+    private LocalDate toLocalDate(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDate localDate) {
+            return localDate;
+        }
+        if (value instanceof java.sql.Date sqlDate) {
+            return sqlDate.toLocalDate();
+        }
+        return LocalDate.parse(value.toString());
+    }
+
+    private LocalDateTime toLocalDateTime(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof LocalDateTime localDateTime) {
+            return localDateTime;
+        }
+        if (value instanceof java.sql.Timestamp timestamp) {
+            return timestamp.toLocalDateTime();
+        }
+        if (value instanceof LocalDate localDate) {
+            return localDate.atStartOfDay();
+        }
+        return LocalDateTime.parse(value.toString().replace(' ', 'T'));
     }
 }

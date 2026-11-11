@@ -32,6 +32,7 @@ public class AgentOutputValidator {
     private JsonNode adjustmentSchema;
     private JsonNode planningSchema;
     private JsonNode similarQuestionSchema;
+    private JsonNode examParseSchema;
 
     @PostConstruct
     public void init() {
@@ -41,6 +42,7 @@ public class AgentOutputValidator {
             adjustmentSchema = loadSchema("prompts/schemas/adjustment_schema.json");
             planningSchema = loadSchema("prompts/schemas/planning_schema.json");
             similarQuestionSchema = loadSchema("prompts/schemas/similar_question_schema.json");
+            examParseSchema = loadSchema("prompts/schemas/exam_parse_schema.json");
         } catch (IOException e) {
             log.error("加载 JSON Schema 失败: {}", e.getMessage());
         }
@@ -145,6 +147,175 @@ public class AgentOutputValidator {
         try (InputStream is = resource.getInputStream()) {
             return OBJECT_MAPPER.readTree(is);
         }
+    }
+
+    /**
+     * 校验视觉解析 Agent 输出（试卷上传 change，design §3.3/§3.4）
+     *
+     * <p>判定语义：</p>
+     * <ul>
+     *   <li>JSON 解析失败 / 顶层不是对象 / {@code questions} 非数组 → <b>整图判失败</b>（调用方可重试）</li>
+     *   <li>单题结构非法（缺必填字段、枚举越界、length 越界、choice 选项不足）→ <b>只丢弃该题</b>，
+     *       由 {@link #checkExamParseItem(JsonNode)} 暴露给调用方，不重试整图</li>
+     *   <li>有效题数为 0 且原数组非空 → 整图判失败</li>
+     *   <li>{@code questions} 为空数组 → 合法（整页无题，如封面页），不重试</li>
+     * </ul>
+     *
+     * @param agentOutput 视觉模型返回的原始文本
+     * @return 整图级别的校验结果
+     */
+    public ValidationResult validateExamParse(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+
+        if (!jsonNode.isObject()) {
+            return ValidationResult.fail("输出必须是 JSON 对象");
+        }
+
+        JsonNode questions = jsonNode.get("questions");
+        if (questions == null || !questions.isArray()) {
+            return ValidationResult.fail("缺少或非法字段 questions（必须是 JSON 数组）");
+        }
+
+        if (questions.isEmpty()) {
+            // 整页无题（封面/答题卡页）是合法结果，但必须有 imageWarning 说明原因
+            String warning = jsonNode.path("imageWarning").asText("");
+            if (warning.isBlank()) {
+                log.warn("视觉解析返回空题目且缺少 imageWarning（按 0 题接受）");
+            }
+            return ValidationResult.success();
+        }
+
+        int validCount = 0;
+        List<String> invalidItems = new ArrayList<>();
+        for (int i = 0; i < questions.size(); i++) {
+            String error = checkExamParseItem(questions.get(i));
+            if (error == null) {
+                validCount++;
+            } else {
+                invalidItems.add("题目[" + i + "]: " + error);
+            }
+        }
+
+        if (validCount == 0) {
+            return ValidationResult.fail("questions 中没有任何合法题目: " + String.join("; ", invalidItems));
+        }
+        if (!invalidItems.isEmpty()) {
+            log.warn("视觉解析部分题目被丢弃: {}", String.join("; ", invalidItems));
+        }
+        return ValidationResult.success();
+    }
+
+    /**
+     * 校验单道试卷解析题（约定 #24 纯文本字段不做长度外校验，长度按 schema §3.3）
+     *
+     * @param item questions 数组中的一个元素
+     * @return 错误信息；合法返回 null
+     */
+    public String checkExamParseItem(JsonNode item) {
+        if (item == null || !item.isObject()) {
+            return "题目必须是 JSON 对象";
+        }
+
+        // 必填字段（v4：knowledgePointId 由解析直出，允许空串但字段必须存在）
+        String[] requiredFields = {"questionIndex", "stem", "formatType", "studentAnswer", "answerStatus",
+                "knowledgePointId"};
+        for (String field : requiredFields) {
+            if (!item.has(field) || item.get(field).isNull()) {
+                return "缺少必填字段 " + field;
+            }
+        }
+
+        // knowledgePointId 必须是字符串（空串合法 = 模型无法判断；超长/多 ID 由解析层置空 + warn，
+        // 服务端白名单再兜一层，规则 #8）
+        JsonNode knowledgePointId = item.get("knowledgePointId");
+        if (!knowledgePointId.isTextual()) {
+            return "knowledgePointId 必须是字符串";
+        }
+
+        // 题号：1..60 的整数
+        JsonNode questionIndex = item.get("questionIndex");
+        if (!questionIndex.isNumber()) {
+            return "questionIndex 必须是整数";
+        }
+        int index = questionIndex.asInt();
+        if (index < 1 || index > 60) {
+            return "questionIndex 必须在 1-60 之间，实际 " + index;
+        }
+
+        // 题干：1..2000
+        JsonNode stem = item.get("stem");
+        if (!stem.isTextual() || stem.asText().isBlank()) {
+            return "stem 不能为空";
+        }
+        if (stem.asText().length() > 2000) {
+            return "stem 超过 2000 字";
+        }
+
+        // 题型枚举
+        JsonNode formatType = item.get("formatType");
+        if (!formatType.isTextual()
+                || !Set.of("choice", "numeric", "short", "self").contains(formatType.asText())) {
+            return "formatType 值非法: " + formatType.asText();
+        }
+
+        // 选择题：选项必须可用（约定 #25：至少 2 个有效选项，最多 8 个）
+        if ("choice".equals(formatType.asText())) {
+            JsonNode choices = item.get("choices");
+            if (choices != null && !choices.isNull()) {
+                if (!choices.isArray()) {
+                    return "选择题 choices 必须是数组";
+                }
+                if (choices.size() > ChoiceOptions.MAX_OPTIONS) {
+                    return "选择题 choices 不能超过 " + ChoiceOptions.MAX_OPTIONS + " 个";
+                }
+            }
+            List<Map<String, String>> options = ChoiceOptions.normalize(choices);
+            if (!ChoiceOptions.isUsable(options)) {
+                return "选择题 choices 至少需要 " + ChoiceOptions.MIN_OPTIONS + " 个有效选项";
+            }
+        }
+
+        // 作答状态枚举
+        JsonNode answerStatus = item.get("answerStatus");
+        if (!answerStatus.isTextual()
+                || !Set.of("answered", "blank", "unreadable").contains(answerStatus.asText())) {
+            return "answerStatus 值非法: " + answerStatus.asText();
+        }
+
+        // 学生作答长度
+        JsonNode studentAnswer = item.get("studentAnswer");
+        if (!studentAnswer.isTextual()) {
+            return "studentAnswer 必须是字符串";
+        }
+        if (studentAnswer.asText().length() > 1000) {
+            return "studentAnswer 超过 1000 字";
+        }
+
+        // 可选字段：难度枚举
+        if (item.has("difficulty") && !item.get("difficulty").isNull()) {
+            JsonNode difficulty = item.get("difficulty");
+            if (!difficulty.isTextual()
+                    || !Set.of("basic", "standard", "challenge").contains(difficulty.asText())) {
+                return "difficulty 值非法: " + difficulty.asText();
+            }
+        }
+
+        // 可选字段：正确答案/解析长度
+        if (item.has("correctAnswer") && item.get("correctAnswer").isTextual()
+                && item.get("correctAnswer").asText().length() > 500) {
+            return "correctAnswer 超过 500 字";
+        }
+        if (item.has("explanation") && item.get("explanation").isTextual()
+                && item.get("explanation").asText().length() > 1000) {
+            return "explanation 超过 1000 字";
+        }
+
+        return null;
     }
 
     /**

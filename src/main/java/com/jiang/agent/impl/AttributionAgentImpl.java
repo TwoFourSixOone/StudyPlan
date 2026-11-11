@@ -72,27 +72,68 @@ public class AttributionAgentImpl implements AttributionAgent {
             return buildFallbackResults(ocrResults);
         }
 
-        // 3. 构造 Prompt
-        String prompt = buildAttributionPrompt(ocrResults, subjectId, knowledgePoints);
+        // 3. 构造候选清单并委托新重载（v4：原方法行为不变，内部自建候选）
+        List<com.jiang.dto.KpCandidate> candidates = knowledgePoints.stream()
+                .map(kp -> new com.jiang.dto.KpCandidate(kp.getKnowledgePointId(), kp.getName()))
+                .collect(Collectors.toList());
+        return attribute(ocrResults, candidates, tenantId);
+    }
 
-        // 4. 调用 AgentScope LLM
+    @Override
+    public List<ExamQuestionAttributionDTO> attribute(List<ExamQuestionOcrDTO> ocrResults,
+                                                      List<com.jiang.dto.KpCandidate> candidates,
+                                                      String tenantId) {
+        log.info("归因 Agent（候选清单兜底）开始: candidateCount={}, questionCount={}, tenantId={}",
+                candidates == null ? 0 : candidates.size(), ocrResults.size(), tenantId);
+
+        if (candidates == null || candidates.isEmpty()) {
+            log.warn("候选清单为空，全部标记为待人工归因");
+            return buildFallbackResults(ocrResults);
+        }
+
+        // 候选清单 → 白名单集合（规则 #8：只允许清单内 ID）
+        java.util.Set<String> allowedIds = candidates.stream()
+                .map(com.jiang.dto.KpCandidate::knowledgePointId)
+                .filter(id -> id != null && !id.isBlank())
+                .collect(Collectors.toSet());
+
+        String kpText = candidates.stream()
+                .map(candidate -> String.format("- ID: %s, 名称: %s",
+                        candidate.knowledgePointId(), candidate.name()))
+                .collect(Collectors.joining("\n"));
+        String questionText = ocrResults.stream()
+                .map(ocr -> String.format("题目 %d:\n%s", ocr.getQuestionIndex(), ocr.getQuestionContent()))
+                .collect(Collectors.joining("\n\n"));
+
+        String prompt = loadPromptTemplate()
+                .replace("{subjectId}", "")
+                .replace("{knowledgePoints}", kpText)
+                .replace("{questions}", questionText);
+
         String agentOutput;
         try {
             agentOutput = agentScopeClient.call(prompt);
         } catch (BusinessException e) {
-            log.error("归因 Agent LLM 调用失败: {}", e.getMessage(), e);
+            log.error("归因 Agent（兜底）LLM 调用失败: {}", e.getMessage(), e);
             throw new AttributionException("归因 Agent 调用失败: " + e.getMessage(), e);
         }
 
-        // 5. 校验输出
         AgentOutputValidator.ValidationResult validationResult = validator.validateAttribution(agentOutput);
         if (!validationResult.isSuccess()) {
-            log.warn("归因 Agent 输出校验失败: {}，降级为待人工归因", validationResult.getMessage());
+            log.warn("归因 Agent（兜底）输出校验失败: {}，降级为待人工归因", validationResult.getMessage());
             return buildFallbackResults(ocrResults);
         }
 
-        // 6. 解析结果
-        return parseAttributionResult(agentOutput, ocrResults);
+        List<ExamQuestionAttributionDTO> results = parseAttributionResult(agentOutput, ocrResults);
+        // 白名单：不在候选清单内的 ID 一律置空（模型幻觉 / 已停用知识点）
+        for (ExamQuestionAttributionDTO dto : results) {
+            if (dto.getKnowledgePointId() != null && !allowedIds.contains(dto.getKnowledgePointId())) {
+                log.warn("归因结果不在候选清单内，置空: questionIndex={}", dto.getQuestionIndex());
+                dto.setKnowledgePointId(null);
+                dto.setAttributionStatus("pending_manual_review");
+            }
+        }
+        return results;
     }
 
     private String getSubjectName(Long subjectId) {
@@ -101,25 +142,6 @@ public class AttributionAgentImpl implements AttributionAgent {
             throw new AttributionException("科目不存在: subjectId=" + subjectId);
         }
         return subject.getName();
-    }
-
-    private String buildAttributionPrompt(List<ExamQuestionOcrDTO> ocrResults, Long subjectId,
-                                           List<KnowledgePoint> knowledgePoints) {
-        // 构造知识点列表文本
-        String kpText = knowledgePoints.stream()
-                .map(kp -> String.format("- ID: %s, 名称: %s", kp.getKnowledgePointId(), kp.getName()))
-                .collect(Collectors.joining("\n"));
-
-        // 构造题目文本
-        String questionText = ocrResults.stream()
-                .map(ocr -> String.format("题目 %d:\n%s", ocr.getQuestionIndex(), ocr.getQuestionContent()))
-                .collect(Collectors.joining("\n\n"));
-
-        String promptTemplate = loadPromptTemplate();
-        return promptTemplate
-                .replace("{subjectId}", String.valueOf(subjectId))
-                .replace("{knowledgePoints}", kpText)
-                .replace("{questions}", questionText);
     }
 
     private String loadPromptTemplate() {

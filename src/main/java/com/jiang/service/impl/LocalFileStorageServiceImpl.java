@@ -65,6 +65,69 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
         }
     }
 
+    /**
+     * 读取文件原始字节（试卷视觉解析用）
+     *
+     * <p>安全约束：只允许读取 {@code base-url} 前缀下的文件；路径 {@code normalize} 后必须仍在
+     * {@code base-path} 之内，防止路径穿越（design §A6）。</p>
+     */
+    @Override
+    public byte[] readBytes(String url) {
+        if (url == null || url.isBlank()) {
+            throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, "试卷图片地址为空");
+        }
+        String baseUrlPrefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        if (!url.startsWith(baseUrlPrefix)) {
+            log.warn("图片读取拒绝：URL 不属于本地存储");
+            throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, "试卷图片地址无效");
+        }
+
+        String relativePath = url.substring(baseUrlPrefix.length());
+        Path root = Paths.get(basePath).toAbsolutePath().normalize();
+        Path fullPath = root.resolve(relativePath).normalize();
+        if (!fullPath.startsWith(root)) {
+            log.warn("图片读取拒绝：疑似路径穿越");
+            throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, "试卷图片路径非法");
+        }
+        if (!Files.isRegularFile(fullPath)) {
+            log.warn("图片读取失败：文件不存在");
+            throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, "试卷图片不存在");
+        }
+
+        try {
+            return Files.readAllBytes(fullPath);
+        } catch (IOException e) {
+            log.error("图片读取失败: path={}", fullPath, e);
+            throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, "试卷图片读取失败");
+        }
+    }
+
+    /**
+     * 查询已存储文件大小（不读取文件内容）
+     */
+    @Override
+    public long size(String url) {
+        if (url == null || url.isBlank()) {
+            return 0L;
+        }
+        String baseUrlPrefix = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+        if (!url.startsWith(baseUrlPrefix)) {
+            return 0L;
+        }
+        Path root = Paths.get(basePath).toAbsolutePath().normalize();
+        Path fullPath = root.resolve(url.substring(baseUrlPrefix.length())).normalize();
+        if (!fullPath.startsWith(root) || !Files.isRegularFile(fullPath)) {
+            log.warn("文件大小查询跳过：路径非法或文件不存在");
+            return 0L;
+        }
+        try {
+            return Files.size(fullPath);
+        } catch (IOException e) {
+            log.warn("文件大小查询失败: {}", e.getMessage());
+            return 0L;
+        }
+    }
+
     @Override
     public void delete(String url) {
         if (url == null || !url.startsWith(baseUrl)) {
