@@ -191,12 +191,12 @@
 
 - **约定内容**：
     - 小程序页面以**纯文本**渲染 AI 输出，不支持 LaTeX / Markdown
-    - **Prompt 侧**：要求模型只输出纯文本，禁止 `$...$`、`\vec`、`\frac`、`\sqrt`、`**`、`#`、反引号；数学符号用中文或常用字符（"向量a"、"a·b=0"、"θ=90°"、"√10"、"1/2"、"x²"）
-    - **代码侧**：模型返回后必须过 `LlmTextSanitizer.sanitize(...)` 兜底（去定界符、转 LaTeX 命令、清控制字符）
-    - **覆盖范围（2026-11-11 补充）**：不仅解析与批改，**题干 `stem` 与选项 `choices[].text` 同样必须清洗**（`buildHomeworkVO` 统一过一遍），否则生成题选项会直接暴露 `\sqrt{10}` 这类原文
-- **影响范围**：题目解析（`analysis_gen_v1.txt`）、批改、试卷分析、**出题 Prompt 的 stem/choices**（`question_gen_v1.txt`、`similar_question_gen_v1.txt`）
+    - **Prompt 侧（2026-11-11 修订）**：禁止 `$...$`、`**`、`#`、反引号；**禁止任何反斜杠命令**（`\vec`、`\frac`、`\sqrt`、`\cdot` 等）与 **`^{...}` / `_{...}` 花括号写法**；**允许纯文本 `x^2`、`a_n`**；幂**优先** `²/³`（如 `x²`）或 `^2`，下标**优先** `a(n)` 或中文（如"a 下标 n"）；常用符号用 `√`、`≤`、`≥`、`×`、`÷`、`θ=90°`、`1/2`
+    - **代码侧（2026-11-11 修订）**：模型返回后必须过 `LlmTextSanitizer.sanitize(...)` 兜底：去定界符/Markdown、**`^{x}` / `_{x}` → `^(x)` / `_(x)`**、反斜杠命令 → 可读符号（`\frac`→`/`、`\sqrt`→`√`、`\vec`→"向量"）、清控制字符；**不移除 `^` 本身**
+    - **覆盖范围（2026-11-11 补充）**：不仅解析与批改，**题干 `stem` 与选项 `choices[].text` 同样必须清洗**（`buildHomeworkVO` 统一过一遍），否则生成题选项会直接暴露 `\sqrt{10}` 这类原文；**试卷视觉解析（`exam_parse_v1.txt`）**的 `stem`/`choices[].text`/`correctAnswer`/`explanation`/`studentAnswer` 均需清洗
+- **影响范围**：题目解析（`analysis_gen_v1.txt`）、批改、试卷分析、**出题 Prompt 的 stem/choices**（`question_gen_v1.txt`、`similar_question_gen_v1.txt`）、**试卷视觉解析（`exam_parse_v1.txt`）**
 - **违反后果**：页面出现 `$ec{a}$`（`\v` 被当转义）、`**解析：**` 等乱码，学生无法阅读；或选项显示 `\sqrt{10}`、`\frac{1}{2}` 字面量
-- **发现时间**：2026-11-10（题目解析显示 `$ec{a}$` 与未渲染的 Markdown）；2026-11-11 补充题干/选项未覆盖
+- **发现时间**：2026-11-10（题目解析显示 `$ec{a}$` 与未渲染的 Markdown）；2026-11-11 补充题干/选项未覆盖，并修订记号口径（禁花括号/反斜杠、允许 `x^2`）
 - **正确做法**：Prompt 明确禁止 + `LlmTextSanitizer` 兜底，二者缺一不可（模型不一定遵守，清洗也有边界）
 
 ### 约定 #25：选择题选项必须在落库前归一化，解析端必须容错
@@ -212,10 +212,33 @@
 - **发现时间**：2026-11-11（举一反三选择题选项区空白）
 - **正确做法**：`ChoiceOptions.canonicalize` 落库归一化 + `ChoiceOptions.normalize` 出参容错 + 前端 `choices.length` 空数组兜底
 
+### 约定 #26：考试试卷来源的题目使用负 ID 命名空间，题面按段落文本编码
+
+- **约定内容**：
+    - `error_question.question_id` 对考试来源存 **`-exam_question.id`**（负值）；`daily_plan.content[].questionId` 与 `homework_submission_detail.question_id` 在 `questionSource="exam"` 时**同用该负值**
+    - 原因：`uk_student_question(student_id, question_id, tenant_id)` 与 `uk_plan_question(plan_id, question_id, tenant_id)` 要求跨来源唯一，而 `question_bank` / `generated_question` 是自增正数，正数 `exam_question.id` 会与其碰撞 → 提交行互相覆盖
+    - 题面：`exam_question.question_content` 以 `【题干】【选项】【正确答案】【解析】【作答状态】` 段落文本承载，由 `ExamQuestionTextCodec` 编解码（零 DDL，`exam_question` 无 `choices` / `correct_answer` 列）
+    - **任何"按 id 查题库"的代码必须先按 `questionSource` / `source_type` 分流**；`selectCriticalErrors` 保留 `question_id > 0` 防御（负 ID 对调整 Agent 无意义）
+- **影响范围**：`ErrorQuestionService`、`HomeworkServiceImpl`（redo 组装/题面/判分/`advanceStage`）、`ExamPaperServiceImpl`、`ErrorQuestionMapper`
+- **违反后果**：题库题与试卷题的提交记录互相覆盖；或把负 ID 当 `question_bank.question_id` 查询导致空题面/异常；错题本详情空白
+- **发现时间**：2026-11-11（v3 试卷错题接入原题重做）
+- **正确做法**：`ExamQuestionRefs` 集中做 `-id` 转换，禁止散落负号；错题本/详情 SQL 用 `LEFT JOIN exam_question eqx ON eq.source_type='exam' AND eqx.id = -eq.question_id`
+
+### 约定 #27：本地存储的试卷图片必须以 base64 内联交给视觉模型
+
+- **约定内容**：
+    - `file.storage.type=local` 时图片 URL 指向本机静态目录，**外部模型无法访问**；调用视觉模型前必须由服务端 `FileStorageService.readBytes(url)` 读字节 → base64 → `ImageBlock(Base64Source)` 内联，**禁止把 URL 直接交给模型**
+    - **内存约束**：逐图读取/生成/释放，峰值 ≤3 份（全局 LLM 并发 3）；**禁止**把 base64 写入 DB / Redis / 降级日志
+    - **调用约定**：`POST {AGENT_ENDPOINT}/api/v1/services/aigc/multimodal-generation/generation`，body 中 `input.messages[0].content` 为 `[{"image":"data:image/jpeg;base64,..."},{"text":"..."}]`，响应取 `output.choices[0].message.content[0].text`
+- **影响范围**：`AgentScopeClient.callVision`、`ExamParseService`、`FileStorageService`（local / COS）
+- **违反后果**：模型侧取不到图（空响应/超时）；或一次性批量 base64 导致 OOM
+- **发现时间**：2026-11-11（v4 视觉解析）
+- **正确做法**：单图任务内读取 → 调用 → 释放；非 local 存储未实现时抛 `1188`
+
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #25 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #27 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充
