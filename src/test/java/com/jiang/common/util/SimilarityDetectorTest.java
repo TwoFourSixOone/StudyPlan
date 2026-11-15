@@ -141,14 +141,21 @@ class SimilarityDetectorTest {
     // ==================== SIMILARITY_THRESHOLD ====================
 
     @Test
-    @DisplayName("阈值验证: 相同文本超过阈值 0.6")
+    @DisplayName("阈值验证: 常量必须与产品规则 #3 一致（0.8）")
+    void should_alignThresholdWithProductRule() {
+        assertEquals(0.8, SimilarityDetector.SIMILARITY_THRESHOLD, 1e-9,
+                "产品规则 #3：新题重复校验阈值 0.8（2026-11-12 由 0.6 修正）");
+    }
+
+    @Test
+    @DisplayName("阈值验证: 相同文本超过阈值 0.8")
     void should_exceedThreshold_when_sameText() {
         double sim = detector.detectSimilarity("完全相同的内容", List.of("完全相同的内容"));
         assertTrue(sim > SimilarityDetector.SIMILARITY_THRESHOLD);
     }
 
     @Test
-    @DisplayName("阈值验证: 完全不同文本低于阈值 0.6")
+    @DisplayName("阈值验证: 完全不同文本低于阈值 0.8")
     void should_belowThreshold_when_completelyDifferent() {
         double sim = detector.detectSimilarity(
                 "已知函数fx等于x平方加一",

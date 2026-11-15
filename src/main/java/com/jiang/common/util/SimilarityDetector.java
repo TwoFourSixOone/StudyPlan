@@ -20,8 +20,15 @@ import java.util.Map;
 @Slf4j
 public class SimilarityDetector {
 
-    /** 相似度阈值（字符级粗筛，语义层由检查 Agent 兜底） */
-    public static final double SIMILARITY_THRESHOLD = 0.6;
+    /**
+     * 相似度阈值（产品规则 #3：新题重复校验，相似度 &gt; 0.8 视为重复）
+     *
+     * <p>字符级粗筛，语义层由检查 Agent 兜底（{@code question_check_v2.txt}）。</p>
+     * <p>2026-11-12 修正：原值 0.6 与产品规则 #3 / 测试规范中的 0.8 不一致，
+     * 导致「同知识点同类题」被大量误判为重复（联调日志 similarity=0.625 即被拒），
+     * 举一反三 5 轮全失败。0.8 仍能拦住「只改数字」的换皮题（相似度通常 &gt;0.95）。</p>
+     */
+    public static final double SIMILARITY_THRESHOLD = 0.8;
 
     /** SimHash 位数 */
     private static final int HASH_BITS = 64;

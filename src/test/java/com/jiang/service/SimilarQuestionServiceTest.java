@@ -14,6 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -96,7 +97,7 @@ class SimilarQuestionServiceTest {
 
         // round1: 0,1 pass similarity, 2 fail; round2: 0 pass
         when(similarityDetector.detectSimilarity(anyString(), anyList()))
-                .thenReturn(0.2, 0.2, 0.8)
+                .thenReturn(0.2, 0.2, 0.9)
                 .thenReturn(0.2);
         when(questionCheckAgent.check(any(), eq(sourceQuestion)))
                 .thenReturn(QuestionCheckAgent.CheckResult.pass());
@@ -112,7 +113,7 @@ class SimilarQuestionServiceTest {
     // ==================== 降级路径 ====================
 
     @Test
-    @DisplayName("5 轮仍有失败 → 记录 1 条降级日志 + 返回空")
+    @DisplayName("首轮 + 2 次重试（共 3 轮）仍有失败 → 记录 1 条降级日志 + 返回空")
     void should_logDegradation_when_maxRetriesExhausted() {
         when(questionGenAgent.generateSimilar(anyString(), any(), any(), anyInt(), eq("progressive")))
                 .thenReturn(buildCandidates(1));
@@ -124,7 +125,31 @@ class SimilarQuestionServiceTest {
                 1, SOURCE_CONTENT, List.of());
 
         assertTrue(result.isEmpty());
-        verify(degradationLogMapper, times(1)).insert(any(AgentDegradationLog.class));
+        // 产品规则 #3：最多 2 次重试，即首轮 + 2 轮重试后停止
+        verify(questionGenAgent, times(3)).generateSimilar(
+                anyString(), any(), any(), anyInt(), eq("progressive"));
+        ArgumentCaptor<AgentDegradationLog> captor = ArgumentCaptor.forClass(AgentDegradationLog.class);
+        verify(degradationLogMapper, times(1)).insert(captor.capture());
+        assertTrue(captor.getValue().getFailureReason().contains("2 次重试"),
+                "降级文案必须表达「重试 2 次」，actual=" + captor.getValue().getFailureReason());
+    }
+
+    @Test
+    @DisplayName("相似度恰好等于阈值 0.8 → 放行（判据是「大于」阈值才拒绝）")
+    void should_pass_when_similarityEqualsThreshold() {
+        when(questionGenAgent.generateSimilar(anyString(), any(), any(), anyInt(), eq("progressive")))
+                .thenReturn(buildCandidates(1));
+        when(similarityDetector.detectSimilarity(anyString(), anyList()))
+                .thenReturn(SimilarityDetector.SIMILARITY_THRESHOLD);
+        when(questionCheckAgent.check(any(), eq(sourceQuestion)))
+                .thenReturn(QuestionCheckAgent.CheckResult.pass());
+        when(similarityDetector.computeContentHash(anyString())).thenReturn("hash");
+
+        List<GeneratedQuestion> result = similarQuestionService.generateWithValidation(
+                STUDENT_ID, TENANT_ID, KP_ID, MASTERY, sourceQuestion,
+                1, SOURCE_CONTENT, List.of());
+
+        assertEquals(1, result.size());
     }
 
     // ==================== BLOCK-7: Agent 超时降级 ====================

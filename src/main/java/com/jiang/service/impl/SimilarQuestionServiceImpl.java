@@ -27,9 +27,13 @@ import java.util.Map;
 
 /**
  * 举一反三新题生成服务实现
- * 核心流程：循环 ≤ 5 次，每轮生成 → 相似度检测 → 检查 Agent 校验 → 通过/重试
- * <p>
- * Change: 2026-11-03_similar_question_generation
+ * 核心流程：循环 ≤ 3 轮（首轮 + 最多 2 次重试），每轮生成 → 相似度检测 → 检查 Agent 校验 → 通过/重试
+ *
+ * <p>2026-11-12 修正：轮数由 5 改为 3（首轮 + 最多 2 次重试），与产品规则 #3「相似度 &gt; 0.8 触发重试
+ * （最多 2 次）」一致。5 轮时单知识点最坏 5×(1 次生成 + N 次检查) ≈ 15 次 LLM 调用，在全局 3 并发闸门下
+ * 长期占用许可，且第 4–5 轮的边际收益接近 0（联调日志：同一 kp 连续 10 次失败后仍降级）。</p>
+ *
+ * Change: 2026-11-03_similar_question_generation；2026-11-12 重试次数对齐规则 #3
  *
  * @author StudyMate Team
  * @since 2026-11-03
@@ -38,7 +42,13 @@ import java.util.Map;
 @Slf4j
 public class SimilarQuestionServiceImpl implements SimilarQuestionService {
 
-    private static final int MAX_ATTEMPTS = 5;
+    /**
+     * 最大生成轮数 = 首轮 + 最多 2 次重试（产品规则 #3：相似度 &gt; 0.8 触发重试，最多 2 次）
+     *
+     * <p>2026-11-12 由 5 改为 3：5 轮单知识点最坏 5×(1 次生成 + N 次检查) ≈ 15 次 LLM 调用，
+     * 在全局 3 并发闸门下长期占用许可，且第 4–5 轮边际收益接近 0。</p>
+     */
+    private static final int MAX_ATTEMPTS = 3;
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     @Autowired
@@ -82,7 +92,7 @@ public class SimilarQuestionServiceImpl implements SimilarQuestionService {
                 doSingleAttempt(kpId, masteryScore, sourceQuestion, currentTarget,
                         stemContents, roundPassed, roundFailed);
             } catch (BusinessException e) {
-                // 输出格式非法（如选择题缺选项）→ 可重试；调用超时/失败 → 直接放弃，避免 5 轮长等待
+                // 输出格式非法（如选择题缺选项）→ 可重试；调用超时/失败 → 直接放弃，避免多轮长等待
                 log.error("举一反三生成 Agent 调用失败 (kpId={}, attempt={}): {}",
                         kpId, attempt + 1, e.getMessage());
                 totalFailedCount += currentTarget;
@@ -203,7 +213,8 @@ public class SimilarQuestionServiceImpl implements SimilarQuestionService {
         // 脱敏：仅包含知识点 ID 和数量统计，不含学生 ID / 租户原始值
         String rawSummary = String.format("kpId=%s, failedCount=%d, stillNeeded=%d", kpId, failedCount, stillNeeded);
         logEntry.setInputSummary(sanitize(rawSummary));
-        logEntry.setFailureReason(String.format("举一反三 %d 次重试后仍有 %d 题未通过校验", MAX_ATTEMPTS, failedCount));
+        logEntry.setFailureReason(String.format("举一反三 %d 次重试后仍有 %d 题未通过校验",
+                MAX_ATTEMPTS - 1, failedCount));
         logEntry.setDegradationAction("skip_similar_question");
         logEntry.setTenantId(tenantId);
         logEntry.setCreateTime(LocalDateTime.now());

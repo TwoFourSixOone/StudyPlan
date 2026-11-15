@@ -186,9 +186,15 @@ public class QuestionCheckAgent {
                 .replace("{sourceAnalysis}", sourceAnalysis != null ? sourceAnalysis : "");
     }
 
+    /**
+     * 加载检查 Prompt 模板
+     *
+     * <p>2026-11-12 起使用 v2：判据由「解法是否高度一致」改为「情境/数据/设问是否几乎一致」。
+     * v1 保留可回滚（规则 #6：Prompt 版本化管理）。</p>
+     */
     private String loadPromptTemplate() {
         try {
-            ClassPathResource resource = new ClassPathResource("prompts/versions/question_check_v1.txt");
+            ClassPathResource resource = new ClassPathResource("prompts/versions/question_check_v2.txt");
             try (InputStream is = resource.getInputStream()) {
                 return new String(is.readAllBytes());
             }
