@@ -30,13 +30,15 @@ public interface ExamQuestionMapper extends BaseMapper<ExamQuestion> {
      */
     @Insert("<script>" +
             "INSERT INTO exam_question " +
-            "(exam_paper_id, question_index, question_content, question_image_url, knowledge_point_id, " +
-            "attribution_status, student_answer, is_correct, score, full_score, question_type, difficulty, " +
+            "(exam_paper_id, question_index, question_content, question_image_url, figure_base64, " +
+            "knowledge_point_id, " +
+            "attribution_status, student_answer, is_correct, score, full_score, question_type, choice_mode, difficulty, " +
             "tenant_id, create_time, update_time) VALUES " +
             "<foreach collection='questions' item='q' separator=','>" +
             "(#{q.examPaperId}, #{q.questionIndex}, #{q.questionContent}, #{q.questionImageUrl}, " +
+            "#{q.figureBase64}, " +
             "#{q.knowledgePointId}, #{q.attributionStatus}, #{q.studentAnswer}, #{q.isCorrect}, " +
-            "#{q.score}, #{q.fullScore}, #{q.questionType}, #{q.difficulty}, " +
+            "#{q.score}, #{q.fullScore}, #{q.questionType}, #{q.choiceMode}, #{q.difficulty}, " +
             "#{q.tenantId}, NOW(), NOW())" +
             "</foreach>" +
             "</script>")
@@ -56,9 +58,9 @@ public interface ExamQuestionMapper extends BaseMapper<ExamQuestion> {
     /**
      * 按题号升序查询试卷题目（判分输入；显式列名，命中 idx_paper_index）
      */
-    @Select("SELECT id, exam_paper_id, question_index, question_content, question_image_url, " +
+    @Select("SELECT id, exam_paper_id, question_index, question_content, question_image_url, figure_base64, " +
             "knowledge_point_id, attribution_status, student_answer, is_correct, score, full_score, " +
-            "question_type, difficulty, tenant_id, create_time, update_time " +
+            "question_type, choice_mode, difficulty, tenant_id, create_time, update_time " +
             "FROM exam_question " +
             "WHERE exam_paper_id = #{examPaperId} AND tenant_id = #{tenantId} " +
             "ORDER BY question_index ASC")

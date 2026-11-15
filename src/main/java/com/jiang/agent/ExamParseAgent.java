@@ -2,6 +2,7 @@ package com.jiang.agent;
 
 import com.jiang.dto.ExamParseContext;
 import com.jiang.dto.ExamParseImageResult;
+import com.jiang.dto.ExamParsePaperContext;
 import com.jiang.dto.VisionImage;
 
 /**
@@ -24,4 +25,16 @@ public interface ExamParseAgent {
      * @return 单图解析结果（整图失败时 questions 为空且 failureReason 非空）
      */
     ExamParseImageResult parseImage(VisionImage image, ExamParseContext context);
+
+    /**
+     * 整卷解析（2026-11-12 v5）：全部图片一次性发给视觉模型
+     *
+     * <p>解决三类问题：① 题目/图形跨页；② 学生答案写在答题卡（另一张图）；③ 多选按卷面判断。
+     * 模型输出全卷连续题号与每题所在图 {@code imageIndex}；失败时由调用方回退逐图解析。</p>
+     *
+     * @param images  全部图片（按上传顺序，1..N）
+     * @param context 整卷上下文（学科/年级/图片总数/候选知识点）
+     * @return 整卷结果（questions 可能为空；failureReason 非空表示重试耗尽）
+     */
+    ExamParseImageResult parsePaper(java.util.List<VisionImage> images, ExamParsePaperContext context);
 }

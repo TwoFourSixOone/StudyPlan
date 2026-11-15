@@ -69,7 +69,7 @@
         <view class="question-tags">
           <!-- 字段对齐后端 ExamQuestionItemVO：questionType（design §4.2） -->
           <text class="type-tag" :class="'tag-' + currentQuestion.questionType">
-            {{ formatTypeLabel(currentQuestion.questionType) }}
+            {{ typeLabel(currentQuestion) }}
           </text>
           <text class="diff-tag" :class="'diff-' + currentQuestion.difficulty">
             {{ difficultyLabel(currentQuestion.difficulty) }}
@@ -83,6 +83,17 @@
         </view>
 
         <!-- 题干 -->
+
+        <!-- 题目配图（2026-11-12：优先用后端落库的 base64，避免文件地址在真机不可达） -->
+        <view class="figure-wrap" v-if="figureSrc">
+          <image
+            class="figure-img"
+            :src="figureSrc"
+            mode="widthFix"
+            @click="previewFigure"
+          />
+          <text class="figure-tip">👆 点击查看大图</text>
+        </view>
         <text class="question-content">{{ currentQuestion.stem || currentQuestion.questionContent || '题干缺失' }}</text>
 
         <!-- 选择题选项（只读：我的答案高亮 + 正确答案高亮） -->
@@ -197,7 +208,7 @@ useAuthGuard();
 
 // ========== 常量 ==========
 const POLL_INTERVAL = 2000;
-const POLL_MAX_TIMES = 90; // ≈3 分钟（design §10.3）
+const POLL_MAX_TIMES = 150; // ≈5 分钟（整卷单次解析更慢，2026-11-12）
 
 // ========== 状态 ==========
 const statusBarHeight = ref(0);
@@ -365,6 +376,24 @@ function studentAnswerText(q) {
   return '未作答';
 }
 
+/**
+ * 题目配图放大查看（2026-11-12）
+ *
+ * <p>后端把裁剪件以 data URL 落库；旧数据可能只有文件 URL（可能不可达），
+ * 因此优先 base64，退化到 URL。</p>
+ */
+const figureSrc = computed(() => {
+  const q = currentQuestion.value;
+  if (!q) return '';
+  return q.figureBase64 || q.questionImageUrl || '';
+});
+
+function previewFigure() {
+  const url = figureSrc.value;
+  if (!url) return;
+  uni.previewImage({ urls: [url], current: url });
+}
+
 function verdictLabel(q) {
   if (!q) return '';
   if (q.isCorrect === true) return '答对';
@@ -390,6 +419,17 @@ function scoreLabel(q) {
 function formatTypeLabel(type) {
   const map = { choice: '选择', numeric: '填空', short: '解答', self: '主观' };
   return map[type] || '未分类';
+}
+
+/**
+ * 题型标签：选择题区分单选/多选（2026-11-12，后端按 choiceMode 判定）
+ */
+function typeLabel(q) {
+  if (!q) return '';
+  if (q.questionType === 'choice') {
+    return q.multiChoice ? '多选' : '单选';
+  }
+  return formatTypeLabel(q.questionType);
 }
 
 function difficultyLabel(diff) {
@@ -562,6 +602,30 @@ function difficultyLabel(diff) {
   border-radius: $radius-sm;
   color: $info-color;
   background-color: #f4f4f5;
+}
+.multi-tag {
+  font-size: $font-xs;
+  padding: 4rpx 16rpx;
+  border-radius: $radius-sm;
+  color: #fff;
+  background-color: #9c27b0;
+}
+/* 题目配图（2026-11-12） */
+.figure-wrap {
+  margin-bottom: $spacing-lg;
+}
+.figure-img {
+  width: 100%;
+  border-radius: $radius-md;
+  border: 1rpx solid $border-light;
+  background-color: #fff;
+}
+.figure-tip {
+  display: block;
+  margin-top: 8rpx;
+  font-size: $font-xs;
+  color: $text-secondary;
+  text-align: center;
 }
 .question-content {
   font-size: $font-md;

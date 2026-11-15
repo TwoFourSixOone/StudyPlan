@@ -73,6 +73,9 @@ public class ExamParseServiceImpl implements ExamParseService {
     /** 预算到点后的补收宽限（A1）：只回收已提交图片的已完成结果，不再提交新任务 */
     static final long DRAIN_GRACE_MILLIS = 500L;
 
+    /** 整卷单次解析的请求体阈值（字节）：超过则降采样，避免 base64 请求体过大（2026-11-12） */
+    static final long SINGLE_CALL_MAX_BYTES = 6L * 1024 * 1024;
+
     /** 单图告警/降级摘要的最大长度 */
     private static final int WARNING_MAX_LENGTH = 200;
 
@@ -105,11 +108,15 @@ public class ExamParseServiceImpl implements ExamParseService {
     @Qualifier("examParseExecutor")
     private ThreadPoolExecutor examParseExecutor;
 
-    @Value("${exam.parse.task-timeout-seconds:180}")
+    @Value("${exam.parse.task-timeout-seconds:300}")
     private int taskTimeoutSeconds;
 
     @Value("${exam.parse.image-timeout-seconds:60}")
     private int imageTimeoutSeconds;
+
+    /** 整卷单次调用开关（2026-11-12 v5；关闭后退回逐图解析） */
+    @Value("${exam.parse.single-call:true}")
+    private boolean singleCallEnabled;
 
     @Value("${exam.parse.max-questions:200}")
     private int maxQuestions;
@@ -134,8 +141,21 @@ public class ExamParseServiceImpl implements ExamParseService {
         long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(Math.max(1, taskTimeoutSeconds));
         long imageBudgetMillis = TimeUnit.SECONDS.toMillis(Math.max(1, imageTimeoutSeconds));
 
-        log.info("试卷视觉解析开始: paperId={}, imageCount={}, subject={}, grade={}",
-                examPaperId, total, subjectName, gradeLabel);
+        log.info("试卷视觉解析开始: paperId={}, imageCount={}, subject={}, grade={}, singleCall={}",
+                examPaperId, total, subjectName, gradeLabel, singleCallEnabled);
+
+        // 2026-11-12 v5：整卷一次调用（跨页题目/配图、答题卡答案、多选判断）
+        if (singleCallEnabled) {
+            ExamParseImageResult whole = tryParseWholePaper(examPaperId, urls, subjectName, gradeLabel,
+                    tenantId, kpSnapshot);
+            if (whole != null && whole.getQuestions() != null && !whole.getQuestions().isEmpty()) {
+                Map<Integer, ImageTaskResult> wholeResults = new HashMap<>();
+                wholeResults.put(1, new ImageTaskResult(1, whole.getQuestions(), whole.getRetryCount(),
+                        whole.getWarning(), null));
+                return mergeAndAttribute(examPaperId, subjectId, tenantId, total, wholeResults, kpSnapshot);
+            }
+            log.warn("整卷单次解析未产出题目，回退逐图解析: paperId={}", examPaperId);
+        }
 
         ExecutorCompletionService<ImageTaskResult> completionService =
                 new ExecutorCompletionService<>(examParseExecutor);
@@ -250,6 +270,62 @@ public class ExamParseServiceImpl implements ExamParseService {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return 0;
+        }
+    }
+
+    /**
+     * 整卷单次解析（2026-11-12 v5）：全部图片一次发给视觉模型
+     *
+     * <p>失败/为空返回 null，由调用方回退逐图解析（保证可用性）。</p>
+     */
+    private ExamParseImageResult tryParseWholePaper(Long examPaperId, List<String> urls, String subjectName,
+                                                    String gradeLabel, String tenantId,
+                                                    com.jiang.service.ExamKpCandidateService.CandidateSnapshot kpSnapshot) {
+        try {
+            List<VisionImage> images = new ArrayList<>(urls.size());
+            List<byte[]> raw = new ArrayList<>(urls.size());
+            long totalBytes = 0L;
+            for (String url : urls) {
+                byte[] bytes = fileStorageService.readBytes(url);
+                if (bytes == null || bytes.length == 0) {
+                    log.warn("整卷解析读取图片为空，回退逐图: paperId={}, url={}", examPaperId, url);
+                    return null;
+                }
+                raw.add(bytes);
+                totalBytes += bytes.length;
+            }
+            // 控制请求体：8 张手机原图 base64 后可能超网关限制，超过 6MB 统一降采样到 1600px/82
+            boolean downscale = totalBytes > SINGLE_CALL_MAX_BYTES;
+            for (int i = 0; i < raw.size(); i++) {
+                byte[] bytes = raw.get(i);
+                if (downscale) {
+                    bytes = com.jiang.common.util.ImageDownscaler.downscaleJpeg(bytes, 1600, 0.82f);
+                }
+                images.add(VisionImage.of(detectMediaType(urls.get(i)), bytes));
+            }
+            if (downscale) {
+                log.info("整卷解析请求体过大（{}KB），已降采样到 1600px: paperId={}", totalBytes / 1024, examPaperId);
+            }
+            log.info("整卷单次解析开始: paperId={}, images={}", examPaperId, images.size());
+            ExamParseImageResult result = examParseAgent.parsePaper(images,
+                    com.jiang.dto.ExamParsePaperContext.builder()
+                            .subjectName(subjectName)
+                            .gradeLabel(gradeLabel)
+                            .imageTotal(images.size())
+                            .tenantId(tenantId)
+                            .kpCandidates(kpSnapshot == null ? List.of() : kpSnapshot.getParseCandidates())
+                            .build());
+            if (result == null) {
+                return null;
+            }
+            log.info("整卷单次解析结束: paperId={}, questions={}, retry={}, failure={}",
+                    examPaperId,
+                    result.getQuestions() == null ? 0 : result.getQuestions().size(),
+                    result.getRetryCount(), result.getFailureReason());
+            return result;
+        } catch (Exception e) {
+            log.warn("整卷单次解析异常，回退逐图解析: paperId={}, reason={}", examPaperId, e.getMessage());
+            return null;
         }
     }
 

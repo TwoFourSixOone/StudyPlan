@@ -197,6 +197,21 @@ public class ExamPaperServiceImpl implements ExamPaperService {
         // 4. 同学生 + 科目 + 日期去重（1131）；uploading 会话 30 分钟内复用，超期清空后复用
         ExamPaper existing = examPaperMapper.selectByStudentSubjectDate(studentId, subjectId, examDate, tenantId);
         if (existing != null) {
+            // 4.1 整卷解析失败且一题未落库 → 允许当天重新上传（产品规则 #4 补充，2026-11-12）
+            //     只有 0 题才没有掌握度/错题/学习记录等副作用，重置同一条记录是安全的；
+            //     否则学生当天会彻底卡死（既不能重传、也没有可重试的解析结果）。
+            if ("failed".equals(existing.getStatus())
+                    && !hasPersistedQuestions(existing.getId(), tenantId)
+                    && examPaperMapper.resetFailedPaperForReupload(existing.getId(), tenantId) > 0) {
+                log.info("解析失败的试卷允许重新上传，已重置上传会话: paperId={}, studentId={}, subjectId={}, examDate={}",
+                        existing.getId(), studentId, subjectId, examDate);
+                return ExamUploadVO.builder()
+                        .paperId(existing.getId())
+                        .status("uploading")
+                        .imageCount(imageCount)
+                        .reused(true)
+                        .build();
+            }
             if (!"uploading".equals(existing.getStatus())) {
                 log.warn("试卷重复上传: studentId={}, subjectId={}, examDate={}, status={}",
                         studentId, subjectId, examDate, existing.getStatus());
@@ -475,6 +490,9 @@ public class ExamPaperServiceImpl implements ExamPaperService {
         List<ParsedQuestion> questions = outcome.getQuestions();
         String imageWarning = buildImageWarning(outcome);
 
+        // 2026-11-12：题目配图（按模型给的归一化区域从原卷裁剪）。文件 IO 必须在事务外做。
+        Map<Integer, FigureData> figures = cropQuestionFigures(paper, questions);
+
         transactionTemplate.execute(status -> {
             // 题号稳定升序落库（防御：即使上游顺序抖动也按 questionIndex 排一次）
             List<ParsedQuestion> sortedQuestions = questions.stream()
@@ -497,7 +515,12 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                         ? "pending_manual_review" : question.getAttributionStatus());
                 entity.setStudentAnswer(question.getStudentAnswer());
                 entity.setQuestionType(question.getFormatType());
+                entity.setChoiceMode(question.getChoiceMode());
                 entity.setDifficulty(question.getDifficulty());
+                // 题目配图（裁剪件 base64 直接落库，页面不依赖文件服务地址；失败时仅保留整页原图 URL）
+                FigureData figure = figures.get(question.getQuestionIndex());
+                entity.setQuestionImageUrl(figure == null ? null : figure.url());
+                entity.setFigureBase64(figure == null ? null : figure.base64());
                 entity.setTenantId(tenantId);
                 entities.add(entity);
             }
@@ -522,6 +545,102 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             examPaperMapper.updateById(paperUpdate);
             return null;
         });
+    }
+
+    /**
+     * 题目配图：按模型给出的归一化区域从来源图片裁剪（2026-11-12）
+     *
+     * <p>裁剪失败/区域非法时回退为「整页原图」，保证学生至少能看到图形；文件 IO
+     * （读原图、写裁剪件）全部在事务外完成，避免长事务。</p>
+     */
+    private Map<Integer, FigureData> cropQuestionFigures(ExamPaper paper, List<ParsedQuestion> questions) {
+        if (questions == null || questions.isEmpty()) {
+            return Map.of();
+        }
+        List<String> imageUrls = fromJson(paper.getImageUrls());
+        Map<Integer, FigureData> figures = new HashMap<>();
+        for (ParsedQuestion question : questions) {
+            if (question.getQuestionIndex() == null) {
+                continue;
+            }
+            int index = question.getSourceImageIndex() - 1;
+            if (index < 0 || index >= imageUrls.size()) {
+                continue;
+            }
+            String sourceUrl = imageUrls.get(index);
+            // 模型判断有印刷图形、但没给区域 → 回退整页配图（学生草稿不算图，模型 hasFigure=false 时不挂）
+            if (!question.hasFigure()) {
+                if (Boolean.TRUE.equals(question.getHasPrintedFigure())) {
+                    figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
+                    log.info("模型标注有印刷图形但未给区域，回退整页配图: paperId={}, questionIndex={}",
+                            paper.getId(), question.getQuestionIndex());
+                }
+                continue;
+            }
+            try {
+                byte[] source = fileStorageService.readBytes(sourceUrl);
+                byte[] cropped = com.jiang.common.util.ImageCropper.cropJpeg(source, question.getFigureRect());
+                if (cropped == null || cropped.length == 0) {
+                    log.warn("题目配图裁剪失败，回退整页原图: paperId={}, questionIndex={}",
+                            paper.getId(), question.getQuestionIndex());
+                    figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
+                    continue;
+                }
+                String url = fileStorageService.uploadBytes(cropped, "exam-figures/" + paper.getStudentId(), ".jpg");
+                // 2026-11-12：配图同时落 base64（data URL），小程序端不依赖文件服务地址直接渲染
+                String base64 = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(cropped);
+                figures.put(question.getQuestionIndex(), new FigureData(url, base64));
+            } catch (Exception e) {
+                log.warn("题目配图处理失败，回退整页原图: paperId={}, questionIndex={}, reason={}",
+                        paper.getId(), question.getQuestionIndex(), e.getMessage());
+                figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
+            }
+        }
+        if (!figures.isEmpty()) {
+            log.info("题目配图处理完成: paperId={}, figures={}", paper.getId(), figures.size());
+        }
+        return figures;
+    }
+
+    /**
+     * 整页配图回退：把原卷整页降采样成 base64（1000px / 0.72），保证真机也能看到图
+     *
+     * <p>只在"模型没给区域但题干提到图 / 裁剪失败"时使用；降采样控制详情接口体积。</p>
+     */
+    private FigureData pageFigure(String sourceUrl) {
+        try {
+            byte[] source = fileStorageService.readBytes(sourceUrl);
+            byte[] scaled = com.jiang.common.util.ImageDownscaler.downscaleJpeg(source, 1000, 0.72f);
+            String base64 = "data:image/jpeg;base64,"
+                    + java.util.Base64.getEncoder().encodeToString(scaled);
+            return new FigureData(sourceUrl, base64);
+        } catch (Exception e) {
+            log.warn("整页配图回退失败（仅保留 URL）: reason={}", e.getMessage());
+            return new FigureData(sourceUrl, null);
+        }
+    }
+
+    /**
+     * 题干是否明显提到图（保守关键词：避免把纯文字题都挂整页图）
+     */
+    private boolean looksLikeFigureQuestion(String stem) {
+        if (stem == null || stem.isBlank()) {
+            return false;
+        }
+        String[] hints = {"如图", "图中", "下图", "上图", "所示", "示意图", "图象", "图像",
+                "坐标图", "图1", "图2", "图3", "曲线", "几何图"};
+        for (String hint : hints) {
+            if (stem.contains(hint)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 配图数据：{@code url} 为文件地址（回退整页原图时用），{@code base64} 为裁剪件 data URL
+     */
+    private record FigureData(String url, String base64) {
     }
 
     /**
@@ -1022,6 +1141,14 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                 .knowledgePointName(knowledgePointName)
                 .attributionStatus(question.getAttributionStatus())
                 .answerState(answerState)
+                // 多选标记：优先用解析时模型判定的 choiceMode（真实卷出现"多选只给一个正确标签"），
+                // 旧数据没有 choice_mode 时回退按答案标签数推断（2026-11-12）
+                .multiChoice("choice".equals(question.getQuestionType())
+                        && ("multi".equals(question.getChoiceMode())
+                        || com.jiang.common.util.ChoiceAnswer.isMulti(decoded.correctAnswer())
+                        || com.jiang.common.util.ChoiceAnswer.isMulti(question.getStudentAnswer())))
+                .questionImageUrl(question.getQuestionImageUrl())
+                .figureBase64(question.getFigureBase64())
                 .build();
     }
 

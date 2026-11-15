@@ -49,6 +49,14 @@ public class ExamQuestion extends BaseEntity {
     private String questionImageUrl;
 
     /**
+     * 题目配图 base64（data:image/jpeg;base64,...；2026-11-12 起）
+     *
+     * <p>小程序端直接渲染，不依赖文件服务 URL（此前 localhost URL 在真机不可达 → 空白）。
+     * 迁移脚本：{@code V14__add_exam_question_figure_base64.sql}。</p>
+     */
+    private String figureBase64;
+
+    /**
      * 归因的知识点 ID（待人工归因时为 NULL）
      * NOTE-1：类型为 String，与 knowledge_point.knowledge_point_id 一致
      */
@@ -83,6 +91,13 @@ public class ExamQuestion extends BaseEntity {
      * 题型：choice/numeric/short
      */
     private String questionType;
+
+    /**
+     * 选择题模式：single / multi（非选择题为 null；2026-11-12）
+     *
+     * <p>由解析模型按卷面标注显式给出——多选若只给一个正确标签，仅靠答案标签数推断会误判成单选。</p>
+     */
+    private String choiceMode;
 
     /**
      * 难度：basic/standard/challenge
