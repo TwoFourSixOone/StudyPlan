@@ -73,6 +73,22 @@ class AnswerGradingServiceTest {
         }
 
         @Test
+        @DisplayName("多选题：标签集合相等 → 对（顺序无关）")
+        void should_gradeMultiChoiceBySetEquality() {
+            assertTrue(grade("choice", "ABD", "ABD", null));
+            assertTrue(grade("choice", "ABD", "dba", null));
+            assertTrue(grade("choice", "ABD", "A、B、D", null));
+        }
+
+        @Test
+        @DisplayName("多选题：少选/多选都算错（严格集合相等，产品规则 #4）")
+        void should_failMultiChoice_when_subsetOrSuperset() {
+            assertFalse(grade("choice", "ABD", "AB", null));
+            assertFalse(grade("choice", "ABD", "ABCD", null));
+            assertFalse(grade("choice", "AB", "A", null));
+        }
+
+        @Test
         @DisplayName("v4b：choice 缺标准答案 → null（不可判定，不判错）")
         void should_returnNull_when_choiceAnswerMissing() {
             assertNull(grade("choice", null, "A", null));

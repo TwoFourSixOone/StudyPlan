@@ -195,6 +195,76 @@ public final class GradeMatcher {
         return matchesRange(studentGrade, gradeRange);
     }
 
+    /**
+     * 「同一年龄段内、不高于学生年级」的范围匹配（2026-11-12，考试归因候选专用）
+     *
+     * <p>与 {@link #matchesRange}（精确命中该年级）的区别：这里允许**低年级的先行知识**。
+     * 例：高三数学卷会考「集合」（标注初一/高一）与「复数」（高一），若只按精确年级过滤，
+     * 这些高考必考点永远不在候选清单里，只能待人工归因。</p>
+     *
+     * <p>边界（产品规则 #4，2026-11-12 确认）：</p>
+     * <ul>
+     *   <li>只取**同学段**：高三学生的候选里不能出现初中/小学知识点</li>
+     *   <li>只取**不高于学生年级**：高一学生不提前用高二/高三知识点</li>
+     *   <li>跨学段范围（如 {@code "7-12"}）无法判定单一学段 → 不匹配</li>
+     *   <li>学生年级为空 / 范围为空或非法 → 不过滤（与全库降级约定一致）</li>
+     * </ul>
+     *
+     * @param studentGrade 学生年级（1–12），null 表示不过滤
+     * @param gradeRange   知识点年级范围
+     * @return true 表示可作为该学生的候选
+     */
+    public static boolean matchesRangeAtOrBelow(Integer studentGrade, String gradeRange) {
+        if (studentGrade == null || gradeRange == null || gradeRange.isBlank()) {
+            return true;
+        }
+        if (!isValidRange(gradeRange)) {
+            log.warn("年级范围非法，按全年级通用处理: gradeRange={}", gradeRange);
+            return true;
+        }
+        String studentStage = stageOf(studentGrade);
+        for (String token : gradeRange.split(",", -1)) {
+            String t = token.trim();
+            Integer lo;
+            Integer hi;
+            if (t.contains("-")) {
+                String[] parts = t.split("-", -1);
+                lo = parseGrade(parts[0].trim());
+                hi = parseGrade(parts[1].trim());
+            } else {
+                lo = parseGrade(t);
+                hi = lo;
+            }
+            if (lo == null || hi == null) {
+                continue;
+            }
+            // 学段必须一致且可判定（跨学段范围 stageOfRange 返回 null → 不匹配）
+            String rangeStage = stageOfRange(t);
+            if (rangeStage == null || !rangeStage.equals(studentStage)) {
+                continue;
+            }
+            // 范围上界不能超过学生年级（hi ≤ studentGrade），且不能整体低于本学段起点
+            int stageFloor = stageFloor(studentStage);
+            if (hi <= studentGrade && hi >= stageFloor) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 学段起始年级：小学 1、初中 7、高中 10
+     */
+    private static int stageFloor(String stage) {
+        if ("小学".equals(stage)) {
+            return 1;
+        }
+        if ("初中".equals(stage)) {
+            return 7;
+        }
+        return 10;
+    }
+
     // ==================== 学段派生 ====================
 
     /**

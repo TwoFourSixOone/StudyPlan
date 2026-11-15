@@ -47,10 +47,6 @@ public final class ChoiceOptions {
     private static final Pattern LABEL_WORD =
             Pattern.compile("^(?:选项\\s*([A-Ha-h])|([A-Ha-h])\\s*项)$");
 
-    /** 答案形如 "B" / "B." / "B、" / "B) " */
-    private static final Pattern ANSWER_LABEL =
-            Pattern.compile("^\\s*([A-Ha-h])\\s*(?:[.、．)）:：].*)?$", Pattern.DOTALL);
-
     private ChoiceOptions() {
     }
 
@@ -117,10 +113,11 @@ public final class ChoiceOptions {
 
         List<Map<String, String>> rawOptions = normalize(content.get("choices"));
         String rawAnswer = asText(content.get("answer"));
-        String answerLabel = extractAnswerLabel(rawAnswer);
+        // 2026-11-12：支持多选题——答案可能是 "AB" / "A、B" / "ba"
+        List<String> rawAnswerLabels = ChoiceAnswer.labels(rawAnswer);
 
         List<Map<String, String>> options = new ArrayList<>();
-        String resolvedLabel = null;
+        List<String> matchedLabels = new ArrayList<>();
         int limit = Math.min(rawOptions.size(), MAX_OPTIONS);
         for (int i = 0; i < limit; i++) {
             Map<String, String> raw = rawOptions.get(i);
@@ -128,28 +125,35 @@ public final class ChoiceOptions {
             String text = raw.get("text");
             options.add(option(newLabel, text));
 
-            if (resolvedLabel == null) {
-                String oldLabel = raw.get("label");
-                if (answerLabel != null && answerLabel.equalsIgnoreCase(oldLabel)) {
-                    resolvedLabel = newLabel;
-                } else if (answerLabel == null && rawAnswer != null && text != null
-                        && text.trim().equalsIgnoreCase(rawAnswer.trim())) {
-                    resolvedLabel = newLabel;
+            String oldLabel = raw.get("label");
+            if (oldLabel != null && rawAnswerLabels.contains(oldLabel.trim().toUpperCase())) {
+                matchedLabels.add(newLabel);
+            }
+        }
+
+        // 答案只给了字母（如 "B"）且未与旧标签匹配 → 按字母位置回退（单选兼容逻辑）
+        if (matchedLabels.isEmpty() && rawAnswerLabels.size() == 1) {
+            int index = rawAnswerLabels.get(0).charAt(0) - 'A';
+            if (index >= 0 && index < options.size()) {
+                matchedLabels.add(String.valueOf(LABELS.charAt(index)));
+            }
+        }
+
+        // 答案填的是"选项内容"而不是标签 → 按文本匹配（单选兼容逻辑）
+        if (matchedLabels.isEmpty() && rawAnswerLabels.isEmpty()
+                && rawAnswer != null && !rawAnswer.isBlank()) {
+            for (int i = 0; i < limit; i++) {
+                String text = rawOptions.get(i).get("text");
+                if (text != null && text.trim().equalsIgnoreCase(rawAnswer.trim())) {
+                    matchedLabels.add(String.valueOf(LABELS.charAt(i)));
+                    break;
                 }
             }
         }
 
-        // 答案只给了字母（如 "B"），按字母位置回退
-        if (resolvedLabel == null && answerLabel != null && options.size() > MIN_OPTIONS - 1) {
-            int index = answerLabel.toUpperCase().charAt(0) - 'A';
-            if (index >= 0 && index < options.size()) {
-                resolvedLabel = String.valueOf(LABELS.charAt(index));
-            }
-        }
-
         content.put("choices", options);
-        if (resolvedLabel != null) {
-            content.put("answer", resolvedLabel);
+        if (!matchedLabels.isEmpty()) {
+            content.put("answer", ChoiceAnswer.canonical(matchedLabels));
         } else if (rawAnswer != null && !rawAnswer.isBlank()) {
             log.warn("选择题答案无法归一化为选项标签: answer={}, optionCount={}", rawAnswer, options.size());
         }
@@ -263,17 +267,6 @@ public final class ChoiceOptions {
             }
         }
         return String.valueOf(LABELS.charAt(index % MAX_OPTIONS));
-    }
-
-    private static String extractAnswerLabel(String answer) {
-        if (answer == null || answer.isBlank()) {
-            return null;
-        }
-        Matcher matcher = ANSWER_LABEL.matcher(answer.trim());
-        if (matcher.matches()) {
-            return matcher.group(1).toUpperCase();
-        }
-        return null;
     }
 
     private static Map<String, String> option(String label, String text) {

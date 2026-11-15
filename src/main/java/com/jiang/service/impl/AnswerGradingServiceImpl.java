@@ -88,9 +88,9 @@ public class AnswerGradingServiceImpl implements AnswerGradingService {
         if (!hasAnswer) {
             return null;
         }
-        // 5. 选择题：选项标签字符串比较（trim + 忽略大小写）
+        // 5. 选择题：选项标签集合比较（2026-11-12 起支持多选；严格集合相等，多选/少选都算错）
         if ("choice".equals(formatType)) {
-            return studentAnswer.trim().equalsIgnoreCase(correctAnswer.trim());
+            return com.jiang.common.util.ChoiceAnswer.sameAnswer(studentAnswer, correctAnswer);
         }
         // 6. 非选择题：AI 批改，失败/不可解析降级为字符串比较
         return aiGrade(questionContent, correctAnswer, studentAnswer, subjectName, gradeLabel);
@@ -123,9 +123,9 @@ public class AnswerGradingServiceImpl implements AnswerGradingService {
                 // 有作答但标准答案缺失 → 不可判定（choice/非 choice 都不调 AI）
                 results.put(request.getKey(), null);
             } else if ("choice".equals(request.getFormatType())) {
-                results.put(request.getKey(),
-                        request.getStudentAnswer().trim()
-                                .equalsIgnoreCase(request.getCorrectAnswer().trim()));
+                // 多选/单选统一按标签集合判定（2026-11-12）
+                results.put(request.getKey(), com.jiang.common.util.ChoiceAnswer.sameAnswer(
+                        request.getStudentAnswer(), request.getCorrectAnswer()));
             } else {
                 pending.add(request);
             }

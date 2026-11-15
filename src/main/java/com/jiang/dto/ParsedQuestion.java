@@ -31,6 +31,9 @@ public class ParsedQuestion {
     /** 题型：choice/numeric/short/self */
     private String formatType;
 
+    /** 选择题模式：single/multi（非选择题为 null；2026-11-12 由模型按卷面标注给出） */
+    private String choiceMode;
+
     /** 选项（标准形态 [{"label":"A","text":"..."}]，约定 #25；非选择题为空列表） */
     private List<Map<String, String>> choices;
 
@@ -49,6 +52,19 @@ public class ParsedQuestion {
     /** 题目解析（纯文本） */
     private String explanation;
 
+    /**
+     * 该题是否有**卷面印刷的图形**（2026-11-12；学生自己画的草稿/解题图不算）
+     */
+    private Boolean hasPrintedFigure;
+
+    /**
+     * 配图区域（归一化坐标，相对来源图片：x/y/width/height ∈ [0,1]，2026-11-12）
+     *
+     * <p>模型判断该题含图形/图表/几何图时给出；服务端据此裁剪出题目配图。
+     * null 表示无图或模型未给出可用区域。</p>
+     */
+    private Map<String, Double> figureRect;
+
     /** 模型自报无法辨认的字段名 */
     private List<String> unclearFields;
 
@@ -62,5 +78,10 @@ public class ParsedQuestion {
     public boolean hasUsableChoices() {
         return choices != null && choices.size() >= 2
                 && choices.stream().allMatch(c -> c.get("text") != null && !c.get("text").isBlank());
+    }
+
+    /** 是否含配图区域 */
+    public boolean hasFigure() {
+        return figureRect != null && !figureRect.isEmpty();
     }
 }

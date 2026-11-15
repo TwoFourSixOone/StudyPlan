@@ -20,6 +20,16 @@ public interface FileStorageService {
     String upload(MultipartFile file, String path);
 
     /**
+     * 上传内存字节（服务端生成的题目配图裁剪件等）
+     *
+     * @param data      文件内容
+     * @param path      存储路径（相对路径，如 "exam-figures/9"）
+     * @param extension 扩展名（含点，如 ".jpg"）
+     * @return 文件访问 URL
+     */
+    String uploadBytes(byte[] data, String path, String extension);
+
+    /**
      * 删除文件
      *
      * @param url 文件 URL

@@ -29,8 +29,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * 知识点候选构造与缓存实现（design v4 §3.7 / tasks E1）
  *
  * <p>候选来源：{@code tenant + subject + status='active'}（显式列名），按
- * {@link GradeMatcher#matchesRange} 做年级过滤（空 grade_range 保留；学生年级空不过滤），
- * 再按「精确年级匹配 → 有掌握度记录 → kpId 升序」排序，最后切出 parse 150 / attribution 500 两个切片。</p>
+ * {@link GradeMatcher#matchesRangeAtOrBelow} 做年级过滤（**同一学段且不高于学生年级**：高三可含高一/高二，
+ * 但不含初中；空 grade_range 保留；学生年级空不过滤），
+ * 再按「精确年级匹配 → 有掌握度记录 → kpId 升序」排序，最后切出 parse 300 / attribution 500 两个切片。</p>
+ *
+ * <p>2026-11-12 修订：原按 {@code matchesRange} 只取学生所在年级，导致高考跨年级考点（集合/复数等，
+ * 标注在高一/初一）永远不在候选清单里，只能待人工归因；同时 parse 上限 150 → 300 以容纳跨年级候选。</p>
  *
  * <p>缓存：{@code ConcurrentHashMap} + TTL（默认 600s），不引入新依赖；缓存 key 额外带上 studentId
  * （排序依赖该学生的掌握度记录，若共用 grade 维度会把 A 的排序结果错给 B）。知识点导入/治理后最多
@@ -43,9 +47,9 @@ import java.util.concurrent.ConcurrentHashMap;
 @Slf4j
 public class ExamKpCandidateServiceImpl implements ExamKpCandidateService {
 
-    /** parse 切片上限（体积敏感：8 图 × 每图一次调用） */
-    @Value("${exam.parse.kp-candidates.max:150}")
-    private int parseMax = 150;
+    /** parse 切片上限（体积敏感：8 图 × 每图一次调用）。2026-11-12 由 150 提到 300，容纳跨年级候选 */
+    @Value("${exam.parse.kp-candidates.max:300}")
+    private int parseMax = 300;
 
     /** 兜底归因切片上限（只对未决题调用，通常 0–1 批） */
     @Value("${exam.parse.kp-candidates.attribution-max:500}")
@@ -98,11 +102,11 @@ public class ExamKpCandidateServiceImpl implements ExamKpCandidateService {
                 ? List.of()
                 : knowledgePointMapper.selectActiveBySubject(tenantId, subjectName);
 
-        // 1. 年级过滤（空 grade_range 保留；学生年级空不过滤）
+        // 1. 年级过滤（2026-11-12：同一学段且不高于学生年级；空 grade_range 保留；学生年级空不过滤）
         List<KnowledgePoint> filtered = new ArrayList<>();
         for (KnowledgePoint row : rows) {
             if (studentGrade == null || row.getGradeRange() == null || row.getGradeRange().isBlank()
-                    || GradeMatcher.matchesRange(studentGrade, row.getGradeRange())) {
+                    || GradeMatcher.matchesRangeAtOrBelow(studentGrade, row.getGradeRange())) {
                 filtered.add(row);
             }
         }

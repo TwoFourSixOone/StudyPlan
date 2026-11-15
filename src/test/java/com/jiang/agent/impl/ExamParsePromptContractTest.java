@@ -20,11 +20,11 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * @author StudyMate Team
  * @since 2026-11-11
  */
-@DisplayName("exam_parse_v1 Prompt 契约（v4）")
+@DisplayName("exam_parse_v2 Prompt 契约（v4 + 2026-11-12 详细解析/多选/配图）")
 class ExamParsePromptContractTest {
 
     private String prompt() throws Exception {
-        try (InputStream is = new ClassPathResource("prompts/versions/exam_parse_v1.txt").getInputStream()) {
+        try (InputStream is = new ClassPathResource("prompts/versions/exam_parse_v2.txt").getInputStream()) {
             return new String(is.readAllBytes(), StandardCharsets.UTF_8);
         }
     }
@@ -59,6 +59,37 @@ class ExamParsePromptContractTest {
         assertTrue(text.contains("反斜杠命令"), "应禁止 LaTeX 反斜杠命令");
         assertTrue(text.contains("√") && text.contains("≤"), "应给出可读符号写法");
         assertFalse(text.contains("{knowledgePoints} 占位符缺失"));
+    }
+
+    @Test
+    @DisplayName("v2 新增契约：详细解析 / 多选题 / 配图 figureRect / 单选多选区分")
+    void should_describeV2Rules() throws Exception {
+        String text = prompt();
+        assertTrue(text.contains("详细"), "解析必须要求详细");
+        assertTrue(text.contains("第 1 步"), "解析需分步");
+        assertTrue(text.contains("多选"), "需说明多选题");
+        assertTrue(text.contains("choiceMode"), "需输出 choiceMode（单选/多选区分）");
+        assertTrue(text.contains("figureRect"), "需输出配图区域");
+        assertTrue(text.contains("归一化坐标"), "配图坐标为相对图片的归一化坐标");
+        assertTrue(text.contains("印刷"), "配图只框卷面印刷图形");
+        assertTrue(text.contains("草稿"), "学生草稿不算配图");
+        assertTrue(text.contains("不要把整段推导过程写进 correctAnswer")
+                        || text.contains("只给结论式答案"), "correctAnswer 仍只放结论");
+    }
+
+    @Test
+    @DisplayName("整卷 Prompt（paper v1）：跨页 / 答题卡 / 多选 / imageIndex")
+    void should_describePaperPromptRules() throws Exception {
+        String text;
+        try (InputStream is = new ClassPathResource("prompts/versions/exam_parse_paper_v1.txt").getInputStream()) {
+            text = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        assertTrue(text.contains("{imageTotal}"), "缺图片总数占位符");
+        assertTrue(text.contains("跨页"), "需说明跨页题合并");
+        assertTrue(text.contains("答题卡"), "需说明从答题卡取答案");
+        assertTrue(text.contains("imageIndex"), "需输出每题所在图片");
+        assertTrue(text.contains("choiceMode"), "需输出 choiceMode");
+        assertTrue(text.contains("{knowledgePoints}"), "需注入候选知识点");
     }
 
     @Test

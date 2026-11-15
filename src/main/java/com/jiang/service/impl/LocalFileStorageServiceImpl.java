@@ -66,6 +66,29 @@ public class LocalFileStorageServiceImpl implements FileStorageService {
     }
 
     /**
+     * 上传内存字节（题目配图裁剪件；2026-11-12）
+     */
+    @Override
+    public String uploadBytes(byte[] data, String path, String extension) {
+        if (data == null || data.length == 0) {
+            throw new BusinessException(ErrorCodes.FILE_UPLOAD_FAILED);
+        }
+        String ext = (extension == null || extension.isBlank()) ? ".bin" : extension;
+        String newFilename = UUID.randomUUID() + ext;
+        Path fullPath = Paths.get(basePath, path, newFilename);
+        try {
+            Files.createDirectories(fullPath.getParent());
+            Files.write(fullPath, data);
+            String url = baseUrl + "/" + path + "/" + newFilename;
+            log.info("文件上传成功（字节）: {} ({} bytes)", url, data.length);
+            return url;
+        } catch (IOException e) {
+            log.error("文件上传失败（字节）: path={}", path, e);
+            throw new BusinessException(ErrorCodes.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    /**
      * 读取文件原始字节（试卷视觉解析用）
      *
      * <p>安全约束：只允许读取 {@code base-url} 前缀下的文件；路径 {@code normalize} 后必须仍在

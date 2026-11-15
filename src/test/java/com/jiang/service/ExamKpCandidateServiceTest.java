@@ -64,7 +64,7 @@ class ExamKpCandidateServiceTest {
         ReflectionTestUtils.setField(service, "stateMapper", stateMapper);
         ReflectionTestUtils.setField(service, "subjectMapper", subjectMapper);
         ReflectionTestUtils.setField(service, "degradationLogger", degradationLogger);
-        ReflectionTestUtils.setField(service, "parseMax", 150);
+        ReflectionTestUtils.setField(service, "parseMax", 300);
         ReflectionTestUtils.setField(service, "attributionMax", 500);
         ReflectionTestUtils.setField(service, "ttlSeconds", 600L);
 
@@ -93,10 +93,10 @@ class ExamKpCandidateServiceTest {
     }
 
     @Test
-    @DisplayName("年级过滤 + 排序：精确年级优先 → 有掌握度 → kpId 升序")
+    @DisplayName("年级过滤（同段 ≤ 学生年级）：高一可含初中？否；10-12 对高一不适用")
     void should_filterByGrade_andSort() {
         when(knowledgePointMapper.selectActiveBySubject(TENANT, SUBJECT_NAME)).thenReturn(List.of(
-                kp("kp_3", "高三专用", "10-12"),
+                kp("kp_3", "跨年级数列", "10-12"),
                 kp("kp_1", "全学段", null),
                 kp("kp_2", "初中", "7-9"),
                 kp("kp_4", "高一", "10")));
@@ -110,10 +110,38 @@ class ExamKpCandidateServiceTest {
 
         List<String> ids = snapshot.getParseCandidates().stream()
                 .map(KpCandidate::knowledgePointId).toList();
-        // 精确年级（kp_4 "10"）优先；其余按"有掌握度（kp_1）→ kpId 升序"；初中 kp_2 被过滤
-        assertEquals(List.of("kp_4", "kp_1", "kp_3"), ids);
-        assertEquals(3, snapshot.getKpTotal());
+        // 精确年级（kp_4 "10"）优先；其余按"有掌握度（kp_1）→ kpId 升序"；
+        // 初中 kp_2 不同学段被过滤；kp_3 "10-12" 含高二/高三，对高一不适用（2026-11-12 新口径）
+        assertEquals(List.of("kp_4", "kp_1"), ids);
+        assertEquals(2, snapshot.getKpTotal());
         assertEquals(0, snapshot.getKpTruncated());
+    }
+
+    @Test
+    @DisplayName("新口径：高三包含高一/高二与本段 10-12，不包含初中/小学")
+    void should_includeLowerGradesInSameStage() {
+        when(knowledgePointMapper.selectActiveBySubject(TENANT, SUBJECT_NAME)).thenReturn(List.of(
+                kp("kp_h10", "高一", "10"),
+                kp("kp_h11", "高二", "11"),
+                kp("kp_h12", "高三", "12"),
+                kp("kp_hall", "高中通用", "10-12"),
+                kp("kp_j9", "初三", "9"),
+                kp("kp_j", "初中", "7-9"),
+                kp("kp_p", "小学", "3")));
+        when(stateMapper.selectByStudentAndKpIds(any(), any(), anyList())).thenReturn(List.of());
+
+        ExamKpCandidateService.CandidateSnapshot snapshot =
+                service.build(TENANT, SUBJECT_ID, STUDENT_ID, 12);
+
+        List<String> ids = snapshot.getParseCandidates().stream()
+                .map(KpCandidate::knowledgePointId).toList();
+        assertTrue(ids.contains("kp_h10"), "高一知识（集合/复数等高考考点）应可归因");
+        assertTrue(ids.contains("kp_h11"));
+        assertTrue(ids.contains("kp_h12"));
+        assertTrue(ids.contains("kp_hall"));
+        assertFalse(ids.contains("kp_j9"), "高三候选不应出现初中知识");
+        assertFalse(ids.contains("kp_j"));
+        assertFalse(ids.contains("kp_p"), "高三候选不应出现小学知识");
     }
 
     @Test
@@ -138,14 +166,14 @@ class ExamKpCandidateServiceTest {
         ExamKpCandidateService.CandidateSnapshot snapshot =
                 service.build(TENANT, SUBJECT_ID, STUDENT_ID, 10);
 
-        assertEquals(150, snapshot.getParseCandidates().size());
+        assertEquals(300, snapshot.getParseCandidates().size());
         assertEquals(500, snapshot.getAttributionCandidates().size());
         assertEquals(600, snapshot.getKpTotal());
-        assertEquals(450, snapshot.getKpTruncated());
-        assertEquals(0.75d, snapshot.getTruncationRate(), 0.0001);
+        assertEquals(300, snapshot.getKpTruncated());
+        assertEquals(0.5d, snapshot.getTruncationRate(), 0.0001);
 
-        // 可达性：被 parse 截断的第 151 个 kp 仍出现在 attribution 切片
-        String truncatedKpId = snapshot.getAttributionCandidates().get(150).knowledgePointId();
+        // 可达性：被 parse 截断的第 301 个 kp 仍出现在 attribution 切片
+        String truncatedKpId = snapshot.getAttributionCandidates().get(300).knowledgePointId();
         assertTrue(snapshot.getAttributionCandidates().stream()
                 .anyMatch(c -> c.knowledgePointId().equals(truncatedKpId)));
         assertFalse(snapshot.getParseCandidates().stream()

@@ -28,6 +28,15 @@ public class CosFileStorageServiceImpl implements FileStorageService {
     }
 
     /**
+     * COS 模式暂不支持字节上传（与 {@link #upload} 一致抛业务异常）
+     */
+    @Override
+    public String uploadBytes(byte[] data, String path, String extension) {
+        log.warn("COS 文件存储尚未实现，请切换到 local 模式");
+        throw new BusinessException(ErrorCodes.FILE_UPLOAD_FAILED);
+    }
+
+    /**
      * COS 模式暂不支持读取（与 {@link #upload} 一致抛业务异常），试卷视觉解析需切回 local
      */
     @Override

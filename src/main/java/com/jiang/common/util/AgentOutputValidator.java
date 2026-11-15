@@ -58,7 +58,7 @@ public class AgentOutputValidator {
         // 1. 解析 JSON
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }
@@ -167,7 +167,7 @@ public class AgentOutputValidator {
     public ValidationResult validateExamParse(String agentOutput) {
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }
@@ -328,7 +328,7 @@ public class AgentOutputValidator {
     public ValidationResult validateAttribution(String agentOutput) {
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }
@@ -385,7 +385,7 @@ public class AgentOutputValidator {
     public ValidationResult validateSimilar(String agentOutput) {
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }
@@ -445,7 +445,7 @@ public class AgentOutputValidator {
     public ValidationResult validatePlanning(String agentOutput) {
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }
@@ -497,7 +497,7 @@ public class AgentOutputValidator {
     public ValidationResult validateAdjustment(String agentOutput) {
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }
@@ -557,7 +557,7 @@ public class AgentOutputValidator {
     public ValidationResult validateCheckResult(String agentOutput) {
         JsonNode jsonNode;
         try {
-            jsonNode = OBJECT_MAPPER.readTree(agentOutput);
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
         } catch (Exception e) {
             return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
         }

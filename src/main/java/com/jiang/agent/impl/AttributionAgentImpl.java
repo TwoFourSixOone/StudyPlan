@@ -159,7 +159,7 @@ public class AttributionAgentImpl implements AttributionAgent {
     private List<ExamQuestionAttributionDTO> parseAttributionResult(String agentOutput,
                                                                       List<ExamQuestionOcrDTO> ocrResults) {
         try {
-            JsonNode jsonArray = OBJECT_MAPPER.readTree(agentOutput);
+            JsonNode jsonArray = OBJECT_MAPPER.readTree(com.jiang.common.util.JsonPayloadExtractor.extract(agentOutput));
             Map<Integer, ExamQuestionOcrDTO> ocrMap = ocrResults.stream()
                     .collect(Collectors.toMap(
                             dto -> dto.getQuestionIndex() != null ? dto.getQuestionIndex() : 0,

@@ -70,4 +70,23 @@ public class ExamQuestionItemVO {
 
     /** 作答展示态：blank（未作答）/ unreadable（无法辨识，待人工判定）/ judged（已判定） */
     private String answerState;
+
+    /** 是否多选题（正确答案或学生答案含 ≥2 个选项标签；2026-11-12） */
+    private Boolean multiChoice;
+
+    /**
+     * 题目配图 URL（2026-11-12）
+     *
+     * <p>模型给出图形区域时是服务端裁剪出的图形；裁剪失败时回退为「整页原图」。
+     * null 表示该题无图。</p>
+     */
+    private String questionImageUrl;
+
+    /**
+     * 题目配图 base64（data:image/jpeg;base64,...；2026-11-12 起首选）
+     *
+     * <p>小程序端直接渲染 `<image :src="figureBase64 || questionImageUrl">`，不依赖文件服务地址
+     * （此前 localhost URL 在真机不可达导致空白）。</p>
+     */
+    private String figureBase64;
 }
