@@ -235,10 +235,131 @@
 - **发现时间**：2026-11-11（v4 视觉解析）
 - **正确做法**：单图任务内读取 → 调用 → 释放；非 local 存储未实现时抛 `1188`
 
+### 约定 #28：未覆盖知识点只有一套口径，且必须扣除本轮暂缓
+
+- **约定内容**：
+    - 「未覆盖知识点」= 该科目下**年级内**（`grade_range` 命中学生年级）且**从未学过**（`mastery_score` 为 NULL 或 0）的 `knowledge_point`，并**扣除目标上本轮暂缓的 `learning_goal.paused_kp_ids`**
+    - 唯一实现：`com.jiang.common.util.KpCoverage`（`uncoveredRows` / `countUncovered` / `capacity`）；**禁止**在 Service 里再写一套 `stream().filter(...)`
+    - 暂缓 JSON 解析统一走 `PausedKpIds`（失败降级为空集合，不抛异常）
+    - 三个消费点必须同口径：`SignalDetectorImpl.detectSIG4`（信号判定）、`PlanAdjustmentServiceImpl.buildAdjustmentContext`（Agent 上下文，先过滤后 `limit(30)`）、`GoalServiceImpl.createGoal`（容量预检）
+- **影响范围**：`KpCoverage`、`PausedKpIds`、`SignalDetectorImpl`、`PlanAdjustmentServiceImpl`、`GoalServiceImpl`、`HomeworkServiceImpl`
+- **违反后果**：暂缓的知识点既不出题又计入压力 → SIG-4 每天必中、每天重新暂缓一批，调整 diff 空转、LLM 成本翻倍（2026-11-12 联调实测：goal 7 为 6 天目标 + 174 未覆盖，容量 14.4，SIG-4 从创建首日恒真）
+- **发现时间**：2026-11-12（日志分析 `4.0 天 × 3.0 × 0.80 = 9.6 < 174` 每日重复）
+- **正确做法**：先 `KpCoverage.uncoveredRows(rows, studentGrade, PausedKpIds.parseSet(goal.getPausedKpIds()))`，再计数或截断
+
+### 约定 #29：举一反三质量门常量以产品规则 #3 为准，不得各自定义
+
+- **约定内容**：
+    - 题干相似度阈值 **0.8**（`SimilarityDetector.SIMILARITY_THRESHOLD`），判定为「大于」阈值才拒绝，等于阈值放行
+    - 重试 **首轮 + 最多 2 次**（`SimilarQuestionServiceImpl.MAX_ATTEMPTS = 3`），降级日志文案按「重试次数 = MAX_ATTEMPTS − 1」渲染
+    - 语义门判据（`question_check_v2.txt`）针对的是「**是否换皮**」：情境/数据/设问三项几乎一致才判 `passed=false`；**同知识点同解法不同情境属于合格变式**，必须放行
+    - 跨图去重是**另一条**独立口径（`ExamParseServiceImpl.CROSS_PAGE_DUPLICATE_THRESHOLD = 0.9`），不得混用
+- **影响范围**：`SimilarityDetector`、`SimilarQuestionServiceImpl`、`QuestionCheckAgent`、`prompts/versions/question_check_v2.txt`
+- **违反后果**：阈值偏低（0.6）会把同知识点同类题判成重复，5 轮全失败 → 单知识点最多 15 次 LLM 调用、长期占用全局 3 并发许可，进而放大 DashScope `PT2M` 超时（2026-11-12 日志：`similarity=0.625` 被拒、`cne_h084` 连续 10 次失败）
+- **发现时间**：2026-11-12（代码 0.6/5 轮与规则 #3 的 0.8/2 次不一致）
+- **正确做法**：改常量前先改规则 #3；Prompt 变更走版本递增（v1 保留）
+
+### 约定 #30：小程序端「批量上传」只能是并发单文件请求
+
+- **约定内容**：
+    - `uni.uploadFile` / `wx.uploadFile` **一次只能传一个文件**（`filePath` 单值，`name` 为后端 multipart 字段名），
+      小程序端**不存在**"一个请求带多张图"的原生能力
+    - 「一次性上传」的实现语义 = **一次点击 → 同时发出所有单文件上传请求**：试卷上传页
+      `UPLOAD_CONCURRENCY = MAX_IMAGES`（8），与微信 uploadFile 并发上限 10 留出余量
+    - 若要单请求多文件，只能手写 multipart（`readFile({encoding:'base64'})` 常驻内存）或改 JSON+base64 数组；
+      两者都与后端**单文件魔数校验、9.5MB/30MB 累计校验、同卷分段锁**冲突，且 30MB 场景有 OOM 风险 → **禁止**
+    - 后端保持「建会话 → 逐张追加（字段 `file`）→ submit」；N 张的批量只是并发 N 个单文件请求
+- **影响范围**：`student-app/src/pages/exam-upload/ExamUpload.vue`、`utils/upload.ts`、
+  `ExamPaperController.uploadImage`、`ExamPaperServiceImpl.uploadImage`
+- **违反后果**：改为单请求多文件后，后端单文件校验直接不通过（或需要推翻整套校验与锁）；
+  手写 multipart 则 8 张 × 2–4MB 的 base64 常驻内存可能直接触发小程序 OOM
+- **发现时间**：2026-11-12（「选择多个图片后一次性上传」需求评估）
+- **正确做法**：并发单文件上传 + 每张独立失败/重试状态；满 8 张时后端自动触发解析，
+  前端先按详情探活再决定是否显式 `submit`
+
+### 约定 #31：LLM 调用必须关闭深度思考，并留下每次调用的耗时
+
+- **约定内容**：
+    - 本项目所有 Agent 调用都是**结构化输出**（切题 JSON / 出题 JSON / 判分 / 归因映射 / 调整 diff），
+      必须显式设置 `agent.agentscope.enable-thinking: false`（SDK：`DashScopeChatModel.builder().enableThinking(false)`）
+    - 原因：思考 token **不进入结果**，却占用 `max_tokens` 预算 → `finish_reason=length` → JSON 被截断
+      → `AgentOutputInvalidException` → 重试 2 次（`maxAttempts=3`）→ 单图 13s 放大成 39s+
+    - 每次调用必须记录耗时与规模：`LLM 文本调用完成: cost/promptChars/respChars`；
+      视觉调用再加 `imageCount/imageBytes`，**禁止**输出 base64 或图片内容（#27）
+    - `LlmConcurrencyLimiter` 获取许可等待 ≥1s 必须 WARN（区分「排队慢」与「模型慢」）
+- **基线（2026-11-12 实测，网关 `ws-*.maas.aliyuncs.com`）**：短文本 0.70s；
+  单张试卷图切题 关闭思考 **6.55s / finish_reason=stop**，开启思考 **13.08s / finish_reason=length**
+- **影响范围**：`AgentScopeClient`、`AgentScopeConfig`、`LlmConcurrencyLimiter`、`application.yml`
+- **违反后果**：后端调用明显慢于网页（网页是流式 + 短输出）；JSON 截断后重试，最坏每次调用 3×
+- **发现时间**：2026-11-12（"后端调百炼很慢、网页直连很快"排查）
+- **正确做法**：`enableThinking(false)` + `cost` 日志；确需推理质量的场景按 Agent 单独置 `true`，
+  并同步调整 `max_tokens` 与 `timeout`
+
+### 约定 #32：考试归因候选 = 同学段且不高于学生年级
+
+- **约定内容**：
+    - 考试知识点候选的年级过滤**不走** `GradeMatcher.matchesRange`（精确命中），而走
+      `GradeMatcher.matchesRangeAtOrBelow`：**同一学段**（小学/初中/高中）且**范围上界 ≤ 学生年级**
+    - 例：高三数学候选含「10」「11」「12」「10-12」，**不含**「7-9」「9」「3」；高一候选不含「11」「12」「10-12」
+    - 跨学段范围（如 `7-12`）无法判定单一学段 → 不匹配
+    - 切片：parse ≤300（跨年级后候选变多）、attribution ≤500
+- **影响范围**：`ExamKpCandidateServiceImpl`、`GradeMatcher`、`exam_parse_v2.txt` 的 `{knowledgePoints}`
+- **违反后果**：只按学生年级过滤会让高考必考的集合/复数（标注在 10/11 年级）永远待人工归因（2026-11-12 实测 2 题）
+- **发现时间**：2026-11-12（试卷 4 的 Q6 复数、Q7 集合归因失败）
+- **正确做法**：候选构造统一用 `matchesRangeAtOrBelow`；出题/复习仍用精确年级（产品规则 #11 不变）
+
+### 约定 #33：选择题答案按「标签集合」判定，多选少选都算错
+
+- **约定内容**：
+    - 选择题答案的标准形态是**标签串**：单选 `B`，多选按字母序连写 `ABD`
+    - **单选/多选必须显式区分**：解析模型输出 `choiceMode`（single/multi），落 `exam_question.choice_mode`（V15）；
+      详情页按它显示「单选/多选」。**不得只用答案标签数推断**——多选可能只有一个正确标签（真实卷 第 9 题）
+    - 归一与比对统一走 `ChoiceAnswer`：`labels()` 抽标签（`"A、B"`/`"ba"`/`"选ABD"` 都能解）、`sameAnswer()` **严格集合相等**
+    - 判分口径（产品规则 #4）：多选/少选都判错；1 题 1 分制不做部分分（卷面"部分选对得部分分"暂不实现，需另立 change）
+    - 选择题答案标签必须都能在本题选项里找到（`ChoiceAnswer.withinOptions`），否则答案置 null
+- **影响范围**：`ExamParseAgentImpl`（解析答案归一）、`AnswerGradingServiceImpl`（判分）、`ChoiceOptions.canonicalize`（落库归一）、`ExamPaperServiceImpl`（`multiChoice` 出参）
+- **违反后果**：多选答案被单标签校验（`matches("[A-H]")`）置空 → 整题判错；或学生写 `BA` 与 `AB` 被判不一致
+- **发现时间**：2026-11-12（试卷出现多选题）
+- **正确做法**：所有 choice 比较都走 `ChoiceAnswer.sameAnswer`，禁止再写 `equalsIgnoreCase`
+
+### 约定 #34：题目配图由模型给归一化区域、服务端裁剪，失败回退整页原图
+
+- **约定内容**：
+    - **只取卷面印刷图形**：`figureRect` 必须框印刷的几何图/图象/统计图（含印刷坐标轴、标注），
+      **禁止框学生手写、铅笔草稿、辅助线、解题过程**；学生自己画的图（卷面无印刷图）→ `hasFigure=false` 且不输出 `figureRect`
+    - 视觉解析对含图形/图表的题目输出 `figureRect`：**相对本张图片**的归一化坐标 `{x,y,width,height} ∈ [0,1]`，
+      框住图形本身（含坐标轴/标注），不框题干文字；`width/height < 0.05` 或无法定位时省略
+    - 服务端 `ImageCropper` 按区域裁剪（四周 3% 留白），编码 JPEG，经 `FileStorageService.uploadBytes`
+      落到 `exam-figures/{studentId}`，URL 写入 `exam_question.question_image_url`
+    - **回退顺序**：裁剪失败/区域非法/非图片 → 使用**整页原图 URL**（学生至少能看到图），不得因此让解析失败
+    - **文件 IO 必须在事务外**：读原图、裁剪、写裁剪件都在 TX-A 之前完成，事务内只做批量 INSERT
+- **影响范围**：`exam_parse_v2.txt`、`ExamParseAgentImpl`（`figureRect` 解析与校验）、`ImageCropper`、
+  `FileStorageService.uploadBytes`、`ExamPaperServiceImpl.persistQuestions`、`ExamQuestionItemVO`、`ExamDetail.vue`
+- **违反后果**：带图题目看不到图（学生无法作答/复核）；或把裁剪 IO 放进事务导致长事务、连接池被占
+- **发现时间**：2026-11-12（试卷 17 题几何图在详情页缺失）
+- **正确做法**：模型给区域 → 服务端裁剪 → 失败回退整页；配图 URL 与题目同批落库
+
+### 约定 #35：试卷解析走「整卷一次调用」，配图以 base64 落库
+
+- **约定内容**：
+    - 同一份试卷的全部图片（题目页 + 可能的答题卡页）**一次性**发给视觉模型（`exam_parse_paper_v1.txt`）；
+      模型输出**全卷连续题号**与每题 `imageIndex`（跨页题合并、图形在另一图时 `figureRect` 以图形所在图为准、
+      学生答案从答题卡按题号匹配）；单次调用失败/为空 → **回退逐图解析**（`exam_parse_v2.txt`）
+    - 请求体控制：图片总字节 >6MB 时降采样到宽 1600 / quality 0.82；`max_tokens` 显式 8000（否则全卷 JSON 被截断）；
+      整卷预算 300s、前端轮询 5 分钟
+    - 题目配图裁剪件以 `data:image/jpeg;base64,...` 写入 `exam_question.figure_base64`（MEDIUMTEXT，V14），
+      详情页优先渲染 base64，**不再依赖文件服务 URL**（`localhost:8080` 一类地址在真机不可达，曾导致配图空白）
+    - 裁剪失败：`figure_base64=NULL` + `question_image_url=整页原图`；文件 IO 全在事务外
+- **影响范围**：`ExamParseServiceImpl`、`ExamParseAgent`、`ExamPaperServiceImpl`、`ExamQuestionMapper`、
+  `ExamQuestionItemVO`、`ExamDetail.vue`、`V14__add_exam_question_figure_base64.sql`
+- **违反后果**：配图空白（URL 不可达）、多选漏判、跨页题被拆成两道、答题卡答案丢失、全卷 JSON 截断导致降级
+- **发现时间**：2026-11-12（真实卷：配图空白 + 多选题被判单选 + 答题卡答案未匹配）
+- **正确做法**：整卷单次 + base64 落库；`figureBase64 || questionImageUrl` 双兜底渲染
+
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #27 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #36 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充
