@@ -44,6 +44,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import com.jiang.common.util.BusinessDate;
+import com.jiang.common.util.KpCoverage;
+import com.jiang.common.util.PausedKpIds;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -101,6 +103,15 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
     private StudentKnowledgeStateMapper knowledgeStateMapper;
     @Autowired
     private AgentDegradationLogMapper degradationLogMapper;
+    @Autowired
+    private com.jiang.config.SignalConfig signalConfig;
+
+    /**
+     * 去重窗口（小时）：配置异常（≤0）时兜底 1 小时，避免窗口退化为"永不跳过"
+     */
+    private int dedupWindowHours() {
+        return Math.max(1, signalConfig == null ? 12 : signalConfig.getDedupHours());
+    }
 
     /**
      * 修复 BLOCK-B：应用层保证“同一 goal 同时只允许一个 pending diff”
@@ -124,6 +135,15 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
         int pendingCount = diffMapper.countByGoalIdAndStatus(goalId, "pending", tenantId);
         if (pendingCount > 0) {
             throw new BusinessException(ErrorCodes.PLAN_ADJUST_CONFLICT);
+        }
+
+        // 1.5 规则 #5 去重窗口（2026-11-12）：窗口内已有 action='confirmed' 的调整则跳过。
+        // 手动 / 01:30 自动 / 考试结算三个入口都经过本方法，故在此统一拦截；
+        // 否则同一目标会被"每天 01:30 自动调整 + 学生手动再调一次"反复触发（联调实测 SIG-4 每日空转）。
+        if (logMapper.countConfirmedSince(goalId, tenantId,
+                LocalDateTime.now().minusHours(dedupWindowHours())) > 0) {
+            log.info("去重窗口内已有确认的调整，跳过: goalId={}, windowHours={}", goalId, dedupWindowHours());
+            throw new BusinessException(ErrorCodes.PLAN_ADJUST_COOLDOWN);
         }
     
         // 2. 检测触发信号
@@ -213,18 +233,15 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
                         .build())
                 .collect(Collectors.toList());
 
-        // 未覆盖知识点清单（按学生年级过滤后截断，防止 Prompt 膨胀 & 混入其他学段知识点）
+        // 未覆盖知识点清单（口径统一收敛到 KpCoverage：年级过滤 + 未学 + 扣除本轮暂缓，
+        // 再截断防止 Prompt 膨胀 & 混入其他学段知识点；顺序不能反，先截断会把暂缓点占满 30 条）
         Integer studentGrade = resolveStudentGrade(goal.getStudentId());
-        List<Map<String, Object>> uncoveredRows = knowledgeStateMapper
-                .selectActiveKpsWithMastery(goal.getStudentId(), goal.getSubjectId(), tenantId)
+        List<Map<String, Object>> uncoveredRows = KpCoverage.uncoveredRows(
+                        knowledgeStateMapper.selectActiveKpsWithMastery(
+                                goal.getStudentId(), goal.getSubjectId(), tenantId),
+                        studentGrade,
+                        PausedKpIds.parseSet(goal.getPausedKpIds()))
                 .stream()
-                .filter(row -> studentGrade == null
-                        || com.jiang.common.util.GradeMatcher.matchesRange(
-                                studentGrade, (String) row.get("gradeRange")))
-                .filter(row -> {
-                    Object mastery = row.get("masteryScore");
-                    return mastery == null || ((Number) mastery).doubleValue() == 0d;
-                })
                 .limit(UNCOVERED_KP_LIMIT)
                 .collect(Collectors.toList());
         List<AdjustmentContextDTO.KpItem> uncoveredKps = uncoveredRows.stream()

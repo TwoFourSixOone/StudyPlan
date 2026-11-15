@@ -31,6 +31,15 @@ public class SignalConfig {
     @Valid
     private Sig3Config sig3 = new Sig3Config();
 
+    /**
+     * 同一目标调整去重窗口（小时，产品规则 #5）
+     *
+     * <p>窗口内已有 {@code plan_adjustment_log.action='confirmed'} 记录时不再触发新的调整；
+     * 手动 / 01:30 自动 / 考试结算三个入口共用本配置（2026-11-12 起）。</p>
+     */
+    @Min(value = 1, message = "dedup-hours 最小为 1")
+    private int dedupHours = 12;
+
     @Data
     public static class Sig4Config {
         @DecimalMin(value = "0.1", message = "cap-day 最小为 0.1")

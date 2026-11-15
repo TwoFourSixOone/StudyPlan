@@ -9,6 +9,7 @@ import com.jiang.dto.CreateGoalRequest;
 import com.jiang.dto.UpdateGoalRequest;
 import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.LearningGoalMapper;
+import com.jiang.mapper.StudentKnowledgeStateMapper;
 import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.KnowledgePoint;
@@ -21,6 +22,7 @@ import com.jiang.service.impl.GoalServiceImpl;
 import com.jiang.vo.GoalVO;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -30,6 +32,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ThreadPoolExecutor;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -37,6 +43,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -59,6 +66,8 @@ class GoalServiceTest {
 
     @Mock
     private StudentMapper studentMapper;
+    @Mock
+    private StudentKnowledgeStateMapper studentKnowledgeStateMapper;
     @Mock
     private PlanSkeletonService planSkeletonService;
     @Mock
@@ -83,6 +92,8 @@ class GoalServiceTest {
         mockedStudentContext = mockStatic(StudentContext.class);
         mockedStudentContext.when(StudentContext::getStudentId).thenReturn(TEST_STUDENT_ID);
         mockedStudentContext.when(StudentContext::getTenantId).thenReturn(TEST_TENANT_ID);
+        // 容量预检读取 sig4 配置（cap-day=3.0 / efficiency=0.8），用默认配置对象即可
+        ReflectionTestUtils.setField(goalService, "signalConfig", new com.jiang.config.SignalConfig());
     }
 
     @AfterEach
@@ -164,6 +175,55 @@ class GoalServiceTest {
         assertEquals(TEST_TENANT_ID, inserted.getTenantId());
         assertEquals(TEST_SUBJECT_ID, inserted.getSubjectId());
         assertEquals(GoalStatus.ACTIVE.getCode(), inserted.getStatus());
+    }
+
+    @Test
+    @DisplayName("容量预检：周期内最多覆盖 216 < 未覆盖 300 → 返回提示（不阻断创建）")
+    void should_returnCapacityWarning_when_capacityInsufficient() {
+        Student student = new Student();
+        student.setStudentId(TEST_STUDENT_ID);
+        student.setGrade("9");
+        when(studentMapper.selectById(TEST_STUDENT_ID)).thenReturn(student);
+
+        Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
+        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+        when(knowledgePointMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(5L);
+        when(learningGoalMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(learningGoalMapper.insert(any(LearningGoal.class))).thenAnswer(inv -> {
+            LearningGoal g = inv.getArgument(0);
+            g.setGoalId(TEST_GOAL_ID);
+            return 1;
+        });
+        when(studentKnowledgeStateMapper.selectActiveKpsWithMastery(
+                TEST_STUDENT_ID, TEST_SUBJECT_ID, TEST_TENANT_ID)).thenReturn(kpRows(300));
+
+        GoalVO result = goalService.createGoal(buildCreateRequest());
+
+        assertNotNull(result);
+        assertNotNull(result.getCapacityWarning(), "容量不足时必须给出提示");
+        assertTrue(result.getCapacityWarning().contains("300"),
+                "提示需带上未覆盖知识点数量，actual=" + result.getCapacityWarning());
+    }
+
+    @Test
+    @DisplayName("容量预检：容量充足 → 不返回提示")
+    void should_returnNoCapacityWarning_when_capacityIsEnough() {
+        Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
+        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+        when(knowledgePointMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(5L);
+        when(learningGoalMapper.selectCount(any(LambdaQueryWrapper.class))).thenReturn(0L);
+        when(learningGoalMapper.insert(any(LearningGoal.class))).thenAnswer(inv -> {
+            LearningGoal g = inv.getArgument(0);
+            g.setGoalId(TEST_GOAL_ID);
+            return 1;
+        });
+        when(studentKnowledgeStateMapper.selectActiveKpsWithMastery(
+                TEST_STUDENT_ID, TEST_SUBJECT_ID, TEST_TENANT_ID)).thenReturn(kpRows(10));
+
+        GoalVO result = goalService.createGoal(buildCreateRequest());
+
+        assertNotNull(result);
+        assertNull(result.getCapacityWarning());
     }
 
     @Test
@@ -502,6 +562,22 @@ class GoalServiceTest {
         request.setStartDate(LocalDate.now());
         request.setEndDate(LocalDate.now().plusMonths(3));
         return request;
+    }
+
+    /**
+     * 构造 n 条「该年级未覆盖」知识点行（mastery 为空，年级 9）
+     */
+    private List<Map<String, Object>> kpRows(int count) {
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("kpId", "kp_" + i);
+            row.put("kpName", "知识点" + i);
+            row.put("gradeRange", "9");
+            row.put("masteryScore", null);
+            rows.add(row);
+        }
+        return rows;
     }
 
     private LearningGoal buildActiveGoal(Long goalId) {

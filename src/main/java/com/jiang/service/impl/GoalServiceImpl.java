@@ -13,6 +13,7 @@ import com.jiang.dto.CreateGoalRequest;
 import com.jiang.dto.UpdateGoalRequest;
 import com.jiang.mapper.KnowledgePointMapper;
 import com.jiang.mapper.LearningGoalMapper;
+import com.jiang.mapper.StudentKnowledgeStateMapper;
 import com.jiang.mapper.StudentMapper;
 import com.jiang.mapper.SubjectMapper;
 import com.jiang.model.entity.KnowledgePoint;
@@ -32,6 +33,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.jiang.common.util.BusinessDate;
+import com.jiang.common.util.GradeMatcher;
+import com.jiang.common.util.KpCoverage;
 import java.time.LocalDate;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.Collections;
@@ -64,6 +67,15 @@ public class GoalServiceImpl implements GoalService {
 
     @Autowired
     private StudentMapper studentMapper;
+
+    /**
+     * 目标创建容量预检（产品规则 #5）：口径与 SIG-4 一致，走统一的 {@link KpCoverage}
+     */
+    @Autowired
+    private StudentKnowledgeStateMapper studentKnowledgeStateMapper;
+
+    @Autowired
+    private com.jiang.config.SignalConfig signalConfig;
 
     /**
      * 计划骨架服务（产品规则 #1：创建目标时由规划 Agent 拆出整段计划）
@@ -167,7 +179,63 @@ public class GoalServiceImpl implements GoalService {
         eventPublisher.publishEvent(new GoalCreatedEvent(this, goal.getGoalId(), studentId,
                 goal.getSubjectId(), tenantId, goal.getStartDate()));
 
-        return toGoalVO(goal, subject.getName());
+        // 5.5 容量预检（规则 #5，2026-11-12）：周期内课时容量 < 该年级未覆盖知识点数时给出提示。
+        // 只提示不阻断——短周期冲刺是合理诉求，运行期由 SIG-4 兜底；但必须在创建时就暴露"注定覆盖不完"。
+        String capacityWarning = buildCapacityWarning(studentId, tenantId, student,
+                request.getSubjectId(), request.getStartDate(), request.getEndDate());
+
+        return withCapacityWarning(toGoalVO(goal, subject.getName()), capacityWarning);
+    }
+
+    /**
+     * 目标创建时的容量预检：{@code 剩余天数 × capDay × efficiency} 与「年级内未覆盖知识点数」比较
+     *
+     * <p>口径与 SIG-4 完全一致（{@link KpCoverage}）；创建时尚无暂缓，暂缓集合按空处理。
+     * 计算失败只记日志并返回 null——绝不能因为预检而让目标创建失败。</p>
+     *
+     * @return 提示文案；容量充足或计算失败时返回 null
+     */
+    private String buildCapacityWarning(Long studentId, String tenantId, Student student,
+                                        Long subjectId, LocalDate startDate, LocalDate endDate) {
+        if (studentId == null || subjectId == null || endDate == null) {
+            return null;
+        }
+        try {
+            Integer grade = student == null ? null : GradeMatcher.normalizeStudentGrade(student.getGrade());
+            long uncovered = KpCoverage.countUncovered(
+                    studentKnowledgeStateMapper.selectActiveKpsWithMastery(studentId, subjectId, tenantId),
+                    grade, Set.of());
+            if (uncovered <= 0) {
+                return null;
+            }
+            LocalDate today = BusinessDate.today();
+            LocalDate effectiveStart = startDate == null || startDate.isBefore(today) ? today : startDate;
+            double capDay = signalConfig.getSig4().getCapDay();
+            double efficiency = signalConfig.getSig4().getEfficiency();
+            double capacity = KpCoverage.capacity(effectiveStart, endDate, capDay, efficiency);
+            if (capacity >= uncovered) {
+                return null;
+            }
+            log.warn("[目标容量预检] 周期内无法覆盖全部知识点: studentId={}, subjectId={}, grade={}, 未覆盖={}, 容量={}",
+                    studentId, subjectId, grade, uncovered, String.format("%.1f", capacity));
+            return String.format(
+                    "按当前进度，目标周期内最多覆盖 %.1f 个知识点，但当前年级还有 %d 个未覆盖知识点；"
+                            + "建议延长周期或缩小学习范围",
+                    capacity, uncovered);
+        } catch (Exception e) {
+            log.warn("[目标容量预检] 计算失败，忽略（不影响创建）: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 把容量提示挂到 VO（null 时不改 VO，保持查询/更新接口语义不变）
+     */
+    private GoalVO withCapacityWarning(GoalVO vo, String capacityWarning) {
+        if (vo != null && capacityWarning != null) {
+            vo.setCapacityWarning(capacityWarning);
+        }
+        return vo;
     }
 
     /**

@@ -15,6 +15,7 @@ import com.jiang.common.util.ExamQuestionSourceAdapter;
 import com.jiang.common.util.ExamQuestionTextCodec;
 import com.jiang.common.util.GradeMatcher;
 import com.jiang.common.util.LlmTextSanitizer;
+import com.jiang.common.util.PausedKpIds;
 import com.jiang.common.util.HomeworkQuotaCalculator;
 import com.jiang.common.util.SimilarityDetector;
 import com.jiang.dto.DailyPlanQuestionRef;
@@ -289,7 +290,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         // 5.2 调整策略（产品规则 #5）：目标上的"暂缓知识点"与"日题量上限"
         LearningGoal goalEntity = learningGoalMapper.selectById(goalId);
         Integer dailyQuestionLimit = goalEntity == null ? null : goalEntity.getDailyQuestionLimit();
-        List<String> pausedKpIds = parsePausedKpIds(goalEntity == null ? null : goalEntity.getPausedKpIds());
+        List<String> pausedKpIds = PausedKpIds.parse(goalEntity == null ? null : goalEntity.getPausedKpIds());
         if (!pausedKpIds.isEmpty()) {
             List<KnowledgePointWithMastery> afterPaused = kpList.stream()
                     .filter(kp -> !pausedKpIds.contains(kp.getKnowledgePointId()))
@@ -1373,24 +1374,6 @@ public class HomeworkServiceImpl implements HomeworkService {
             return ids == null ? List.of() : ids;
         } catch (Exception e) {
             log.warn("解析计划骨架知识点失败，忽略: {}", e.getMessage());
-            return List.of();
-        }
-    }
-
-    /**
-     * 解析目标上的暂缓知识点 JSON 数组（产品规则 #5）
-     *
-     * <p>解析失败时返回空列表：暂缓是优化项，不能因此阻塞出题。</p>
-     */
-    private List<String> parsePausedKpIds(String json) {
-        if (json == null || json.isBlank()) {
-            return List.of();
-        }
-        try {
-            List<String> ids = OBJECT_MAPPER.readValue(json, new TypeReference<List<String>>() {});
-            return ids == null ? List.of() : ids;
-        } catch (Exception e) {
-            log.warn("解析暂缓知识点失败，忽略: {}", e.getMessage());
             return List.of();
         }
     }

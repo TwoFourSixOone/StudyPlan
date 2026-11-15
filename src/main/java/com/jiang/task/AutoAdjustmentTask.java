@@ -1,6 +1,8 @@
 package com.jiang.task;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.jiang.common.exception.BusinessException;
+import com.jiang.common.exception.ErrorCodes;
 import com.jiang.dto.TriggerSignalDTO;
 import com.jiang.mapper.LearningGoalMapper;
 import com.jiang.model.entity.LearningGoal;
@@ -98,6 +100,18 @@ public class AutoAdjustmentTask {
                             vo.getDiffId());
                 } else {
                     skipped++;
+                }
+            } catch (BusinessException e) {
+                // 规则 #5 去重（12h 内已确认 / 已有 pending diff）：属于正常跳过，不计入失败
+                if (ErrorCodes.PLAN_ADJUST_CONFLICT.getCode().equals(e.getCode())
+                        || ErrorCodes.PLAN_ADJUST_COOLDOWN.getCode().equals(e.getCode())) {
+                    skipped++;
+                    log.info("[AutoAdjust] 去重命中，跳过: studentId={}, goalId={}, code={}, message={}",
+                            goal.getStudentId(), goal.getGoalId(), e.getCode(), e.getMessage());
+                } else {
+                    failed++;
+                    log.error("[AutoAdjust] 调整失败: studentId={}, goalId={}, error={}",
+                            goal.getStudentId(), goal.getGoalId(), e.getMessage());
                 }
             } catch (Exception e) {
                 failed++;

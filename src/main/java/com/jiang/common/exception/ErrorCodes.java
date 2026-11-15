@@ -189,7 +189,13 @@ public enum ErrorCodes {
     /**
      * 试卷类型非法，仅支持 midterm/final/monthly/mock/other
      */
-    EXAM_PAPER_TYPE_INVALID(1191, "试卷类型无效，可选：midterm/final/monthly/mock/other");
+    EXAM_PAPER_TYPE_INVALID(1191, "试卷类型无效，可选：midterm/final/monthly/mock/other"),
+
+    // 计划调整去重（1192，Change: 2026-11-12_adjustment_signal_fix）
+    /**
+     * 同一目标去重窗口内已有确认的调整（规则 #5：12h 去重，覆盖手动 / 01:30 / 考试结算三个入口）
+     */
+    PLAN_ADJUST_COOLDOWN(1192, "近期已调整过计划，请稍后再试");
 
     private final Integer code;
     private final String message;

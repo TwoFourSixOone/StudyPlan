@@ -95,6 +95,10 @@ file:
 # =============================================
 plan:
   adjustment:
+    # 同一目标调整去重窗口（小时）：窗口内已有 action='confirmed' 的调整记录则跳过
+    # 覆盖 手动触发 / 01:30 自动调整 / 考试结算触发 三个入口（产品规则 #5）
+    dedup-hours: 12
+
     # SIG-1：知识点薄弱信号
     # 触发条件：某知识点在 window-days 天窗口内，连续 consecutive-count 次作业正确率 < threshold
     # 业务含义：学生在某知识点上持续表现不佳，需要加强练习
@@ -137,8 +141,11 @@ logging:
 
 agent:
   agentscope:
-    model: qwen3.8-flash
+    model: deepseek-v4.1-flash-1017
     api-key: ${AGENT_API_KEY}
     endpoint: ${AGENT_ENDPOINT:https://ws-bvy3j3i349eo1sjs.cn-beijing.maas.aliyuncs.com}
-    timeout: 120s
+    # 深度思考开关（DashScope enable_thinking）。结构化输出场景关闭：
+    # 实测同一张试卷图（max_tokens=2000）思考开 13.1s / 2000 token，关 6.5s / 1043 token，约 2 倍
+    enable-thinking: false
+    timeout: 300s
     max-retries: 2

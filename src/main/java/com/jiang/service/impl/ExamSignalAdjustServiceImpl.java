@@ -122,8 +122,9 @@ public class ExamSignalAdjustServiceImpl implements ExamSignalAdjustService {
                     goal.getGoalId(), vo.getDiffId(), signals.size());
         } catch (BusinessException e) {
             // PLAN_ADJUST_CONFLICT（已有 pending diff）等业务异常：跳过，不影响试卷
-            if (ErrorCodes.PLAN_ADJUST_CONFLICT.getCode().equals(e.getCode())) {
-                log.info("[ExamAdjust] 已有进行中的调整任务，跳过: paperId={}", paperId);
+            if (ErrorCodes.PLAN_ADJUST_CONFLICT.getCode().equals(e.getCode())
+                    || ErrorCodes.PLAN_ADJUST_COOLDOWN.getCode().equals(e.getCode())) {
+                log.info("[ExamAdjust] 已有进行中/去重窗口内的调整，跳过: paperId={}", paperId);
             } else {
                 log.warn("[ExamAdjust] 业务异常，跳过: paperId={}, error={}", paperId, e.getMessage());
             }

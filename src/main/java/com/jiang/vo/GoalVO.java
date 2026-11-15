@@ -45,4 +45,12 @@ public class GoalVO {
     private LocalDateTime createdAt;
 
     private LocalDateTime updatedAt;
+
+    /**
+     * 容量预检提示（产品规则 #5，2026-11-12）
+     *
+     * <p>仅创建目标时可能非空：目标周期内的可覆盖知识点量小于该年级未覆盖知识点数时，
+     * 返回"建议延长周期"的提示。<b>不阻断创建</b>，查询/更新接口恒为 null。</p>
+     */
+    private String capacityWarning;
 }

@@ -1,5 +1,6 @@
 package com.jiang.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.jiang.config.SignalConfig;
 import com.jiang.dto.TriggerSignalDTO;
 import com.jiang.mapper.DailyPlanMapper;
@@ -150,6 +151,35 @@ class SignalDetectorTest {
     }
 
     @Test
+    @DisplayName("SIG-4：未覆盖 10 个但已暂缓 8 个 → 2 ≤ 容量 7.2，不命中（2026-11-12 口径修正）")
+    void should_notDetectSIG4_when_pausedKpsDeducted() {
+        when(goalMapper.selectById(GOAL_ID))
+                .thenReturn(buildGoalWithPaused(LocalDate.now().plusDays(3), pausedJson(8)));
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
+                .thenReturn(uncoveredRows(10));
+
+        List<TriggerSignalDTO> signals = signalDetector.detectSignals(GOAL_ID, TENANT_ID);
+
+        assertFalse(hasSignal(signals, "SIG-4"),
+                "暂缓的知识点当轮不出题，不能再计入未覆盖压力");
+    }
+
+    @Test
+    @DisplayName("SIG-4：扣除暂缓后仍不足（10−2=8 > 7.2）→ 命中，且描述注明扣除数")
+    void should_detectSIG4_when_pausedDeductedButStillInsufficient() {
+        when(goalMapper.selectById(GOAL_ID))
+                .thenReturn(buildGoalWithPaused(LocalDate.now().plusDays(3), pausedJson(2)));
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
+                .thenReturn(uncoveredRows(10));
+
+        List<TriggerSignalDTO> signals = signalDetector.detectSignals(GOAL_ID, TENANT_ID);
+
+        assertTrue(hasSignal(signals, "SIG-4"));
+        assertTrue(hasSignalDescription(signals, "SIG-4", "已扣除暂缓 2 个"),
+                "描述必须体现扣除，便于线上排障");
+    }
+
+    @Test
     @DisplayName("SIG-3：连续 2 天未完成作业 → 命中")
     void should_detectSIG3_when_twoConsecutiveIncompleteDays() {
         LocalDate today = LocalDate.now();
@@ -205,7 +235,36 @@ class SignalDetectorTest {
         return goal;
     }
 
+    /**
+     * 带暂缓知识点的目标（产品规则 #5：`paused_kp_ids`）
+     */
+    private LearningGoal buildGoalWithPaused(LocalDate endDate, String pausedJson) {
+        LearningGoal goal = buildGoal(STUDENT_ID, SUBJECT_ID, endDate);
+        goal.setPausedKpIds(pausedJson);
+        return goal;
+    }
+
+    /**
+     * 构造暂缓前 N 个知识点（kp_0..kp_{n-1}）的 JSON 数组，与 {@link #uncoveredRows(int)} 的编号对齐
+     */
+    private String pausedJson(int count) {
+        List<String> ids = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            ids.add("kp_" + i);
+        }
+        try {
+            return new ObjectMapper().writeValueAsString(ids);
+        } catch (Exception e) {
+            throw new IllegalStateException("构造暂缓 JSON 失败", e);
+        }
+    }
+
     private boolean hasSignal(List<TriggerSignalDTO> signals, String type) {
         return signals.stream().anyMatch(s -> type.equals(s.getSignalType()));
+    }
+
+    private boolean hasSignalDescription(List<TriggerSignalDTO> signals, String type, String keyword) {
+        return signals.stream().anyMatch(s -> type.equals(s.getSignalType())
+                && s.getDescription() != null && s.getDescription().contains(keyword));
     }
 }

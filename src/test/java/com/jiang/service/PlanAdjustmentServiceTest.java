@@ -38,6 +38,7 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +113,8 @@ class PlanAdjustmentServiceTest {
         TransactionTemplate txTemplate = new TransactionTemplate(transactionManager);
         ReflectionTestUtils.setField(planAdjustmentService, "transactionTemplate", txTemplate);
         lenient().when(transactionManager.getTransaction(any())).thenReturn(mock(TransactionStatus.class));
+        // 规则 #5 去重窗口：用默认配置对象（dedup-hours=12），避免 mock 配置类
+        ReflectionTestUtils.setField(planAdjustmentService, "signalConfig", new com.jiang.config.SignalConfig());
     }
 
     @AfterEach
@@ -143,6 +146,21 @@ class PlanAdjustmentServiceTest {
                 () -> planAdjustmentService.triggerAdjustment(GOAL_ID));
 
         assertEquals(ErrorCodes.PLAN_ADJUST_CONFLICT.getCode(), ex.getCode());
+        verifyNoInteractions(adjustmentAgent);
+    }
+
+    @Test
+    @DisplayName("12h 去重窗口内已有 confirmed 调整 → 抛 PLAN_ADJUST_COOLDOWN，不检测信号、不调 Agent")
+    void should_throwCooldown_when_recentConfirmedAdjustment() {
+        when(diffMapper.countByGoalIdAndStatus(GOAL_ID, "pending", TENANT_ID)).thenReturn(0);
+        when(logMapper.countConfirmedSince(eq(GOAL_ID), eq(TENANT_ID), any(LocalDateTime.class)))
+                .thenReturn(1);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> planAdjustmentService.triggerAdjustment(GOAL_ID));
+
+        assertEquals(ErrorCodes.PLAN_ADJUST_COOLDOWN.getCode(), ex.getCode());
+        verifyNoInteractions(signalDetector);
         verifyNoInteractions(adjustmentAgent);
     }
 
@@ -187,6 +205,29 @@ class PlanAdjustmentServiceTest {
 
         assertTrue(vo.isAdjusted());
         assertEquals(DIFF_ID, vo.getDiffId());
+    }
+
+    @Test
+    @DisplayName("暂缓知识点不出现在调整上下文（2026-11-12 口径修正）")
+    void should_excludePausedKps_when_buildingContext() {
+        stubSignalHit();
+        stubGoalAndSubject("[\"kp_001\"]");
+        when(planMapper.selectPlansBetween(anyLong(), anyString(), any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(List.of());
+        when(knowledgeStateMapper.selectActiveKpsWithMastery(STUDENT_ID, SUBJECT_ID, TENANT_ID))
+                .thenReturn(List.of(kpRow("kp_001", "一元二次方程"), kpRow("kp_002", "勾股定理")));
+        when(adjustmentAgent.generateDiff(anyList(), any(AdjustmentContextDTO.class), anyList()))
+                .thenReturn(new PlanDiffDTO());
+        when(planDiffService.saveDiff(eq(GOAL_ID), anyList(), any(PlanDiffDTO.class), anyString()))
+                .thenReturn(DIFF_ID);
+
+        planAdjustmentService.triggerAdjustment(GOAL_ID);
+
+        ArgumentCaptor<AdjustmentContextDTO> captor = ArgumentCaptor.forClass(AdjustmentContextDTO.class);
+        verify(adjustmentAgent).generateDiff(anyList(), captor.capture(), anyList());
+        assertEquals(1, captor.getValue().getUncoveredKps().size(),
+                "暂缓的 kp_001 不应出现在未覆盖清单中");
+        assertEquals("kp_002", captor.getValue().getUncoveredKps().get(0).getKpId());
     }
 
     @Test
@@ -291,6 +332,10 @@ class PlanAdjustmentServiceTest {
     }
 
     private void stubGoalAndSubject() {
+        stubGoalAndSubject(null);
+    }
+
+    private void stubGoalAndSubject(String pausedKpIdsJson) {
         LearningGoal goal = new LearningGoal();
         goal.setGoalId(GOAL_ID);
         goal.setStudentId(STUDENT_ID);
@@ -300,6 +345,7 @@ class PlanAdjustmentServiceTest {
         goal.setStartDate(LocalDate.now().minusMonths(1));
         goal.setEndDate(LocalDate.now().plusMonths(2));
         goal.setStatus("active");
+        goal.setPausedKpIds(pausedKpIdsJson);
         when(goalMapper.selectById(GOAL_ID)).thenReturn(goal);
 
         Subject subject = new Subject();

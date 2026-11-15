@@ -12,10 +12,13 @@ import org.springframework.stereotype.Service;
 
 import com.jiang.common.util.BusinessDate;
 import com.jiang.common.util.GradeMatcher;
+import com.jiang.common.util.KpCoverage;
+import com.jiang.common.util.PausedKpIds;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 信号检测服务实现
@@ -153,8 +156,11 @@ public class SignalDetectorImpl implements SignalDetector {
     }
 
     /**
-     * 修复 BLOCK-14：kUncovered = 从未学习过的知识点（masteryScore IS NULL 或 0）
-     * 而非 masteryScore < 0.8
+     * 修复 BLOCK-14：kUncovered = 从未学习过的知识点（masteryScore IS NULL 或 0），而非 masteryScore < 0.8
+     *
+     * <p>口径统一收敛到 {@link KpCoverage}（2026-11-12）：年级过滤 + 未学 + <b>扣除目标上本轮暂缓的
+     * 知识点</b>。扣除暂缓是必须的——暂缓的点当轮不出题，若仍计入压力，SIG-4 会每天重复命中、
+     * 每天重新暂缓一批，永远收敛不了（联调日志实测）。</p>
      */
     private java.util.Optional<TriggerSignalDTO> detectSIG4(Long goalId, String tenantId) {
         LearningGoal goal = goalMapper.selectById(goalId);
@@ -174,20 +180,21 @@ public class SignalDetectorImpl implements SignalDetector {
         // 未覆盖知识点必须按"学生年级 + 科目"统计：
         // 否则会把其他学段的知识点算进来（联调实测：高三学生数学被算出 864 个未覆盖，导致每天误报 SIG-4）
         Integer studentGrade = resolveStudentGrade(goal.getStudentId());
-        long kUncovered = knowledgeStateMapper
-                .selectActiveKpsWithMastery(goal.getStudentId(), goal.getSubjectId(), tenantId)
-                .stream()
-                .filter(row -> studentGrade == null
-                        || GradeMatcher.matchesRange(studentGrade, (String) row.get("gradeRange")))
-                .filter(this::isUncovered)
-                .count();
+        Set<String> pausedKpIds = PausedKpIds.parseSet(goal.getPausedKpIds());
+        long kUncovered = KpCoverage.countUncovered(
+                knowledgeStateMapper.selectActiveKpsWithMastery(
+                        goal.getStudentId(), goal.getSubjectId(), tenantId),
+                studentGrade, pausedKpIds);
 
         if (dRemain * capDay * eff < kUncovered) {
             TriggerSignalDTO signal = new TriggerSignalDTO();
             signal.setSignalType("SIG-4");
+            String pausedNote = pausedKpIds.isEmpty()
+                    ? ""
+                    : String.format("（已扣除暂缓 %d 个）", pausedKpIds.size());
             signal.setDescription(String.format(
-                    "剩余 %.1f 天 × 容量 %.1f × 效率 %.2f = %.1f < 未覆盖知识点 %d",
-                    (double) dRemain, capDay, eff, dRemain * capDay * eff, kUncovered));
+                    "剩余 %.1f 天 × 容量 %.1f × 效率 %.2f = %.1f < 未覆盖知识点 %d%s",
+                    (double) dRemain, capDay, eff, dRemain * capDay * eff, kUncovered, pausedNote));
             return java.util.Optional.of(signal);
         }
         return java.util.Optional.empty();
@@ -202,13 +209,5 @@ public class SignalDetectorImpl implements SignalDetector {
         }
         Student student = studentMapper.selectById(studentId);
         return student == null ? null : GradeMatcher.normalizeStudentGrade(student.getGrade());
-    }
-
-    /**
-     * 是否"未覆盖"：无掌握度记录或掌握度为 0
-     */
-    private boolean isUncovered(java.util.Map<String, Object> row) {
-        Object mastery = row.get("masteryScore");
-        return mastery == null || ((Number) mastery).doubleValue() == 0d;
     }
 }
