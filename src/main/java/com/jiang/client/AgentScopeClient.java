@@ -68,6 +68,7 @@ public class AgentScopeClient {
         String modelName = agentScopeConfig.getModel();
         Duration timeout = agentScopeConfig.getTimeout();
         int maxRetries = agentScopeConfig.getMaxRetries();
+        Boolean enableThinking = agentScopeConfig.getEnableThinking();
 
         if (apiKey == null || apiKey.isBlank()) {
             throw new BusinessException(ErrorCodes.AGENT_CALL_FAILED,
@@ -81,6 +82,8 @@ public class AgentScopeClient {
 
         GenerateOptions generateOptions = GenerateOptions.builder()
                 .executionConfig(executionConfig)
+                // 整卷单次解析输出量大（全卷题目 + 详细解析），必须显式给足上限，避免 JSON 被截断
+                .maxTokens(agentScopeConfig.getMaxTokens() == null ? 8000 : agentScopeConfig.getMaxTokens())
                 .build();
 
         model = DashScopeChatModel.builder()
@@ -89,6 +92,8 @@ public class AgentScopeClient {
                 .baseUrl(baseUrl)
                 .endpointType(EndpointType.MULTIMODAL)//要根据模型来选择
                 .stream(false)
+                // 结构化输出场景关闭深度思考：思考只增加输出 token 与延迟（实测约 2 倍）
+                .enableThinking(enableThinking)
                 .defaultOptions(generateOptions)
                 .build();
 
@@ -100,16 +105,19 @@ public class AgentScopeClient {
                 .baseUrl(baseUrl)
                 .endpointType(EndpointType.MULTIMODAL)
                 .stream(false)
+                .enableThinking(enableThinking)
                 .defaultOptions(generateOptions)
                 .formatter(new DashScopeChatFormatter())
                 .build();
 
-        log.info("AgentScope SDK 初始化完成: model={}, baseUrl={}, timeout={}s, maxRetries={}",
-                modelName, baseUrl, timeout.getSeconds(), maxRetries);
+        log.info("AgentScope SDK 初始化完成: model={}, baseUrl={}, timeout={}s, maxRetries={}, enableThinking={}",
+                modelName, baseUrl, timeout.getSeconds(), maxRetries, enableThinking);
         //在这里进行一次测试调用，确保 SDK 配置正确
+        long probeStart = System.currentTimeMillis();
         try {
             String testResult = doCall("调用测试，你只要回复调用成功就代表配置正确");
-            log.info("AgentScope SDK 测试调用成功: response={}", testResult);
+            log.info("AgentScope SDK 测试调用成功: elapsed={}ms, response={}",
+                    System.currentTimeMillis() - probeStart, testResult);
         } catch (Exception e) {
             log.warn("AgentScope SDK 测试调用失败，请检查 model 名称和 endpoint 配置: {}", e.getMessage());
         }
@@ -169,8 +177,13 @@ public class AgentScopeClient {
         log.debug("Agent API 调用开始: promptLength={}", prompt.length());
         log.debug("Agent API 完整 Prompt:\n{}", prompt);
 
+        long start = System.currentTimeMillis();
         Flux<ChatResponse> responseFlux = model.stream(List.of(userMsg), null, null);
-        return extractText(responseFlux.collectList().block());
+        String text = extractText(responseFlux.collectList().block());
+        // 性能可观测性（2026-11-12）：每次调用必须留下耗时，便于区分"模型慢 / 排队慢 / 网络慢"
+        log.info("LLM 文本调用完成: cost={}ms, promptChars={}, respChars={}",
+                System.currentTimeMillis() - start, prompt.length(), text.length());
+        return text;
     }
 
     private String doVisionCall(String prompt, List<VisionImage> images) {
@@ -179,8 +192,18 @@ public class AgentScopeClient {
         // 日志只记录长度与张数：base64/图片内容一律不入日志（design §11.3）
         log.debug("Agent 视觉调用开始: promptLength={}, imageCount={}", prompt.length(), images.size());
 
+        long imageBytes = 0L;
+        for (VisionImage image : images) {
+            if (image != null && image.getBytes() != null) {
+                imageBytes += image.getBytes().length;
+            }
+        }
+        long start = System.currentTimeMillis();
         Flux<ChatResponse> responseFlux = visionModel.stream(List.of(userMsg), null, null);
-        return extractText(responseFlux.collectList().block());
+        String text = extractText(responseFlux.collectList().block());
+        log.info("LLM 视觉调用完成: cost={}ms, promptChars={}, imageCount={}, imageBytes={}, respChars={}",
+                System.currentTimeMillis() - start, prompt.length(), images.size(), imageBytes, text.length());
+        return text;
     }
 
     /**

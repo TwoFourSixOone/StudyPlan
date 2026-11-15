@@ -49,7 +49,14 @@ public class LlmConcurrencyLimiter {
      * @return 调用结果
      */
     public <T> T call(Supplier<T> action) {
+        long start = System.currentTimeMillis();
         acquire();
+        long waitMs = System.currentTimeMillis() - start;
+        // 排队可观测性（2026-11-12）：闸门被占满时，慢的是"等许可"而不是模型本身
+        if (waitMs >= 1000) {
+            log.warn("等待 LLM 并发许可 {}ms（闸门上限 {}，当前可用 {}）",
+                    waitMs, maxConcurrent, permits.availablePermits());
+        }
         try {
             return action.get();
         } finally {
