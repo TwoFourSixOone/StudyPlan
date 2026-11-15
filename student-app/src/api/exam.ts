@@ -157,8 +157,14 @@ export interface ExamQuestionItemVO {
   knowledgePointName?: string;
   /** 归因状态，pending_manual_review = 待人工归因 */
   attributionStatus?: string;
-  /** blank | unreadable | judged（后端推导） */
+  /** 作答展示态：blank | unreadable | judged（后端推导） */
   answerState?: string;
+  /** 是否多选题（正确答案或学生答案含 ≥2 个选项标签；2026-11-12） */
+  multiChoice?: boolean;
+  /** 题目配图 URL（模型标注区域裁剪件；裁剪失败回退整页原图；无图为空） */
+  questionImageUrl?: string;
+  /** 题目配图 base64（data URL；首选，页面直接渲染，不依赖文件服务地址） */
+  figureBase64?: string;
 }
 
 /** 历史试卷列表项出参（design §10.1；字段名与后端 ExamPaperListItemVO 一致） */
@@ -222,9 +228,16 @@ export function uploadPaperImage(paperId: number, filePath: string): Promise<Exa
 /**
  * ③ 显式提交解析（POST /student/exam/papers/{paperId}/submit）
  * 上传成功张数可小于声明的 imageCount（"少传几张也解析"）。
+ *
+ * 注意：上传满 {@link EXAM_MAX_IMAGE_COUNT} 张时后端会在最后一张追加成功后**自动触发解析**，
+ * 此时显式 submit 会返回 1186（会话已不是 uploading）。调用方如需自行兜底，
+ * 可传 `{ showError: false }` 关闭统一 toast，避免正确流程上弹出误导性错误。
  */
-export function submitPaper(paperId: number): Promise<ExamPaperSubmitVO> {
-  return post(`/student/exam/papers/${paperId}/submit`);
+export function submitPaper(
+  paperId: number,
+  options: { showError?: boolean } = {}
+): Promise<ExamPaperSubmitVO> {
+  return post(`/student/exam/papers/${paperId}/submit`, undefined, options);
 }
 
 /**

@@ -411,12 +411,21 @@ async function handleResponse<T>(
   if (body?.code === 200) {
     resolve(body.data);
   } else {
-    // 业务错误
+    // 业务错误：透出 code（调用方按错误码做差异化处理，如试卷 1131 重复上传）
     if (shouldShowError) {
       showError(body?.message || '请求失败');
     }
-    reject(new Error(body?.message || '业务错误'));
+    reject(businessError(body?.message, body?.code));
   }
+}
+
+/**
+ * 构造带业务码的错误对象（不改变原有 message，新增 code 字段）
+ */
+function businessError(message: string | undefined, code: number | undefined): Error {
+  const error = new Error(message || '业务错误') as Error & { code?: number };
+  error.code = code;
+  return error;
 }
 
 /**
@@ -444,7 +453,7 @@ function handleReplayResponse<T>(
     if (shouldShowError) {
       showError(body?.message || '请求失败');
     }
-    reject(new Error(body?.message || '业务错误'));
+    reject(businessError(body?.message, body?.code));
   }
 }
 

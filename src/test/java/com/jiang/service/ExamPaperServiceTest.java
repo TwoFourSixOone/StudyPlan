@@ -308,6 +308,36 @@ class ExamPaperServiceTest {
         }
 
         @Test
+        @DisplayName("创建会话：解析失败且 0 题 → 重置为 uploading 复用（允许当天重新上传）")
+        void should_resetFailedPaperForReupload_when_noQuestionPersisted() {
+            when(examPaperMapper.selectByStudentSubjectDate(STUDENT_ID, SUBJECT_ID, EXAM_DATE, TENANT))
+                    .thenReturn(paper("failed", 4));
+            when(examQuestionMapper.countByPaper(PAPER_ID, TENANT)).thenReturn(0L);
+            when(examPaperMapper.resetFailedPaperForReupload(PAPER_ID, TENANT)).thenReturn(1);
+
+            var created = service.createPaper(SUBJECT_ID, EXAM_DATE, "midterm", 4);
+
+            assertEquals(PAPER_ID, created.getPaperId());
+            assertTrue(created.getReused());
+            assertEquals("uploading", created.getStatus());
+            verify(examPaperMapper).resetFailedPaperForReupload(PAPER_ID, TENANT);
+            verify(examPaperMapper, never()).insert(any(ExamPaper.class));
+        }
+
+        @Test
+        @DisplayName("创建会话：解析失败但已有题目 → 仍 1131（防止重复落题/重复结算）")
+        void should_throwDuplicate_when_failedPaperHasQuestions() {
+            when(examPaperMapper.selectByStudentSubjectDate(STUDENT_ID, SUBJECT_ID, EXAM_DATE, TENANT))
+                    .thenReturn(paper("failed", 4));
+            when(examQuestionMapper.countByPaper(PAPER_ID, TENANT)).thenReturn(2L);
+
+            BusinessException exception = assertThrows(BusinessException.class,
+                    () -> service.createPaper(SUBJECT_ID, EXAM_DATE, "midterm", 4));
+            assertEquals(ErrorCodes.EXAM_PAPER_DUPLICATE.getCode(), exception.getCode());
+            verify(examPaperMapper, never()).resetFailedPaperForReupload(any(), any());
+        }
+
+        @Test
         @DisplayName("创建会话：30 分钟内 uploading 会话复用（不重置图片）")
         void should_reuseRecentUploadingSession() {
             when(examPaperMapper.selectByStudentSubjectDate(STUDENT_ID, SUBJECT_ID, EXAM_DATE, TENANT))

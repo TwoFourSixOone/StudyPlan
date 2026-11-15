@@ -58,13 +58,15 @@
           <!-- 已上传图片不允许删除（服务端已持有 URL），给一次明确提示 -->
           <text class="thumb-remove thumb-remove--disabled" v-else @click.stop="removeImage(idx)">✕</text>
         </view>
-        <view class="thumb thumb-add" v-if="images.length < MAX_IMAGES && !formLocked" @click="chooseImages">
+        <view class="thumb thumb-add" v-if="images.length < MAX_IMAGES && !formLocked && !processing" @click="chooseImages">
           <text class="thumb-add-icon">＋</text>
         </view>
       </view>
 
+      <text class="size-tip" v-if="processing">正在处理所选图片（压缩 / 体积校验）…</text>
+
       <text class="size-tip">{{ SIZE_TIP }}</text>
-      <text class="size-tip">一次最多 {{ MAX_IMAGES }} 张，可逐张删除；已上传的图片不能删除</text>
+      <text class="size-tip">一次可选 {{ MAX_IMAGES }} 张，点一次「上传并解析」即全部同时上传；已上传的图片不能删除</text>
 
       <!-- 单张失败重试 -->
       <view class="row-actions" v-if="failedImages.length > 0">
@@ -166,9 +168,14 @@ const SIZE_TIP = '单张≤9.5MB、合计≤30MB（建议每张压到 2MB 内）
  */
 const COMPRESS_THRESHOLD_BYTES = 800 * 1024; // 800KB
 const COMPRESS_QUALITY = 85;
-const UPLOAD_CONCURRENCY = 2;
+/**
+ * 上传并发：**全部并行**（= 本页最多张数）。
+ * 微信 `wx.uploadFile` 的并发上限是 10，本页上限 8 张，因此一次选择的多张图
+ * 点一次「上传并解析」就会同时发出所有上传请求（真正的"一次性上传"），不再按批排队。
+ */
+const UPLOAD_CONCURRENCY = MAX_IMAGES;
 const POLL_INTERVAL = 2000;
-const POLL_MAX_TIMES = 90; // ≈3 分钟（design §10.3）
+const POLL_MAX_TIMES = 150; // ≈5 分钟（整卷单次解析更慢，2026-11-12）
 const AUTO_JUMP_DELAY = 800;
 
 // ========== 状态 ==========
@@ -194,6 +201,8 @@ const paperId = ref(null);
 const taskId = ref(null);
 const uploading = ref(false);
 const submitting = ref(false);
+/** 选图后的本地预处理（取大小 / 压缩 / 体积校验）进行中 */
+const processing = ref(false);
 const taskStatus = ref('');
 const ocrRetryCount = ref(0);
 const parseError = ref('');
@@ -219,7 +228,7 @@ const formLocked = computed(() => flowLocked.value || !!paperId.value);
 
 /** 解析已结束（成功/失败）后允许重新走完整流程 */
 const canStart = computed(() => {
-  if (flowLocked.value) return false;
+  if (flowLocked.value || processing.value) return false;
   if (images.value.length === 0) return false;
   if (taskStatus.value === 'pending' || taskStatus.value === 'processing') return false;
   if (taskStatus.value === 'completed') return false;
@@ -237,13 +246,17 @@ const uploadStepText = computed(() => {
 const canRetryParse = computed(() => ocrRetryCount.value < MAX_OCR_RETRY);
 
 const mainButtonText = computed(() => {
+  if (processing.value) return '处理图片中…';
   if (uploading.value) return `上传中（${uploadingCount.value}/${images.value.length}）`;
   if (submitting.value) return '提交解析中...';
   if (taskStatus.value === 'pending' || taskStatus.value === 'processing') return '解析中，请稍候...';
   if (taskStatus.value === 'completed') return '解析完成，正在跳转...';
   if (taskStatus.value === 'failed') return '解析失败，请点「重新解析」';
-  if (paperId.value) return '继续上传 / 提交解析';
-  return '开始上传';
+  if (paperId.value) {
+    const pending = images.value.filter((i) => i.status === 'pending' || i.status === 'failed').length;
+    return pending > 0 ? `继续上传 ${pending} 张 / 提交解析` : '提交解析';
+  }
+  return images.value.length > 1 ? `一次性上传 ${images.value.length} 张并解析` : '上传并解析';
 });
 
 // ========== 生命周期 ==========
@@ -281,6 +294,28 @@ function goBack() {
   });
 }
 
+/**
+ * 同一科目同一天已有试卷（1131）：给出「去历史试卷」入口
+ *
+ * <p>解析失败的试卷（一题未落库）后端已允许当天重新上传，因此这里只会出现在
+ * 「已完成 / 解析中 / 失败但有题目」三种情况——它们都不能重传。</p>
+ */
+function offerExamListAfterDuplicate() {
+  uni.showModal({
+    title: '该科目今天已有试卷',
+    content: '同一科目同一天只能上传一份试卷。可在「历史试卷」查看解析结果和得分，或换一个考试日期再上传。',
+    confirmText: '去历史试卷',
+    cancelText: '知道了',
+    success: (res) => {
+      if (!res.confirm) return;
+      uni.redirectTo({
+        url: '/pages/exam-list/ExamList',
+        fail: () => uni.switchTab({ url: '/pages/profile/Profile' })
+      });
+    }
+  });
+}
+
 // ========== 选图 / 预检 / 压缩 ==========
 function imageBadgeText(img) {
   const map = { pending: '待上传', uploading: '上传中', done: '已上传', failed: '失败' };
@@ -308,7 +343,7 @@ function removeImage(idx) {
 
 /** 选图：count 只给剩余额度，超出即拦截提示（后端 1182 兜底） */
 async function chooseImages() {
-  if (flowLocked.value) return;
+  if (flowLocked.value || processing.value) return;
   const remain = MAX_IMAGES - images.value.length;
   if (remain <= 0) {
     showError(`最多上传 ${MAX_IMAGES} 张试卷图片`);
@@ -341,44 +376,53 @@ async function chooseImages() {
   // S2 预检 + 压缩策略（t20）：
   // 小图（≤800KB）不压缩，直接原图上传；只有大图才以 quality 85 压缩，且不做 resize（保持原分辨率）。
   // 校验始终使用"最终要上传的那份文件"的大小（压缩后大小参与 9.5MB/30MB 判定）。
-  let totalBytes = images.value.reduce((sum, i) => sum + (i.size || 0), 0);
-  const accepted = [];
-  const tempFiles = chooseRes.tempFiles || [];
-  for (let i = 0; i < paths.length; i += 1) {
-    const originalPath = paths[i];
-    // chooseImage 已带回 size 时直接用，避免多一次 getFileInfo（回退值仅在 getFileInfo 失败时生效）
-    const originalSize = await getFileSize(originalPath, tempFiles[i] && tempFiles[i].size);
+  // 选多张时「取大小 → 压缩 → 上限校验」是逐张串行的（避免 8 张同时压缩造成内存峰值），
+  // 期间用内联提示 + 禁用"＋"给出反馈，避免"选完图页面没反应"的错觉。
+  // 不用 uni.showLoading：它与 showToast 共用同一个提示通道，单张超限的提示会把 loading 顶掉，
+  // 反向调用 hideLoading 又可能连带关闭错误提示。
+  processing.value = true;
+  try {
+    let totalBytes = images.value.reduce((sum, i) => sum + (i.size || 0), 0);
+    const accepted = [];
+    const tempFiles = chooseRes.tempFiles || [];
+    for (let i = 0; i < paths.length; i += 1) {
+      const originalPath = paths[i];
+      // chooseImage 已带回 size 时直接用，避免多一次 getFileInfo（回退值仅在 getFileInfo 失败时生效）
+      const originalSize = await getFileSize(originalPath, tempFiles[i] && tempFiles[i].size);
 
-    let uploadPath = originalPath;
-    let uploadSize = originalSize;
-    let compressedApplied = false;
+      let uploadPath = originalPath;
+      let uploadSize = originalSize;
+      let compressedApplied = false;
 
-    if (originalSize > COMPRESS_THRESHOLD_BYTES) {
-      uploadPath = await compressImage(originalPath);
-      compressedApplied = uploadPath !== originalPath;
-      const compressedSize = await getFileSize(uploadPath);
-      // 压缩成功但取不到大小时，保守沿用原图大小参与上限校验（安全优先）
-      uploadSize = compressedSize > 0 ? compressedSize : originalSize;
-    }
+      if (originalSize > COMPRESS_THRESHOLD_BYTES) {
+        uploadPath = await compressImage(originalPath);
+        compressedApplied = uploadPath !== originalPath;
+        const compressedSize = await getFileSize(uploadPath);
+        // 压缩成功但取不到大小时，保守沿用原图大小参与上限校验（安全优先）
+        uploadSize = compressedSize > 0 ? compressedSize : originalSize;
+      }
 
-    const sizeMb = uploadSize / 1024 / 1024;
-    if (uploadSize > 0 && sizeMb > MAX_SINGLE_MB) {
-      // 压缩后仍超限时明确提示，不静默上传（requirement 2）
-      showError(
-        compressedApplied
-          ? `压缩后仍超过 ${MAX_SINGLE_MB}MB（当前 ${sizeMb.toFixed(1)}MB），请裁剪或降低分辨率后重试`
-          : `单张试卷图片不能超过 ${MAX_SINGLE_MB}MB（当前 ${sizeMb.toFixed(1)}MB）`
-      );
-      continue;
+      const sizeMb = uploadSize / 1024 / 1024;
+      if (uploadSize > 0 && sizeMb > MAX_SINGLE_MB) {
+        // 压缩后仍超限时明确提示，不静默上传（requirement 2）
+        showError(
+          compressedApplied
+            ? `压缩后仍超过 ${MAX_SINGLE_MB}MB（当前 ${sizeMb.toFixed(1)}MB），请裁剪或降低分辨率后重试`
+            : `单张试卷图片不能超过 ${MAX_SINGLE_MB}MB（当前 ${sizeMb.toFixed(1)}MB）`
+        );
+        continue;
+      }
+      if (uploadSize > 0 && totalBytes + uploadSize > MAX_TOTAL_MB * 1024 * 1024) {
+        showError(`试卷图片总大小不能超过 ${MAX_TOTAL_MB}MB`);
+        continue;
+      }
+      totalBytes += uploadSize;
+      accepted.push({ path: uploadPath, size: uploadSize, status: 'pending', error: '' });
     }
-    if (uploadSize > 0 && totalBytes + uploadSize > MAX_TOTAL_MB * 1024 * 1024) {
-      showError(`试卷图片总大小不能超过 ${MAX_TOTAL_MB}MB`);
-      continue;
-    }
-    totalBytes += uploadSize;
-    accepted.push({ path: uploadPath, size: uploadSize, status: 'pending', error: '' });
+    images.value = [...images.value, ...accepted];
+  } finally {
+    processing.value = false;
   }
-  images.value = [...images.value, ...accepted];
 }
 
 /**
@@ -459,7 +503,13 @@ async function handleStartUpload() {
       });
       paperId.value = created?.paperId || null;
     } catch (e) {
-      // request.ts 已 toast 后端文案（1131 重复上传 / 1191 类型非法等）
+      // 1131：同科目同一天已有试卷（已完成/解析中）。不能重传，给出可操作入口，
+      // 避免只弹一句"只能上传一份"然后卡在原地（2026-11-12 联调）。
+      if (e && e.code === 1131) {
+        offerExamListAfterDuplicate();
+        return;
+      }
+      // request.ts 已 toast 后端文案（1191 类型非法等）
       console.warn('[ExamUpload] 建上传会话失败:', e.message);
       return;
     }
@@ -469,7 +519,7 @@ async function handleStartUpload() {
     }
   }
 
-  // 2. 逐张上传（并发 2）
+  // 2. 一次性上传：所有待上传图片同时发出请求（并发 = 张数）
   await uploadPendingImages();
 
   // 3. 全部成功才自动提交解析；有失败则等用户选择"重试该张"或"少传几张也解析"
@@ -478,7 +528,13 @@ async function handleStartUpload() {
   }
 }
 
-/** 并发 2 逐张上传所有待上传/失败的图片 */
+/**
+ * 一次性上传所有待上传/失败的图片：**全部并行**（并发 = 队列长度，最多 8）
+ *
+ * 为什么不再限制并发 2：用户选择多张后期待"一次性上传"，串行分批发会让 8 张图排队 4 轮，
+ * 单张 2–4MB 时体感明显；微信 uploadFile 并发上限 10，8 张同时上传是安全区间。
+ * 失败仍是"每张独立"的：一张失败不影响其它张，可单独重试。
+ */
 async function uploadPendingImages() {
   const queue = pendingImages.value.slice();
   if (queue.length === 0) return;
@@ -545,8 +601,18 @@ async function submitAndPoll() {
   if (submitting.value || !paperId.value) return;
   submitting.value = true;
   parseError.value = '';
+  /**
+   * 满 8 张时后端会在最后一张追加成功后**自动触发解析**（design §2.3 兜底路径）。
+   * 一次性上传 8 张是常见场景，此时再显式 submit 必然返回 1186（会话已不是 uploading），
+   * 若照常 toast 会在正确流程上弹「上传会话不存在」，因此先按详情探一次状态接管轮询。
+   */
+  const autoTriggered = uploadingCount.value >= MAX_IMAGES;
   try {
-    const res = await submitPaper(paperId.value);
+    if (autoTriggered && (await recoverByDetailStatus())) {
+      showSuccess('已提交解析');
+      return;
+    }
+    const res = await submitPaper(paperId.value, autoTriggered ? { showError: false } : {});
     taskId.value = res?.taskId || null;
     taskStatus.value = res?.status || 'pending';
     showSuccess('已提交解析');

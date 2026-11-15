@@ -63,6 +63,23 @@ public interface ExamPaperMapper extends BaseMapper<ExamPaper> {
     int resetImageUrls(@Param("paperId") Long paperId, @Param("tenantId") String tenantId);
 
     /**
+     * 解析失败（且未落任何题目）的试卷：重置为可重新上传的会话（2026-11-12）
+     *
+     * <p>产品规则 #4：同一科目同一天只允许一份试卷。但<b>整卷解析失败时学生应能重新上传</b>，
+     * 否则当天直接卡死（只能等次日）。调用方必须先用 {@code exam_question} 计数确认 0 题——
+     * 只有 0 题才没有任何掌握度 / 错题 / 学习记录等副作用，重置是安全的。</p>
+     *
+     * <p>条件里带 {@code grade_status='ungraded'}：已结算（graded）的记录永不重置。</p>
+     *
+     * @return 0 表示状态已变化（非 failed 或已结算），调用方按重复上传处理
+     */
+    @Update("UPDATE exam_paper SET image_urls = JSON_ARRAY(), status = 'uploading', grade_status = 'ungraded', " +
+            "remark = NULL, total_score = NULL, update_time = NOW() " +
+            "WHERE id = #{paperId} AND tenant_id = #{tenantId} " +
+            "AND status = 'failed' AND grade_status = 'ungraded'")
+    int resetFailedPaperForReupload(@Param("paperId") Long paperId, @Param("tenantId") String tenantId);
+
+    /**
      * 提交解析：CAS {@code uploading → pending}（与"达量自动触发"只生效一次）
      *
      * @return 0 表示已被提交过或状态非 uploading
