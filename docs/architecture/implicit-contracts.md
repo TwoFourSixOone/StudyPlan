@@ -331,6 +331,8 @@
       框住图形本身（含坐标轴/标注），不框题干文字；`width/height < 0.05` 或无法定位时省略
     - 服务端 `ImageCropper` 按区域裁剪（四周 3% 留白），编码 JPEG，经 `FileStorageService.uploadBytes`
       落到 `exam-figures/{studentId}`，URL 写入 `exam_question.question_image_url`
+    - **二次确认**：裁剪块必须再经视觉模型确认是"印刷图形"（`figure_check_v1.txt` + `FigureCheckDecision`），
+      判为题号/分值/文字/学生手写/空白 → 丢弃裁剪块、回退整页原图；调用失败或回答含糊时保留裁剪块
     - **回退顺序**：裁剪失败/区域非法/非图片 → 使用**整页原图 URL**（学生至少能看到图），不得因此让解析失败
     - **文件 IO 必须在事务外**：读原图、裁剪、写裁剪件都在 TX-A 之前完成，事务内只做批量 INSERT
 - **影响范围**：`exam_parse_v2.txt`、`ExamParseAgentImpl`（`figureRect` 解析与校验）、`ImageCropper`、

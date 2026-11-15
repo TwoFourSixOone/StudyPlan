@@ -135,6 +135,16 @@ public class ExamPaperServiceImpl implements ExamPaperService {
 
     @Autowired
     private FileStorageService fileStorageService;
+
+    /** 配图二次确认（2026-11-12）：把裁剪块再问一次视觉模型，挡住"题号/分值/学生手写"误裁 */
+    @Autowired
+    private com.jiang.client.AgentScopeClient agentScopeClient;
+
+    @Value("${exam.parse.figure-verify:true}")
+    private boolean figureVerifyEnabled;
+
+    /** 配图审核 Prompt 缓存 */
+    private volatile String figureCheckPrompt;
     @Autowired
     private MasteryService masteryService;
     @Autowired
@@ -587,6 +597,13 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                     continue;
                 }
                 String url = fileStorageService.uploadBytes(cropped, "exam-figures/" + paper.getStudentId(), ".jpg");
+                // 二次确认：裁出来的必须确实是印刷图形（否则是题号/分值/学生手写 → 回退整页）
+                if (figureVerifyEnabled && !isPrintedFigure(cropped)) {
+                    log.warn("配图二次确认不通过（疑似文字/题号/手写），回退整页原图: paperId={}, questionIndex={}",
+                            paper.getId(), question.getQuestionIndex());
+                    figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
+                    continue;
+                }
                 // 2026-11-12：配图同时落 base64（data URL），小程序端不依赖文件服务地址直接渲染
                 String base64 = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(cropped);
                 figures.put(question.getQuestionIndex(), new FigureData(url, base64));
@@ -617,6 +634,44 @@ public class ExamPaperServiceImpl implements ExamPaperService {
         } catch (Exception e) {
             log.warn("整页配图回退失败（仅保留 URL）: reason={}", e.getMessage());
             return new FigureData(sourceUrl, null);
+        }
+    }
+
+    /**
+     * 裁剪块二次确认（2026-11-12）：只接受「试卷印刷图形」；题号/分值/学生手写/空白 → false
+     *
+     * <p>调用失败或回答含糊时保留裁剪块（true），避免网络抖动把配图全部丢掉。</p>
+     */
+    private boolean isPrintedFigure(byte[] cropped) {
+        try {
+            com.jiang.dto.VisionImage image = com.jiang.dto.VisionImage.of("image/jpeg", cropped);
+            String answer = agentScopeClient.callVision(figureCheckPrompt(), java.util.List.of(image));
+            Boolean decision = com.jiang.common.util.FigureCheckDecision.classify(answer);
+            if (Boolean.FALSE.equals(decision)) {
+                log.info("配图审核判定不合格: answer={}", answer);
+                return false;
+            }
+            return true;
+        } catch (Exception e) {
+            log.warn("配图二次确认调用失败，保留裁剪块: {}", e.getMessage());
+            return true;
+        }
+    }
+
+    /**
+     * 配图审核 Prompt（首次加载后缓存）
+     */
+    private String figureCheckPrompt() {
+        String cached = figureCheckPrompt;
+        if (cached != null) {
+            return cached;
+        }
+        try (java.io.InputStream is = new org.springframework.core.io.ClassPathResource(
+                "prompts/versions/figure_check_v1.txt").getInputStream()) {
+            figureCheckPrompt = new String(is.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            return figureCheckPrompt;
+        } catch (Exception e) {
+            throw new IllegalStateException("加载配图审核 Prompt 失败: " + e.getMessage(), e);
         }
     }
 
