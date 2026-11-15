@@ -268,6 +268,28 @@ public interface ErrorQuestionMapper extends BaseMapper<ErrorQuestion> {
                                                                @Param("tenantId") String tenantId);
 
     /**
+     * 统计某份试卷来源的活跃错题数（试卷诊断聚合用，新用户引导方案 A）
+     *
+     * <p>口径（约定 #26）：考试来源错题 {@code source_type='exam'}、{@code source_id=exam_paper.id}、
+     * {@code question_id = -exam_question.id}（负 ID 命名空间）；只数 {@code status='active'} 的行
+     * （paused 为派生暂停态、completed 已掌握，均不算"待消灭"的错题）。</p>
+     *
+     * <p>索引命中 {@code idx_student_status_due (student_id, tenant_id, status, ...)} 前缀，
+     * {@code source_type/source_id} 在单学生残余行上过滤（与 {@code selectStatistics} 同模式）。</p>
+     *
+     * @param studentId 学生 ID
+     * @param tenantId  租户 ID
+     * @param paperId   试卷 ID（error_question.source_id）
+     * @return 活跃错题数
+     */
+    @Select("SELECT COUNT(*) FROM error_question " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "AND source_type = 'exam' AND source_id = #{paperId} AND status = 'active'")
+    int countActiveExamErrorsByPaper(@Param("studentId") Long studentId,
+                                     @Param("tenantId") String tenantId,
+                                     @Param("paperId") Long paperId);
+
+    /**
      * 举一反三源题兜底：取该知识点最早到期的一道<b>试卷来源</b>错题（题库无源题时使用，design v3 §7.2.1）
      *
      * <p>负 ID 反查：{@code exam_question.id = -error_question.question_id}（主键侧 eq_ref）；

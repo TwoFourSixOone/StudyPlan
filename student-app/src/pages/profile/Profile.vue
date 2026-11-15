@@ -68,6 +68,10 @@
               </view>
             </picker>
           </view>
+          <!-- 诊断预填提示（新用户引导方案 A：诊断页「根据这次诊断创建目标」跳转过来时展示） -->
+          <view class="goal-diagnosis-tip" v-if="goalPrefillFromDiagnosis">
+            <text>已按诊断结果预填科目；建议目标周期 3–6 个月（可自行调整）</text>
+          </view>
           <view class="form-item">
             <text class="form-label">方向描述</text>
             <input class="form-input" v-model="goalForm.direction" placeholder="如：提高数学成绩" maxlength="500" />
@@ -240,6 +244,18 @@
     <view class="logout-area">
       <button class="btn-logout" @click="handleLogout">退出登录</button>
     </view>
+
+    <!-- 新用户引导方案 A：年级设置成功后的诊断引导卡（可跳过；点遮罩也可关闭，不阻断任何流程） -->
+    <view class="guide-overlay" v-if="diagnosisGuideVisible" @click="closeDiagnosisGuide">
+      <view class="guide-card" @click.stop>
+        <text class="guide-title">先做一次诊断，让计划更准</text>
+        <text class="guide-desc">上传一份最近考试的试卷，自动分析得分、正确率和薄弱知识点，创建目标时为你预填科目（可跳过）</text>
+        <view class="guide-actions">
+          <button class="btn-guide-go" @click="goDiagnosisUpload">去上传试卷</button>
+          <button class="btn-guide-skip" @click="skipDiagnosisGuide">跳过，直接创建目标</button>
+        </view>
+      </view>
+    </view>
   </view>
 </template>
 
@@ -275,12 +291,18 @@ const goalHistory = ref([]);
 const goalLoading = ref(false);
 const goalSubmitting = ref(false);
 const goalSubjectIndex = ref(0);
+// 诊断预填（新用户引导方案 A）：诊断页「根据这次诊断创建目标」跳转过来时为 true
+const goalPrefillFromDiagnosis = ref(false);
 const goalForm = ref({
   direction: '',
   targetScore: '',
   startDate: today,
   endDate: ''
 });
+
+// ========== 新用户引导（方案 A）：诊断引导卡 ==========
+// 年级设置成功后弹出（可跳过）；不弹窗/关闭时建目标等主流程完全不受影响
+const diagnosisGuideVisible = ref(false);
 
 const goalSubjectNames = computed(() => appStore.subjectList.map(s => s.name));
 
@@ -345,9 +367,36 @@ async function onGradeChange(e) {
     await updateGrade(grade);
     authStore.setGrade(String(grade));
     showSuccess('年级已设置');
+    // 新用户引导方案 A：年级设置成功后引导上传试卷做一次诊断（可跳过，不阻断建目标）
+    diagnosisGuideVisible.value = true;
   } catch (err) {
     showError(err.message || '年级设置失败');
   }
+}
+
+// ========== 新用户引导（方案 A）：诊断引导卡动作 ==========
+
+/** 「去上传试卷」：标记 from=diagnosis，解析完成后自动跳诊断结果页而不是试卷详情 */
+function goDiagnosisUpload() {
+  diagnosisGuideVisible.value = false;
+  uni.navigateTo({
+    url: '/pages/exam-upload/ExamUpload?from=diagnosis',
+    fail: (err) => {
+      console.error('[Profile] 跳转试卷上传失败:', err);
+      showError('跳转失败，请在开发者工具中重新编译后重试');
+    }
+  });
+}
+
+/** 「跳过」：直接去创建目标（现有入口 = 展开学习目标折叠区） */
+function skipDiagnosisGuide() {
+  diagnosisGuideVisible.value = false;
+  activeSection.value = 'goal';
+}
+
+/** 点遮罩关闭引导卡（不强制选择；不弹窗时建目标等主流程不受影响） */
+function closeDiagnosisGuide() {
+  diagnosisGuideVisible.value = false;
 }
 
 const displayId = computed(() => {
@@ -368,9 +417,33 @@ onShow(async () => {
   if (authStore.isLoggedIn && appStore.subjectList.length === 0) {
     await appStore.init();
   }
+  // 消费诊断结果页带来的建目标预填（科目预选 + 「建议周期 3–6 个月」提示）
+  applyGoalPrefill();
   // 每次显示时刷新目标数据
   fetchActiveGoal();
 });
+
+// ========== 建目标预填（新用户引导方案 A） ==========
+/**
+ * 消费 appStore.goalPrefill：诊断页「根据这次诊断创建目标」时写入。
+ * 「我的」是 tabBar 页，switchTab 无法携带 query 参数，因此走全局 store，
+ * 这里一次性消费（无论科目是否匹配都清空，避免下次 onShow 重复触发）。
+ * 只预选科目并展开表单，不改变提交逻辑与校验。
+ */
+function applyGoalPrefill() {
+  const prefill = appStore.goalPrefill;
+  if (!prefill || prefill.subjectId == null) return;
+  appStore.setGoalPrefill(null);
+  const idx = appStore.subjectList.findIndex(
+    (s) => Number(s.subjectId) === Number(prefill.subjectId)
+  );
+  if (idx >= 0) {
+    goalSubjectIndex.value = idx;
+  }
+  goalPrefillFromDiagnosis.value = !!prefill.fromDiagnosis;
+  // 打开创建目标表单（现有入口）
+  activeSection.value = 'goal';
+}
 
 // ========== 目标管理 ==========
 async function fetchActiveGoal() {
@@ -397,6 +470,8 @@ async function fetchActiveGoal() {
 
 function onGoalSubjectChange(e) {
   goalSubjectIndex.value = e.detail.value;
+  // 用户手动换科目后，诊断预填提示不再适用（仅隐藏提示，不影响选择）
+  goalPrefillFromDiagnosis.value = false;
 }
 
 async function handleCreateGoal() {
@@ -427,6 +502,7 @@ async function handleCreateGoal() {
     showSuccess('目标创建成功');
     // 重置表单
     goalForm.value = { direction: '', targetScore: '', startDate: today, endDate: '' };
+    goalPrefillFromDiagnosis.value = false;
     await fetchActiveGoal();
   } catch (e) {
     showError('创建失败：' + (e.message || '未知错误'));
@@ -699,6 +775,18 @@ watch(activeSection, (val) => {
   font-size: $font-sm;
   color: #e6a23c;
   margin-bottom: 12rpx;
+}
+/* 诊断预填提示（新用户引导方案 A） */
+.goal-diagnosis-tip {
+  margin: $spacing-sm 0 0;
+  padding: $spacing-sm $spacing-md;
+  background-color: $primary-light;
+  border-radius: $radius-md;
+}
+.goal-diagnosis-tip text {
+  font-size: $font-sm;
+  color: $primary-color;
+  line-height: 1.6;
 }
 .user-id {
   font-size: $font-sm;
@@ -1052,5 +1140,58 @@ color: $text-secondary;
   font-size: $font-md;
   border: 2rpx solid $danger-color;
   border-radius: $radius-lg;
+}
+
+/* 新用户引导方案 A：诊断引导卡（弹窗样式，可跳过不阻断） */
+.guide-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.guide-card {
+  width: 85%;
+  background-color: $bg-white;
+  border-radius: $radius-lg;
+  padding: $spacing-xl $spacing-lg;
+}
+.guide-title {
+  display: block;
+  font-size: $font-lg;
+  font-weight: bold;
+  color: $text-primary;
+  text-align: center;
+  margin-bottom: $spacing-md;
+}
+.guide-desc {
+  display: block;
+  font-size: $font-sm;
+  color: $text-secondary;
+  line-height: 1.6;
+  text-align: center;
+  margin-bottom: $spacing-lg;
+}
+.guide-actions {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-md;
+}
+.btn-guide-go {
+  background-color: $primary-color;
+  color: #fff;
+  font-size: $font-md;
+  border-radius: $radius-md;
+}
+.btn-guide-skip {
+  background-color: #f5f5f5;
+  color: $text-regular;
+  font-size: $font-sm;
+  border-radius: $radius-md;
 }
 </style>

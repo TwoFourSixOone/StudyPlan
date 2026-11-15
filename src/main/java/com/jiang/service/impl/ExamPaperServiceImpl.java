@@ -17,6 +17,7 @@ import com.jiang.dto.ParsedQuestion;
 import com.jiang.dto.WrongQuestionRef;
 import com.jiang.mapper.ExamAnalysisResultMapper;
 import com.jiang.mapper.ExamAnalysisTaskMapper;
+import com.jiang.mapper.ErrorQuestionMapper;
 import com.jiang.mapper.ExamPaperMapper;
 import com.jiang.mapper.ExamQuestionMapper;
 import com.jiang.mapper.KnowledgePointMapper;
@@ -38,6 +39,8 @@ import com.jiang.service.ExamSignalAdjustService;
 import com.jiang.service.ExamUploadValidator;
 import com.jiang.service.FileStorageService;
 import com.jiang.service.MasteryService;
+import com.jiang.vo.ExamDiagnosisVO;
+import com.jiang.vo.ExamDiagnosisWeakKpVO;
 import com.jiang.vo.ExamImageUploadVO;
 import com.jiang.vo.ExamPaperDetailVO;
 import com.jiang.vo.ExamPaperListItemVO;
@@ -55,6 +58,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -109,6 +113,16 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     /** 历史列表分页上限（design §10.1 / 约定 #3：size ≤ 50） */
     private static final int MAX_PAGE_SIZE = 50;
 
+    /** 薄弱知识点返回上限（诊断结果页只展示 Top 10） */
+    static final int WEAK_KP_LIMIT = 10;
+
+    /** 诊断正确率小数位（correctCount/judgedCount，HALF_UP；前端 ×100 渲染百分比） */
+    private static final int ACCURACY_SCALE = 4;
+
+    /** 诊断置信说明（固定文案：单份试卷样本量提示，产品口径） */
+    private static final String DIAGNOSIS_CONFIDENCE_NOTE =
+            "基于 1 份试卷的诊断，仅供参考；建议持续完成每日作业后复看掌握度";
+
     /** A3：同卷上传串行化分段锁（数组长度取 2 的幂，按 paperId 取模） */
     private static final Object[] UPLOAD_LOCK_STRIPES = new Object[64];
 
@@ -130,6 +144,8 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     private SubjectMapper subjectMapper;
     @Autowired
     private KnowledgePointMapper knowledgePointMapper;
+    @Autowired
+    private ErrorQuestionMapper errorQuestionMapper;
     @Autowired
     private StudentMapper studentMapper;
 
@@ -1207,6 +1223,101 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                 .build();
     }
 
+    // ==================== 试卷诊断聚合（新用户引导方案 A，固定 4 条 SQL） ====================
+
+    @Override
+    public ExamDiagnosisVO getDiagnosis(Long paperId) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+
+        // SQL ①：paper + 科目名（含归属校验；不存在/非本人/非本租户统一 1136，不区分存在性）
+        Map<String, Object> paperRow = examPaperMapper.selectDetailWithSubject(paperId, studentId, tenantId);
+        if (paperRow == null) {
+            throw new BusinessException(ErrorCodes.EXAM_RESULT_NOT_FOUND);
+        }
+
+        // SQL ②：题目按卷（复用详情接口同一查询，题号升序）；未解析完成 / 0 题时为空列表
+        List<ExamQuestion> questions = examQuestionMapper.selectByPaperOrderByIndex(paperId, tenantId);
+        questions = questions == null ? new ArrayList<>() : questions;
+
+        // 计数（1 题 1 分制；未判定题不计入分母、不算答错；kpId 为 null 的答错题不计入薄弱点）
+        int judgedCount = 0;
+        int correctCount = 0;
+        Map<String, Integer> wrongCountByKp = new LinkedHashMap<>();
+        for (ExamQuestion question : questions) {
+            Integer isCorrect = question.getIsCorrect();
+            if (isCorrect == null) {
+                continue;
+            }
+            judgedCount++;
+            if (isCorrect == 1) {
+                correctCount++;
+            } else {
+                String kpId = question.getKnowledgePointId();
+                if (kpId != null && !kpId.isBlank()) {
+                    wrongCountByKp.merge(kpId, 1, Integer::sum);
+                }
+            }
+        }
+
+        // SQL ③：该卷来源的活跃错题数（约定 #26：exam 来源 question_id = -exam_question.id）
+        int errorQuestionCount = errorQuestionMapper.countActiveExamErrorsByPaper(studentId, tenantId, paperId);
+
+        // SQL ④：薄弱知识点名称 + 当前掌握度，一次批量取回（禁止 N+1；无薄弱点时跳过）
+        Map<String, String> kpNames = new HashMap<>();
+        Map<String, BigDecimal> masteryByKp = new HashMap<>();
+        if (!wrongCountByKp.isEmpty()) {
+            List<Map<String, Object>> kpRows = knowledgePointMapper.selectNamesWithMasteryByIds(
+                    new ArrayList<>(wrongCountByKp.keySet()), tenantId, studentId);
+            if (kpRows != null) {
+                for (Map<String, Object> row : kpRows) {
+                    String kpId = String.valueOf(row.get("knowledgePointId"));
+                    kpNames.put(kpId, (String) row.get("name"));
+                    masteryByKp.put(kpId, toBigDecimal(row.get("masteryScore")));
+                }
+            }
+        }
+
+        // 薄弱知识点排序：wrongCount desc → masteryScore asc（无掌握度按 0 视为最弱）→ kpId asc（稳定兜底），
+        // 截断前 10
+        List<ExamDiagnosisWeakKpVO> weakPoints = wrongCountByKp.entrySet().stream()
+                .map(entry -> ExamDiagnosisWeakKpVO.builder()
+                        .knowledgePointId(entry.getKey())
+                        .knowledgePointName(kpNames.get(entry.getKey()))
+                        .wrongCount(entry.getValue())
+                        .masteryScore(masteryByKp.get(entry.getKey()))
+                        .build())
+                .sorted(Comparator
+                        .comparingInt(ExamDiagnosisWeakKpVO::getWrongCount).reversed()
+                        .thenComparing(w -> w.getMasteryScore() == null
+                                ? BigDecimal.ZERO : w.getMasteryScore())
+                        .thenComparing(ExamDiagnosisWeakKpVO::getKnowledgePointId))
+                .limit(WEAK_KP_LIMIT)
+                .collect(Collectors.toList());
+
+        // 正确率：judged=0 时为 null（不可判定题不折算）
+        BigDecimal accuracy = judgedCount == 0 ? null
+                : BigDecimal.valueOf(correctCount)
+                .divide(BigDecimal.valueOf(judgedCount), ACCURACY_SCALE, RoundingMode.HALF_UP);
+
+        return ExamDiagnosisVO.builder()
+                .paperId(toLong(paperRow.get("paperId")))
+                .subjectId(toLong(paperRow.get("subjectId")))
+                .subjectName((String) paperRow.get("subjectName"))
+                .examDate(toLocalDate(paperRow.get("examDate")))
+                .paperType((String) paperRow.get("paperType"))
+                .totalQuestions(questions.size())
+                .judgedCount(judgedCount)
+                .correctCount(correctCount)
+                .userScore(BigDecimal.valueOf(correctCount))
+                .totalScore(BigDecimal.valueOf(judgedCount))
+                .accuracy(accuracy)
+                .weakKnowledgePoints(weakPoints)
+                .errorQuestionCount(errorQuestionCount)
+                .confidenceNote(DIAGNOSIS_CONFIDENCE_NOTE)
+                .build();
+    }
+
     @Override
     public ExamTaskProgressVO getTaskProgress(Long taskId) {
         Long studentId = StudentContext.getStudentId();
@@ -1286,6 +1397,22 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             return number.intValue();
         }
         return Integer.parseInt(value.toString());
+    }
+
+    /**
+     * Map 行 → BigDecimal（诊断用：mastery_score 等 DECIMAL 列；null 透传 null）
+     */
+    private BigDecimal toBigDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal bigDecimal) {
+            return bigDecimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        return new BigDecimal(value.toString());
     }
 
     private LocalDate toLocalDate(Object value) {

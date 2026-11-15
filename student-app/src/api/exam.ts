@@ -15,6 +15,7 @@
  * - GET  /student/exam/tasks/{taskId}              解析任务进度（上传页轮询）
  * - GET  /student/exam/papers                      历史试卷分页列表
  * - GET  /student/exam/papers/{paperId}            试卷详情（全部题目，唯一数据来源）
+ * - GET  /student/exam/papers/{paperId}/diagnosis  试卷诊断聚合（新用户引导方案 A，只读）
  *
  * 已下线的旧接口（proposal §5.1，不要恢复）：旧上传、旧任务进度、旧结果详情、旧结果列表、
  * 旧分析详情五条路径已全部收敛到本文件的 `/student/exam/papers*` 与 `/student/exam/tasks/{taskId}`。
@@ -273,4 +274,59 @@ export function getPapers(params: { page?: number; size?: number } = {}): Promis
  */
 export function getPaperDetail(paperId: number): Promise<ExamPaperDetailVO> {
   return get(`/student/exam/papers/${paperId}`);
+}
+
+/**
+ * ⑧ 试卷诊断聚合（GET /student/exam/papers/{paperId}/diagnosis，新用户引导方案 A）
+ *
+ * <p>后端只读聚合（固定 4 条 SQL，不触发 LLM）：得分/正确率/薄弱知识点/错题数。
+ * 边界口径（与 ExamDiagnosisVO 对齐）：</p>
+ * - 归属校验失败统一 1136（与 /papers/{paperId} 同风格，不区分存在性）；
+ * - 试卷未解析完成 / 0 题：返回 200，各计数为 0、accuracy=null（**接口无 status 字段**，
+ *   调用方需要判断"是否仍在解析"时自行用 {@link getPaperDetail} 的 status 兜底）；
+ * - accuracy 为 0–1 的小数（judged=0 时 null），前端 ×100 渲染百分比；
+ * - weakKnowledgePoints 已按 wrongCount desc、masteryScore asc 截断前 10，前端原序渲染即可。
+ */
+export function getExamDiagnosis(paperId: number): Promise<ExamDiagnosisVO> {
+  return get(`/student/exam/papers/${paperId}/diagnosis`);
+}
+
+/** 诊断薄弱知识点条目（字段名与后端 ExamDiagnosisWeakKpVO 一致） */
+export interface ExamDiagnosisWeakKpVO {
+  /** 知识点 ID（后端为 String） */
+  knowledgePointId?: string | null;
+  /** 知识点名称（知识点行缺失时为 null） */
+  knowledgePointName?: string | null;
+  /** 该试卷上该知识点的答错题数 */
+  wrongCount?: number;
+  /** 学生当前掌握度（0–1 小数；未评测时为 null，前端 ×100 渲染百分比） */
+  masteryScore?: number | null;
+}
+
+/** 诊断结果出参（字段名与后端 ExamDiagnosisVO 一致；BigDecimal 序列化为 number） */
+export interface ExamDiagnosisVO {
+  paperId: number;
+  subjectId: number;
+  subjectName?: string;
+  /** 考试日期 yyyy-MM-dd */
+  examDate?: string;
+  paperType?: string;
+  /** 题目总数（含未判定题） */
+  totalQuestions?: number;
+  /** 已判定题数（未判定题不计入正确率分母） */
+  judgedCount?: number;
+  /** 答对题数 */
+  correctCount?: number;
+  /** 得分（1 题 1 分制 = correctCount） */
+  userScore?: number | null;
+  /** 总分（1 题 1 分制 = judgedCount） */
+  totalScore?: number | null;
+  /** 正确率 0–1（judged=0 时为 null，前端 ×100 渲染） */
+  accuracy?: number | null;
+  /** 薄弱知识点（该卷答错数 > 0，前 10；无则空数组） */
+  weakKnowledgePoints?: ExamDiagnosisWeakKpVO[];
+  /** 该试卷来源、status=active 的错题数 */
+  errorQuestionCount?: number;
+  /** 置信说明（固定文案：基于 1 份试卷的诊断仅供参考） */
+  confidenceNote?: string;
 }

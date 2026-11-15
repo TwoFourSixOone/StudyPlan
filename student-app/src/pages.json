@@ -88,6 +88,13 @@
         "navigationBarTitleText": "试卷详情",
         "navigationStyle": "custom"
       }
+    },
+    {
+      "path": "pages/exam-diagnosis/ExamDiagnosis",
+      "style": {
+        "navigationBarTitleText": "诊断结果",
+        "navigationStyle": "custom"
+      }
     }
   ],
   "globalStyle": {

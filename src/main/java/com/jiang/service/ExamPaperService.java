@@ -1,6 +1,7 @@
 package com.jiang.service;
 
 import com.jiang.common.result.PageResult;
+import com.jiang.vo.ExamDiagnosisVO;
 import com.jiang.vo.ExamImageUploadVO;
 import com.jiang.vo.ExamPaperDetailVO;
 import com.jiang.vo.ExamPaperListItemVO;
@@ -88,4 +89,19 @@ public interface ExamPaperService {
      * @return 详情（题目按题号升序；解析中/失败时题目可能为空数组，但试卷头信息照常返回）
      */
     ExamPaperDetailVO getPaperDetail(Long paperId);
+
+    /**
+     * 试卷诊断聚合（新用户引导方案 A：得分 / 正确率 / 薄弱知识点 / 错题数）
+     *
+     * <p>固定 4 条 SQL：① paper + 科目名（含归属校验，他人/不存在统一 1136）② 题目按卷
+     * （复用 {@code selectByPaperOrderByIndex}）③ 该卷来源活跃错题数 ④ 薄弱知识点名称 +
+     * 当前掌握度批量（禁止 N+1）。只读不写库、不触发 LLM。</p>
+     *
+     * <p>边界：试卷未解析完成 / 0 题时返回 200，各计数 0、{@code accuracy=null}，不抛异常；
+     * 未判定题（is_correct=NULL）不计入正确率分母、不算答错。</p>
+     *
+     * @param paperId 试卷 ID
+     * @return 诊断结果（薄弱知识点按 wrongCount desc、masteryScore asc 取前 10）
+     */
+    ExamDiagnosisVO getDiagnosis(Long paperId);
 }

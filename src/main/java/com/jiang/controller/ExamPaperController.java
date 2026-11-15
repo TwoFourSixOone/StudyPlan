@@ -4,6 +4,7 @@ import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
 import com.jiang.dto.ExamPaperCreateRequest;
 import com.jiang.service.ExamPaperService;
+import com.jiang.vo.ExamDiagnosisVO;
 import com.jiang.vo.ExamImageUploadVO;
 import com.jiang.vo.ExamPaperDetailVO;
 import com.jiang.vo.ExamPaperListItemVO;
@@ -35,7 +36,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 @RequestMapping("/api/student/exam")
-@Tag(name = "试卷管理", description = "试卷上传（≤8 图）、解析进度、历史试卷列表与详情")
+@Tag(name = "试卷管理", description = "试卷上传（≤8 图）、解析进度、历史试卷列表与详情、试卷诊断")
 @Slf4j
 public class ExamPaperController {
 
@@ -76,6 +77,16 @@ public class ExamPaperController {
     public Result<ExamPaperDetailVO> getPaperDetail(@PathVariable("paperId") Long paperId) {
         log.info("试卷详情: paperId={}", paperId);
         return Result.success(examPaperService.getPaperDetail(paperId));
+    }
+
+    /**
+     * 试卷诊断聚合（新用户引导方案 A：得分/正确率/薄弱知识点/错题数；固定 4 条 SQL，只读）
+     */
+    @GetMapping("/papers/{paperId}/diagnosis")
+    @Operation(summary = "试卷诊断")
+    public Result<ExamDiagnosisVO> getDiagnosis(@PathVariable("paperId") Long paperId) {
+        log.info("试卷诊断: paperId={}", paperId);
+        return Result.success(examPaperService.getDiagnosis(paperId));
     }
 
     /**

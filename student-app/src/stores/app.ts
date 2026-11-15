@@ -5,6 +5,7 @@
  * - currentSubjectId：当前选中科目
  * - currentDate：当前查看日期（YYYY-MM-DD）
  * - subjectList：科目列表缓存
+ * - goalPrefill：建目标表单预填（诊断结果页 → 我的页；tab 页无法用 URL 传参，走 store）
  */
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
@@ -20,11 +21,26 @@ interface Subject {
   [key: string]: any;
 }
 
+/**
+ * 建目标表单预填（新用户引导方案 A）
+ *
+ * 为什么不走 URL 参数：「我的」页是 tabBar 页，微信小程序的 uni.switchTab
+ * 不支持 query 参数（会被直接丢弃），因此诊断页把预填科目放进全局 store，
+ * 「我的」页 onShow 时消费一次后清空。
+ */
+export interface GoalPrefill {
+  /** 预选科目 ID */
+  subjectId: number;
+  /** true = 来自诊断结果页（表单展示「建议周期 3–6 个月」提示） */
+  fromDiagnosis?: boolean;
+}
+
 export const useAppStore = defineStore('app', () => {
   // ========== State ==========
   const currentSubjectId = ref<number | null>(null);
   const currentDate = ref<string>(formatDate(new Date(), 'YYYY-MM-DD'));
   const subjectList = ref<Subject[]>([]);
+  const goalPrefill = ref<GoalPrefill | null>(null);
 
   // ========== Actions ==========
 
@@ -62,12 +78,22 @@ export const useAppStore = defineStore('app', () => {
     currentDate.value = dateStr;
   }
 
+  /**
+   * 写入建目标预填（诊断页「根据这次诊断创建目标」时调用）
+   * @param prefill 预填内容；null 表示清空
+   */
+  function setGoalPrefill(prefill: GoalPrefill | null): void {
+    goalPrefill.value = prefill;
+  }
+
   return {
     currentSubjectId,
     currentDate,
     subjectList,
+    goalPrefill,
     init,
     setSubject,
-    setDate
+    setDate,
+    setGoalPrefill
   };
 });

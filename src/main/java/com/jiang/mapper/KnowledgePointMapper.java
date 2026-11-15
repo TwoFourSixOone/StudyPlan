@@ -47,6 +47,34 @@ public interface KnowledgePointMapper extends BaseMapper<KnowledgePoint> {
                                                 @Param("tenantId") String tenantId);
 
     /**
+     * 批量查询知识点名称 + 学生当前掌握度（试卷诊断聚合用，1 条 SQL 避免 N+1）
+     *
+     * <p>LEFT JOIN {@code student_knowledge_state} 命中 {@code uk_student_kp}
+     * （student_id + knowledge_point_id + tenant_id 唯一），单知识点至多匹配 1 行，不发散行数；
+     * 学生未评测该知识点时 {@code masteryScore} 为 NULL。显式列名（禁 {@code select *}），
+     * Map 键为列别名：{@code knowledgePointId / name / masteryScore}。</p>
+     *
+     * @param ids       知识点 ID 列表（调用方保证非空）
+     * @param tenantId  租户 ID
+     * @param studentId 学生 ID
+     * @return Map 行列表（knowledgePointId / name / masteryScore）
+     */
+    @Select("<script>" +
+            "SELECT kp.knowledge_point_id AS knowledgePointId, kp.name AS name, " +
+            "sks.mastery_score AS masteryScore " +
+            "FROM knowledge_point kp " +
+            "LEFT JOIN student_knowledge_state sks ON sks.student_id = #{studentId} " +
+            "AND sks.knowledge_point_id = kp.knowledge_point_id AND sks.tenant_id = #{tenantId} " +
+            "WHERE kp.tenant_id = #{tenantId} AND kp.knowledge_point_id IN " +
+            "<foreach collection='ids' item='id' open='(' separator=',' close=')'>" +
+            "#{id}" +
+            "</foreach>" +
+            "</script>")
+    List<Map<String, Object>> selectNamesWithMasteryByIds(@Param("ids") List<String> ids,
+                                                           @Param("tenantId") String tenantId,
+                                                           @Param("studentId") Long studentId);
+
+    /**
      * 批量查询知识点的 subject 和 standards（用于题目列表关联学科和学段）
      * 返回 Map 结构：knowledge_point_id, subject, standards
      */

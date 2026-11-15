@@ -20,8 +20,9 @@
 
 > **编号说明（2026-11-10 补）**
 >
-> 1. 编号 #5–#8 在本文件中**空缺**（历史遗留），**不复用**，新增约定统一从 #21 起顺序编号。保留空号是为了不破坏已归档 change 中对 #9–#20 的既有引用（`archive/` 只读，无法回改）。
+> 1. 编号 #5–#8 在本文件中**空缺**（历史遗留），**不复用**，新增约定统一从 #21 起顺序编号（起点已按序顺延，当前见第 3 条）。保留空号是为了不破坏已归档 change 中对 #9–#20 的既有引用（`archive/` 只读，无法回改）。
 > 2. 历史工件中出现的「隐性约定 #7 JWT 登录态」为**悬空引用**——该条不存在，其真实出处是 **产品规则 #7**（学生登录态与数据隔离）与 **约定 #15**（管理端 JWT 鉴权）。后续新增工件请直接引用这两处。
+> 3. （2026-11-15 补）当前最大编号为 **#36**，新增约定从 **#37** 起顺序编号；以 §3 维护规则第 2 条为准。
 
 ### 约定 #1：统一响应结构
 
@@ -358,10 +359,39 @@
 - **发现时间**：2026-11-12（真实卷：配图空白 + 多选题被判单选 + 答题卡答案未匹配）
 - **正确做法**：整卷单次 + base64 落库；`figureBase64 || questionImageUrl` 双兜底渲染
 
+### 约定 #36：试卷诊断聚合只读，固定 4 条 SQL、不触发 LLM 与计划调整
+
+- **约定内容**：
+    - `GET /api/student/exam/papers/{paperId}/diagnosis`（`ExamPaperController#getDiagnosis` →
+      `ExamPaperServiceImpl#getDiagnosis` → `ExamDiagnosisVO`）是**新用户引导方案 A** 的只读聚合，固定 **4 条 SQL**：
+      ① `selectDetailWithSubject`（paper + 科目名 + 归属校验）② `selectByPaperOrderByIndex`（题目按卷，复用详情接口同一查询）
+      ③ `countActiveExamErrorsByPaper`（该卷来源活跃错题数）④ `selectNamesWithMasteryByIds`（薄弱知识点名称 + 掌握度批量，
+      无薄弱点时跳过）。**禁止循环查库（N+1）**，新增指标须复用批量查询
+    - **只读无副作用**：不写库、不更新掌握度、不写学习记录、**不触发 LLM 与计划调整**，也不会触发考试结算后的信号检测
+      （诊断与结算链路完全解耦）；重复调用结果不变；`exam_paper.grade_status` 仍由解析/结算负责
+    - **归属校验统一 1136**：试卷不存在 / 非本人 / 非本租户一律 `EXAM_RESULT_NOT_FOUND(1136, "分析结果不存在")`，
+      不区分存在性（与详情接口同口径，避免探测他人数据）
+    - **口径只有后端一套实现**（详见产品规则 #4「诊断结果」）：正确率 = `correctCount / judgedCount`
+      （0–1、scale=4、HALF_UP；`judgedCount=0 → accuracy=null`，不按 0 折算）；薄弱知识点按
+      `wrongCount desc → masteryScore asc（null 视为 0）→ kpId asc` 截断 **Top 10**，`kpId` 为空的答错题不计入；
+      错题数 = `source_type='exam' AND source_id=paperId AND status='active'`（负 ID 命名空间见约定 #26）。
+      前端**不得自行重排/重算**，只做展示（×100 百分比、judged=0 显示「—」、得分按 `userScore/totalScore`）
+    - **空数据不抛异常**：未解析完成 / 0 题返回 **200**（计数 0、`accuracy=null`、薄弱点空数组）；
+      `confidenceNote` 由后端给固定文案（「基于 1 份试卷的诊断，仅供参考；建议持续完成每日作业后复看掌握度」），前端不拼接
+    - 诊断 VO **不含 `status`**：前端在 `totalQuestions=0` 时用试卷详情接口的 `status` 区分解析中 / 解析失败 / 未提交，
+      解析中每 2s 轮询（约 5 分钟上限），`onUnload` 必须清理定时器
+- **影响范围**：`ExamPaperController#getDiagnosis`、`ExamPaperServiceImpl#getDiagnosis`、`ExamDiagnosisVO` / `ExamDiagnosisWeakKpVO`、
+  `ErrorQuestionMapper#countActiveExamErrorsByPaper`、`KnowledgePointMapper#selectNamesWithMasteryByIds`、`ExamDiagnosisServiceTest`、
+  `student-app/src/pages/exam-diagnosis/ExamDiagnosis.vue`、`student-app/src/api/exam.ts#getExamDiagnosis`
+- **违反后果**：在诊断里触发 LLM / 结算 / 调整会产生「还没建目标就先调整计划」或重复写掌握度的副作用；前端自算 Top 10 / 正确率
+  会与掌握度看板口径漂移；错题数不走约定 #26 的负 ID 命名空间会数错；越权返回 1136 之外的信息可探测他人试卷
+- **发现时间**：2026-11-15（新用户引导方案 A：设置年级 → 试卷诊断 → 建目标预填）
+- **正确做法**：诊断只聚合、不写库；排序 / 截断 / 文案全部由后端给；空数据 200；判分门禁：上传页等 grade_status=graded 再跳诊断页（2s×150，超时给出口），诊断页未判分（judgedCount=0）轮询 gradeStatus 到 graded 后刷新，judged=0 得分显示「—」 + 前端按详情 `status` 兜底；归属错误统一 1136
+
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #36 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #37 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充

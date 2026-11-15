@@ -97,6 +97,18 @@
       <view class="progress-tip" v-if="taskStatus === 'pending' || taskStatus === 'processing'">
         <text>解析通常需要 60–120 秒，请保持页面打开，完成后会自动跳转到结果页</text>
       </view>
+      <!-- F1：诊断入口等判分（grade_status=graded）再跳，避免诊断页读到未判分数据 -->
+      <view class="progress-tip" v-if="waitingGrade">
+        <text>题目解析完成，正在判分（得分 / 错题 / 薄弱知识点）…判分完成后自动跳转诊断结果</text>
+      </view>
+      <!-- F1：判分等待超时——不自动跳诊断页（此时很可能仍是 ungraded），给出可操作出口 -->
+      <view class="grade-timeout-box" v-if="gradeTimedOut">
+        <text class="grade-timeout-text">判分时间较长，暂未完成判分。可继续等待，或稍后在「我的 → 历史试卷」中查看该试卷结果</text>
+        <view class="row-actions">
+          <button class="btn-secondary" @click="retryWaitGrade">继续等待判分</button>
+          <button class="btn-secondary" @click="goExamList">去历史试卷</button>
+        </view>
+      </view>
 
       <!-- 解析失败 -->
       <view class="error-box" v-if="parseError">
@@ -126,9 +138,20 @@
  * 页面栈规则（必须遵守，与「我的」「历史试卷」「试卷详情」一起看）：
  * - 层级：我的（tab）→ 试卷上传（本页）；上传完成后用 `redirectTo` 替换本页为试卷详情，
  *   这样从详情返回不会回到"已提交的上传页"（避免重复上传）。
- * - 进入本页：`navigateTo`（从「我的 → 试卷上传」）；返回：`navigateBack`。
+ * - 进入本页：`navigateTo`（从「我的 → 试卷上传」，或新用户引导 `?from=diagnosis`）；返回：`navigateBack`。
  * - 上传 → 结果的替换用 `redirectTo`；详情页内部切题不跳页。
+ *   from=diagnosis（新用户引导方案 A）：解析完成后跳**诊断结果页**而不是试卷详情；
+ *   普通入口保持原行为（跳详情）。
  * - 页面卸载（onUnload）必须清空轮询定时器与自动跳转定时器，避免后台残留请求。
+ *
+ * F1 修复（2026-11-15，t4 reviewer 高危项）：试卷 status=completed 只代表题目落库（TX-A），
+ * 判分/错题/掌握度结算（TX-B，grade_status ungraded→graded）在其后；task 完成与 grade CAS
+ * 在同一事务。因此：
+ * - 满 8 张自动触发的 taskId（第 8 张图片追加响应带回）不再丢弃，优先用**任务轮询**（状态可信），
+ *   不再依赖试卷详情 status（它在判分前就会变成 completed）；
+ * - from=diagnosis 跳诊断页前先等 grade_status=graded（2s 轮询，≈5 分钟上限），
+ *   避免「诊断页长期 0/0、正确率 —、错题数 0」；超时不自动跳诊断页（此时多半仍是
+ *   ungraded），改为提示「继续等待判分 / 去历史试卷」；普通入口不变（详情页自有展示与刷新）。
  */
 import { ref, computed } from 'vue';
 import { onLoad, onUnload } from '@dcloudio/uni-app';
@@ -207,11 +230,40 @@ const taskStatus = ref('');
 const ocrRetryCount = ref(0);
 const parseError = ref('');
 
+/**
+ * 入口来源（新用户引导方案 A）：from=diagnosis 时解析完成后跳诊断结果页；
+ * 普通入口（我的 → 试卷上传）保持原行为跳试卷详情。
+ */
+const fromDiagnosis = ref(false);
+
+/**
+ * 满 8 张时后端在**第 8 张图片追加响应**里自动触发解析并带回 taskId（F1 修复 ③）。
+ * 不再丢弃：优先用它走任务轮询——task 完成发生在 TX-B 判分结算之后，状态可信；
+ * 试卷详情 status=completed 只代表题目落库（TX-A），判分未完成时也会出现，不能作为
+ * 「可以进诊断页」的依据。
+ */
+const autoTriggeredTaskId = ref(null);
+
+/**
+ * from=diagnosis：解析完成后等待判分（grade_status=graded）再跳诊断页（F1 修复 ①）。
+ */
+const waitingGrade = ref(false);
+
+/**
+ * F1：判分等待超时（≈5 分钟仍未 graded）。此时**不自动跳诊断页**——避免诊断页读到
+ * 未判分数据；由用户选择「继续等待判分」或去历史试卷查看。
+ */
+const gradeTimedOut = ref(false);
+
 // 定时器（onUnload 必须清理）
 let pollTimer = null;
 let pollActive = false;
 let pollTimes = 0;
 let jumpTimer = null;
+// 判分等待轮询（F1：与解析轮询互斥使用，独立定时器）
+let gradeTimer = null;
+let gradePollActive = false;
+let gradePollTimes = 0;
 
 const subjectNames = computed(() => appStore.subjectList.map((s) => s.name));
 const uploadingCount = computed(() => images.value.filter((i) => i.status === 'done').length);
@@ -249,6 +301,8 @@ const mainButtonText = computed(() => {
   if (processing.value) return '处理图片中…';
   if (uploading.value) return `上传中（${uploadingCount.value}/${images.value.length}）`;
   if (submitting.value) return '提交解析中...';
+  if (waitingGrade.value) return '判分中，即将跳转诊断...';
+  if (gradeTimedOut.value) return '判分时间较长，请稍后查看';
   if (taskStatus.value === 'pending' || taskStatus.value === 'processing') return '解析中，请稍候...';
   if (taskStatus.value === 'completed') return '解析完成，正在跳转...';
   if (taskStatus.value === 'failed') return '解析失败，请点「重新解析」';
@@ -260,14 +314,17 @@ const mainButtonText = computed(() => {
 });
 
 // ========== 生命周期 ==========
-onLoad(() => {
+onLoad((options) => {
   const sysInfo = uni.getSystemInfoSync();
   statusBarHeight.value = sysInfo.statusBarHeight || 0;
+  // 新用户引导：from=diagnosis → 解析完成后跳诊断结果页（见 onParseCompleted）
+  fromDiagnosis.value = options?.from === 'diagnosis';
 });
 
 onUnload(() => {
   // 页面卸载：轮询与自动跳转定时器必须清空（页面栈规则）
   stopPolling();
+  stopGradePoll();
   if (jumpTimer) {
     clearTimeout(jumpTimer);
     jumpTimer = null;
@@ -502,6 +559,8 @@ async function handleStartUpload() {
         imageCount: images.value.length
       });
       paperId.value = created?.paperId || null;
+      // 新会话：清掉上一会话遗留的自动触发任务 ID（F1 防御，正常流不会命中）
+      autoTriggeredTaskId.value = null;
     } catch (e) {
       // 1131：同科目同一天已有试卷（已完成/解析中）。不能重传，给出可操作入口，
       // 避免只弹一句"只能上传一份"然后卡在原地（2026-11-12 联调）。
@@ -569,8 +628,14 @@ async function uploadOne(img) {
   img.status = 'uploading';
   img.error = '';
   try {
-    await uploadPaperImage(paperId.value, img.path);
+    const res = await uploadPaperImage(paperId.value, img.path);
     img.status = 'done';
+    // F1 修复 ③：满 8 张时后端自动触发解析并在响应里带回 taskId——记录下来，
+    // 提交阶段优先用任务轮询（task 完成发生在 TX-B 判分结算之后，状态可信）。
+    // 并行上传中只有"打到第 8 张"的那次响应会带 taskId（后端 JSON_LENGTH 守卫保证）。
+    if (res && res.taskId) {
+      autoTriggeredTaskId.value = Number(res.taskId) || null;
+    }
   } catch (e) {
     img.status = 'failed';
     img.error = e.message || '上传失败';
@@ -603,11 +668,21 @@ async function submitAndPoll() {
   parseError.value = '';
   /**
    * 满 8 张时后端会在最后一张追加成功后**自动触发解析**（design §2.3 兜底路径）。
-   * 一次性上传 8 张是常见场景，此时再显式 submit 必然返回 1186（会话已不是 uploading），
-   * 若照常 toast 会在正确流程上弹「上传会话不存在」，因此先按详情探一次状态接管轮询。
+   * 一次性上传 8 张是常见场景，此时再显式 submit 必然返回 1186（会话已不是 uploading）。
+   *
+   * F1 修复 ③：第 8 张图片响应带回的 taskId 此时已在 {@link autoTriggeredTaskId}——
+   * 优先直接接管**任务轮询**（task 完成发生在 TX-B 判分结算之后，状态可信），
+   * 不再先按试卷详情探状态（详情 status=completed 在判分前就会出现，会过早触发跳转）。
    */
   const autoTriggered = uploadingCount.value >= MAX_IMAGES;
   try {
+    if (autoTriggeredTaskId.value) {
+      taskId.value = autoTriggeredTaskId.value;
+      taskStatus.value = 'pending';
+      startPolling(taskId.value);
+      showSuccess('已提交解析');
+      return;
+    }
     if (autoTriggered && (await recoverByDetailStatus())) {
       showSuccess('已提交解析');
       return;
@@ -626,6 +701,14 @@ async function submitAndPoll() {
     // 关键兜底：design §2.3 允许"上传数达到声明张数时后端自动触发解析"，
     // 此时显式 submit 会返回 1186（已提交）。若真如此，用详情接口探一次状态继续轮询，
     // 不能把用户卡在失败态（request.ts 已 toast 后端文案）。
+    // F1：有自动触发的 taskId 时优先接管任务轮询（含"本地 3 张 + 历史会话 5 张 = 8 张"
+    // 的复用场景——autoTriggered 按本地张数判断为 false，但后端已自动触发）。
+    if (autoTriggeredTaskId.value) {
+      taskId.value = autoTriggeredTaskId.value;
+      taskStatus.value = 'pending';
+      startPolling(taskId.value);
+      return;
+    }
     const recovered = await recoverByDetailStatus();
     if (!recovered) parseError.value = e.message || '提交解析失败，请重试';
   } finally {
@@ -720,6 +803,17 @@ function stopPolling() {
 function onParseCompleted() {
   showSuccess('试卷解析完成');
   if (jumpTimer) clearTimeout(jumpTimer);
+  /**
+   * F1 修复 ①（双保险第一层）：from=diagnosis 先等判分（grade_status=graded）再跳诊断页。
+   * 试卷 status=completed 只代表题目落库（TX-A），判分/错题/掌握度在 TX-B；
+   * 未判分就进诊断页会长期显示 0/0、正确率 —、错题数 0。
+   * 普通入口保持原行为（直接进详情，详情页自有展示与刷新，不受判分窗口影响）。
+   */
+  if (fromDiagnosis.value) {
+    waitingGrade.value = true;
+    waitForGradeThenJump();
+    return;
+  }
   jumpTimer = setTimeout(() => {
     jumpTimer = null;
     uni.redirectTo({
@@ -727,6 +821,94 @@ function onParseCompleted() {
       fail: () => uni.navigateTo({ url: `/pages/exam-list/ExamList` })
     });
   }, AUTO_JUMP_DELAY);
+}
+
+/** 跳诊断结果页（from=diagnosis 专用，redirectTo 替换本页） */
+function scheduleDiagnosisJump() {
+  if (jumpTimer) clearTimeout(jumpTimer);
+  jumpTimer = setTimeout(() => {
+    jumpTimer = null;
+    uni.redirectTo({
+      url: `/pages/exam-diagnosis/ExamDiagnosis?paperId=${paperId.value}`,
+      fail: () => uni.navigateTo({ url: `/pages/exam-list/ExamList` })
+    });
+  }, AUTO_JUMP_DELAY);
+}
+
+/**
+ * F1 修复 ①：轮询 grade_status，graded 后跳诊断页（2s 一次，上限 POLL_MAX_TIMES≈5 分钟）。
+ * - 首次立即探测：任务轮询路径（taskId）的 task 完成即已 graded，通常无需等待；
+ * - 判分阶段失败（settle 异常 → 后端把试卷置 failed）：停止等待，走既有失败态（重新解析）；
+ * - 超时 / 网络持续失败：**不跳诊断页**（此时很可能仍是 ungraded，进去会读到未判分数据），
+ *   展示「继续等待判分 / 去历史试卷」出口；诊断页自身的 ungraded 轮询仍作为直接进入的兜底。
+ */
+function waitForGradeThenJump() {
+  stopGradePoll();
+  gradeTimedOut.value = false;
+  gradePollActive = true;
+  gradePollTimes = 0;
+  const tick = async () => {
+    if (!gradePollActive) return;
+    gradePollTimes += 1;
+    let graded = false;
+    try {
+      const detail = await getPaperDetail(paperId.value);
+      if (!gradePollActive) return;
+      if (detail?.status === 'failed') {
+        // 判分阶段失败：试卷被后端置为 failed，不能带着未判分数据进诊断页
+        stopGradePoll();
+        waitingGrade.value = false;
+        taskStatus.value = 'failed';
+        parseError.value = '试卷判分失败，请重新解析';
+        return;
+      }
+      graded = detail?.gradeStatus === 'graded';
+    } catch (e) {
+      // 网络抖动：继续轮询，超限后按超时处理
+    }
+    if (graded) {
+      stopGradePoll();
+      waitingGrade.value = false;
+      scheduleDiagnosisJump();
+      return;
+    }
+    if (gradePollTimes >= POLL_MAX_TIMES) {
+      // F1：超时仍可能 ungraded——不自动跳诊断页（避免读到未判分数据），
+      // 给出「继续等待判分 / 去历史试卷」出口；仍受 5 分钟上限约束。
+      stopGradePoll();
+      waitingGrade.value = false;
+      gradeTimedOut.value = true;
+      return;
+    }
+    if (gradePollActive) gradeTimer = setTimeout(tick, POLL_INTERVAL);
+  };
+  tick(); // 立即先探一次（任务轮询路径通常已 graded，无需多等 2s）
+}
+
+function stopGradePoll() {
+  gradePollActive = false;
+  if (gradeTimer) {
+    clearTimeout(gradeTimer);
+    gradeTimer = null;
+  }
+}
+
+/**
+ * F1：判分等待超时后的主动重试（用户点击「继续等待判分」）——
+ * 重新开始 2s 轮询（仍 5 分钟上限），仍然只在 graded 后才跳诊断页。
+ */
+function retryWaitGrade() {
+  if (waitingGrade.value) return;
+  waitingGrade.value = true;
+  waitForGradeThenJump();
+}
+
+/** 判分超时出口：去历史试卷（沿用上传页既有兜底链，失败退回「我的」） */
+function goExamList() {
+  uni.redirectTo({
+    url: '/pages/exam-list/ExamList',
+    fail: () => uni.switchTab({ url: '/pages/profile/Profile' })
+  });
 }
 
 /** 重新解析（整卷重试，最多 2 次） */
@@ -965,6 +1147,19 @@ async function handleRetryParse() {
 .error-hint {
   font-size: $font-xs;
   color: $text-secondary;
+}
+
+/* F1：判分等待超时（不自动跳诊断页，给继续等待 / 历史试卷出口） */
+.grade-timeout-box {
+  margin-top: $spacing-md;
+  padding: $spacing-md;
+  border-radius: $radius-md;
+  background-color: #fdf6ec;
+}
+.grade-timeout-text {
+  font-size: $font-sm;
+  color: $text-regular;
+  line-height: 1.6;
 }
 
 /* 操作按钮 */
