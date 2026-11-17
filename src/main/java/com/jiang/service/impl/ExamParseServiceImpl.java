@@ -104,9 +104,25 @@ public class ExamParseServiceImpl implements ExamParseService {
     @Autowired
     private AgentDegradationLogger degradationLogger;
 
+    /** GLM-OCR 客户端（2026-11-17；无 Key 时内部自动禁用） */
+    @Autowired
+    private com.jiang.client.ZhipuOcrClient zhipuOcrClient;
+
     @Autowired
     @Qualifier("examParseExecutor")
     private ThreadPoolExecutor examParseExecutor;
+
+    /** OCR 文本 grounding 开关 */
+    @Value("${exam.parse.ocr.grounding:true}")
+    private boolean ocrGroundingEnabled;
+
+    /** OCR 阶段总预算（秒），超时则停止剩余页、用已拿到的文本继续解析 */
+    @Value("${exam.parse.ocr.budget-seconds:90}")
+    private int ocrBudgetSeconds;
+
+    /** 单页 OCR 文本最多注入的字符数（防止 prompt 爆炸） */
+    @Value("${exam.parse.ocr.page-max-chars:6000}")
+    private int ocrPageMaxChars;
 
     @Value("${exam.parse.task-timeout-seconds:300}")
     private int taskTimeoutSeconds;
@@ -296,27 +312,39 @@ public class ExamParseServiceImpl implements ExamParseService {
             }
             // 控制请求体：8 张手机原图 base64 后可能超网关限制，超过 6MB 统一降采样到 1600px/82
             boolean downscale = totalBytes > SINGLE_CALL_MAX_BYTES;
+            List<byte[]> forOcr = new ArrayList<>(raw.size());
+            List<String> mediaTypes = new ArrayList<>(raw.size());
             for (int i = 0; i < raw.size(); i++) {
                 byte[] bytes = raw.get(i);
                 if (downscale) {
                     bytes = com.jiang.common.util.ImageDownscaler.downscaleJpeg(bytes, 1600, 0.82f);
                 }
-                images.add(VisionImage.of(detectMediaType(urls.get(i)), bytes));
+                String mediaType = detectMediaType(urls.get(i));
+                images.add(VisionImage.of(mediaType, bytes));
+                forOcr.add(bytes);
+                mediaTypes.add(mediaType);
             }
             if (downscale) {
                 log.info("整卷解析请求体过大（{}KB），已降采样到 1600px: paperId={}", totalBytes / 1024, examPaperId);
             }
-            log.info("整卷单次解析开始: paperId={}, images={}", examPaperId, images.size());
+            // GLM-OCR 文本 grounding（2026-11-17）：失败/超时/无 Key 都静默降级为纯视觉解析
+            OcrGrounding ocr = buildOcrGrounding(examPaperId, forOcr, mediaTypes, tenantId);
+            log.info("整卷单次解析开始: paperId={}, images={}, ocrPages={}",
+                    examPaperId, images.size(), ocr == null ? 0 : ocr.rectsByPage().size());
             ExamParseImageResult result = examParseAgent.parsePaper(images,
                     com.jiang.dto.ExamParsePaperContext.builder()
                             .subjectName(subjectName)
                             .gradeLabel(gradeLabel)
                             .imageTotal(images.size())
                             .tenantId(tenantId)
+                            .ocrText(ocr == null ? null : ocr.text())
                             .kpCandidates(kpSnapshot == null ? List.of() : kpSnapshot.getParseCandidates())
                             .build());
             if (result == null) {
                 return null;
+            }
+            if (ocr != null && !ocr.rectsByPage().isEmpty() && result.getQuestions() != null) {
+                com.jiang.common.util.OcrFigureSnapper.snap(result.getQuestions(), ocr.rectsByPage());
             }
             log.info("整卷单次解析结束: paperId={}, questions={}, retry={}, failure={}",
                     examPaperId,
@@ -327,6 +355,70 @@ public class ExamParseServiceImpl implements ExamParseService {
             log.warn("整卷单次解析异常，回退逐图解析: paperId={}, reason={}", examPaperId, e.getMessage());
             return null;
         }
+    }
+
+    /**
+     * 构建 GLM-OCR grounding（2026-11-17）
+     *
+     * <p>降级策略：通道未启用/无 Key → null；单页失败跳过；总预算超时停止剩余页；
+     * 全部失败 → 写降级日志并返回 null（纯视觉解析，不影响可用性）。</p>
+     */
+    private OcrGrounding buildOcrGrounding(Long examPaperId, List<byte[]> images, List<String> mediaTypes,
+                                           String tenantId) {
+        if (!ocrGroundingEnabled || images == null || images.isEmpty() || !zhipuOcrClient.isEnabled()) {
+            return null;
+        }
+        long deadline = System.nanoTime() + java.util.concurrent.TimeUnit.SECONDS.toNanos(
+                Math.max(10, ocrBudgetSeconds));
+        StringBuilder text = new StringBuilder();
+        Map<Integer, List<java.util.Map<String, Double>>> rectsByPage = new HashMap<>();
+        int successPages = 0;
+        int skippedByBudget = 0;
+        for (int i = 0; i < images.size(); i++) {
+            if (System.nanoTime() > deadline) {
+                skippedByBudget = images.size() - i;
+                log.warn("GLM-OCR 预算到点，跳过剩余 {} 页: paperId={}", skippedByBudget, examPaperId);
+                break;
+            }
+            com.jiang.dto.OcrPageResult page;
+            try {
+                page = zhipuOcrClient.parse(images.get(i), mediaTypes.get(i));
+            } catch (Exception e) {
+                log.warn("GLM-OCR 单页异常，跳过: paperId={}, page={}, reason={}",
+                        examPaperId, i + 1, e.getMessage());
+                continue;
+            }
+            if (page == null || page.isEmpty()) {
+                continue;
+            }
+            successPages++;
+            text.append("\n\n### 第 ").append(i + 1).append(" 张图片 OCR\n")
+                    .append(truncate(page.markdown(), ocrPageMaxChars));
+            if (page.imageRects() != null && !page.imageRects().isEmpty()) {
+                rectsByPage.put(i + 1, page.imageRects());
+            }
+        }
+        if (text.length() == 0) {
+            degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                    "paperId=" + examPaperId + ", images=" + images.size(),
+                    "GLM-OCR 全部失败或无文本，回退纯视觉解析", "ocr_grounding_skip", tenantId);
+            return null;
+        }
+        log.info("GLM-OCR grounding 完成: paperId={}, successPages={}, skippedByBudget={}, chars={}",
+                examPaperId, successPages, skippedByBudget, text.length());
+        if (skippedByBudget > 0 || successPages < images.size()) {
+            degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                    "paperId=" + examPaperId + ", success=" + successPages + "/" + images.size(),
+                    "GLM-OCR 部分页失败/超时，已用可用文本继续解析", "ocr_grounding_partial", tenantId);
+        }
+        return new OcrGrounding(text.toString(), rectsByPage);
+    }
+
+    /**
+     * OCR grounding 结果
+     */
+    private record OcrGrounding(String text,
+                                Map<Integer, List<java.util.Map<String, Double>>> rectsByPage) {
     }
 
     /**

@@ -388,10 +388,29 @@
 - **发现时间**：2026-11-15（新用户引导方案 A：设置年级 → 试卷诊断 → 建目标预填）
 - **正确做法**：诊断只聚合、不写库；排序 / 截断 / 文案全部由后端给；空数据 200；判分门禁：上传页等 grade_status=graded 再跳诊断页（2s×150，超时给出口），诊断页未判分（judgedCount=0）轮询 gradeStatus 到 graded 后刷新，judged=0 得分显示「—」 + 前端按详情 `status` 兜底；归属错误统一 1136
 
+### 约定 #37：GLM-OCR 只做「文本真值」与 bbox 参考，且必须可降级
+
+- **约定内容**：
+    - 整卷解析前对每页调用 GLM-OCR（`POST /api/paas/v4/layout_parsing`，`model=glm-ocr`，file 支持 url/base64），
+      把 `md_results`（Markdown，含表格 HTML）作为 **OCR 文本** 注入视觉解析 Prompt；`layout_details` 的
+      `label=image` bbox 用于**吸附**题目 `figureRect`（`OcrFigureSnapper`，中心距 ≤0.35）
+    - Prompt 规则：题干/选项/表格内容**以 OCR 文本为准**；表格必须内联进题干；**学生手写仍只从图片读**；
+      OCR 缺失的页按图片识别
+    - **降级（必须）**：无 API Key / 开关关闭 → 完全不启用；单页超时/非 200/非法响应 → 跳过该页；
+      总预算（默认 90s）到点 → 停止剩余页；全部失败 → 写降级日志 `ocr_grounding_skip` 后按纯视觉解析；
+      部分失败 → `ocr_grounding_partial`；单页注入字符上限 6000（防 prompt 爆炸）
+    - Key 从环境变量 `ZHIPU_API_KEY` 或 `exam.parse.ocr.api-key` 读取，**不得写入仓库**
+- **影响范围**：`ZhipuOcrClient`、`OcrPageResult`、`OcrFigureSnapper`、`ExamParsePaperContext.ocrText`、
+  `exam_parse_paper_v1.txt`、`ExamParseServiceImpl.buildOcrGrounding`
+- **违反后果**：OCR 不可用时若抛异常/阻塞，会把整个解析拖垮；把 OCR 里的手写当题干会污染题目；
+  不截断 OCR 文本会导致 prompt 过大、模型超时
+- **发现时间**：2026-11-17（低清照片导致 √7→√3、编题、跨页表格缺失）
+- **正确做法**：OCR 只是"参考文本 + 精确 bbox"，任何失败都必须静默回退纯视觉解析
+
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #37 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #38 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充

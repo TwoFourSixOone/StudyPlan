@@ -141,11 +141,14 @@ public class ExamParseAgentImpl implements ExamParseAgent {
         String grade = (context.getGradeLabel() == null || context.getGradeLabel().isBlank())
                 ? "当前" : context.getGradeLabel().trim();
         String hint = (retryHint == null || retryHint.isBlank()) ? "无" : retryHint.trim();
+        String ocrText = context.getOcrText() == null || context.getOcrText().isBlank()
+                ? "（本卷无 OCR 文本，按图片识别）" : context.getOcrText().trim();
         String prompt = template
                 .replace("{subject}", subject)
                 .replace("{grade}", grade)
                 .replace("{imageTotal}", String.valueOf(context.getImageTotal()))
                 .replace("{retryHint}", hint)
+                .replace("{ocrText}", ocrText)
                 .replace("{knowledgePoints}", renderKpCandidates(context.getKpCandidates()));
         Matcher matcher = UNRESOLVED_PLACEHOLDER.matcher(prompt);
         if (matcher.find()) {

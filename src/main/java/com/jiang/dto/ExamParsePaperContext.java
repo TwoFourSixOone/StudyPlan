@@ -32,4 +32,11 @@ public class ExamParsePaperContext {
 
     /** 候选知识点（- ID | 名称 紧凑格式） */
     private List<KpCandidate> kpCandidates;
+
+    /**
+     * GLM-OCR 文本（按页拼接的 Markdown，含表格 HTML；2026-11-17）
+     *
+     * <p>为 null/空表示 OCR 通道不可用或全部失败 → 解析按纯视觉进行（降级）。</p>
+     */
+    private String ocrText;
 }

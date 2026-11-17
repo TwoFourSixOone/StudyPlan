@@ -90,6 +90,9 @@ class ExamParsePromptContractTest {
         assertTrue(text.contains("imageIndex"), "需输出每题所在图片");
         assertTrue(text.contains("choiceMode"), "需输出 choiceMode");
         assertTrue(text.contains("{knowledgePoints}"), "需注入候选知识点");
+        assertTrue(text.contains("{ocrText}"), "缺 OCR 文本占位符");
+        assertTrue(text.contains("OCR"), "整卷 Prompt 需包含 OCR 文本使用规则");
+        assertTrue(text.contains("表格"), "需说明表格内联进题干");
     }
 
     @Test
