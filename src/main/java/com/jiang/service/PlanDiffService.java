@@ -33,6 +33,12 @@ public interface PlanDiffService {
     /**
      * 应用调整 diff（修复 IMP-21：只更新 plan_date >= today 的未来计划）
      *
+     * <p><b>系统入口，不含学生归属校验（P0-2）</b>：调用方包括学生确认
+     * （{@code PlanAdjustmentService#confirmDiff}）、定时任务（{@code AutoAdjustmentTask}）与
+     * 考试结算（{@code ExamSignalAdjustServiceImpl}）。后两者无 HTTP 上下文/学生身份，
+     * 因此归属校验由**调用方**负责——学生端入口必须先校验 diff 属于当前登录学生，
+     * 系统路径无需（也没有）学生身份。租户取自 diff 自身，不读 {@code StudentContext}。</p>
+     *
      * @param diffId diff ID
      */
     void applyDiff(Long diffId);

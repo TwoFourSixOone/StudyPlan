@@ -88,6 +88,15 @@ public class PlanDiffServiceImpl implements PlanDiffService {
     /**
      * 修复 IMP-21：只更新 plan_date >= today 的未来计划
      * 已完成的历史计划不重置为 pending
+     *
+     * <p><b>归属校验由调用方负责（P0-2）</b>：本方法是「系统入口」，同时被
+     * {@code PlanAdjustmentServiceImpl#confirmDiff}（学生确认）、定时任务
+     * {@code AutoAdjustmentTask} 与考试结算 {@code ExamSignalAdjustServiceImpl} 复用；
+     * 后两者**没有 HTTP 上下文 / 没有学生身份**，因此这里不读 {@code StudentContext}、
+     * 也不做 studentId 校验（硬要求身份会直接打断系统路径）。</p>
+     *
+     * <p>租户从 diff 自身 {@code tenantId} 取（同样不依赖 ThreadLocal）。
+     * 学生端确认入口必须先经 {@code PlanAdjustmentServiceImpl#requireOwnedDiff} 完成归属校验。</p>
      */
     @Override
     @Transactional(rollbackFor = Exception.class)

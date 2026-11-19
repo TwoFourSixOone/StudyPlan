@@ -30,6 +30,10 @@ public class PlanAdjustmentController {
 
     /**
      * 修复 IMP-23：触发调整是写操作，使用 POST + @RequestBody
+     *
+     * <p>P0-2（跨学生越权）：不加业务逻辑，只把 goalId 交给学生端 Service 入口；
+     * 目标归属校验（他人 goalId → {@code PLAN_ADJUST_NOT_FOUND}）在
+     * {@code PlanAdjustmentService#triggerAdjustment(Long)} 内按当前登录学生完成。</p>
      */
     @PostMapping("/adjust")
     @Operation(summary = "触发调整")

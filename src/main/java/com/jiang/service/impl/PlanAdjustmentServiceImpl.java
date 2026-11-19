@@ -56,6 +56,15 @@ import java.util.stream.Collectors;
  * 计划调整服务实现
  * 修复 BLOCK-B：应用层防重
  *
+ * <p>P0-2（跨学生越权修复）：学生端四个入口统一按「当前登录学生」归属过滤——
+ * {@code triggerAdjustment(Long)} 经 {@code learning_goal.student_id} 校验目标归属；
+ * getDiffDetail / confirmDiff / rejectDiff 校验 diff 归属（{@code plan_adjustment_diff} 只有 goal_id，
+ * 归属同样在 {@code learning_goal.student_id}，见隐性约定 #44）；getAdjustmentHistory 只返回
+ * 当前学生所属目标的调整日志。仅靠 {@code tenant_id} 会让同租户学生互相读/改调整方案。</p>
+ *
+ * <p>系统路径（定时任务 / 考试结算）走显式身份重载或 {@code PlanDiffService#applyDiff}，
+ * 不依赖 StudentContext，归属由调用方保证（见各方法 Javadoc）。</p>
+ *
  * @author StudyMate Team
  * @since 2026-11-04
  */
@@ -114,18 +123,35 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
     }
 
     /**
-     * 修复 BLOCK-B：应用层保证“同一 goal 同时只允许一个 pending diff”
-     * 因 plan_adjustment_diff 已去掉唯一索引，需在业务层查重
-     * 修复 Sev-3：移除 @Transactional，Agent 调用在事务外，仅 saveDiff 在事务内
-     * 修复 Sev-4：捕获 AdjustmentException，执行降级策略
+     * 学生端入口：触发调整（读当前登录学生上下文 + **目标归属校验**）
+     *
+     * <p>修复 BLOCK-B：应用层保证“同一 goal 同时只允许一个 pending diff”（在显式重载内查重）；
+     * 修复 Sev-3：移除 {@code @Transactional}，Agent 调用在事务外，仅 saveDiff 在事务内；
+     * 修复 Sev-4：捕获 AdjustmentException，执行降级策略。</p>
+     *
+     * <p>P0-2（跨学生越权修复）：此前只把 goalId 透传给显式重载，同租户学生 A 传 B 的
+     * goalId 即可对 B 的目标触发调整（写路径：生成 diff，确认后会改写 B 的目标策略与未来计划）。
+     * 现在先经 {@link LearningGoalMapper#selectOwnedGoalId} 校验归属，非本人/不存在统一
+     * {@code PLAN_ADJUST_NOT_FOUND}（不区分存在性，不泄漏他人目标是否存在）。</p>
+     *
+     * <p>系统路径不受影响：01:30 自动调整（{@code AutoAdjustmentTask}）已先
+     * {@code StudentContext.setStudentId(goal.getStudentId())} 再调本入口，归属判定用的就是目标自身的学生；
+     * 考试结算走显式重载。</p>
      */
     @Override
     public AdjustTriggerVO triggerAdjustment(Long goalId) {
-        return triggerAdjustment(goalId, StudentContext.getStudentId(), StudentContext.getTenantId());
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+        requireOwnedGoal(goalId, studentId, tenantId);
+        return triggerAdjustment(goalId, studentId, tenantId);
     }
 
     /**
      * 显式身份重载（design §8.2）：Worker / 异步信号检测线程不读 StudentContext
+     *
+     * <p><b>归属校验由调用方负责（P0-2）</b>：本重载是「系统入口」，调用方为定时任务与考试结算
+     * （无 HTTP 上下文，目标与学生身份来自 {@code learning_goal} 本身，可信）。学生端入口
+     * {@link #triggerAdjustment(Long)} 必须先完成归属校验再委托到这里；后续新增学生端入口同理。</p>
      */
     @Override
     public AdjustTriggerVO triggerAdjustment(Long goalId, Long studentId, String tenantId) {
@@ -320,15 +346,66 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
         return sanitized;
     }
 
+    /**
+     * 学生端「触发调整」的目标归属校验（P0-2：跨学生越权修复）
+     *
+     * <p>此前单参入口只把 goalId 透传给系统重载（该重载按 design §8.2 不读 StudentContext），
+     * 同租户内学生 A 传 B 的 goalId 即可对 B 的目标触发调整——生成的 diff 一旦确认就会改写
+     * B 的目标策略（日题量/暂缓知识点）与未来 daily_plan。</p>
+     *
+     * <p>归属口径：{@code learning_goal.student_id + tenant_id}（显式 SQL，租户插件之外再加一道）。
+     * 不存在 / 非本人 / 非本租户统一 {@code PLAN_ADJUST_NOT_FOUND}，不区分存在性。</p>
+     *
+     * @param goalId    目标 ID（来自客户端入参）
+     * @param studentId 当前登录学生 ID（服务端上下文）
+     * @param tenantId  租户 ID
+     */
+    private void requireOwnedGoal(Long goalId, Long studentId, String tenantId) {
+        if (goalId == null || studentId == null
+                || goalMapper.selectOwnedGoalId(goalId, studentId, tenantId) == null) {
+            // 面向排障：只记 goalId/studentId，不打印目标详情
+            log.warn("计划调整目标归属校验失败: goalId={}, studentId={}", goalId, studentId);
+            throw new BusinessException(ErrorCodes.PLAN_ADJUST_NOT_FOUND);
+        }
+    }
+
+    /**
+     * 学生端读/写入口的归属校验（P0-2：跨学生越权修复）
+     *
+     * <p>归属模型（隐性约定 #44）：{@code plan_adjustment_diff} 只有 {@code goal_id}，
+     * 学生归属在 {@code learning_goal.student_id}，因此统一走
+     * {@link PlanAdjustmentDiffMapper#selectByIdWithStudent}（单条 JOIN 查询，租户与学生双条件）。</p>
+     *
+     * <p>不存在 / 非本人 / 非本租户**统一** {@code PLAN_ADJUST_NOT_FOUND}，不区分存在性：
+     * 否则学生可用 diffId 探测"该 diff 是否存在"（越权信息泄漏）。</p>
+     *
+     * <p>注意：本方法只用于有 HTTP 上下文的入口（getDiffDetail / confirmDiff / rejectDiff）。
+     * 定时任务与考试结算直接调 {@code PlanDiffService#applyDiff}，不经过这里。</p>
+     *
+     * @param diffId diff ID（来自客户端入参）
+     * @return 归属当前学生的 diff
+     * @throws BusinessException 归属校验失败（PLAN_ADJUST_NOT_FOUND）
+     */
+    private PlanAdjustmentDiff requireOwnedDiff(Long diffId) {
+        Long studentId = StudentContext.getStudentId();
+        String tenantId = StudentContext.getTenantId();
+        PlanAdjustmentDiff diff = (diffId == null || studentId == null)
+                ? null
+                : diffMapper.selectByIdWithStudent(diffId, studentId, tenantId);
+        if (diff == null) {
+            // 面向排障：只记 diffId/studentId，不打印 diff 内容（调整内容含知识点与题目引用）
+            log.warn("计划调整 diff 归属校验失败: diffId={}, studentId={}", diffId, studentId);
+            throw new BusinessException(ErrorCodes.PLAN_ADJUST_NOT_FOUND);
+        }
+        return diff;
+    }
+
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void confirmDiff(Long diffId) {
-        String tenantId = StudentContext.getTenantId();
-        PlanAdjustmentDiff diff = diffMapper.selectById(diffId);
+        // P0-2：确认前先做学生归属校验（applyDiff 本身不含学生身份，见其 Javadoc）
+        PlanAdjustmentDiff diff = requireOwnedDiff(diffId);
 
-        if (diff == null || !tenantId.equals(diff.getTenantId())) {
-            throw new BusinessException(ErrorCodes.PLAN_ADJUST_NOT_FOUND);
-        }
         if ("confirmed".equals(diff.getStatus())) {
             throw new BusinessException(ErrorCodes.PLAN_DIFF_ALREADY_CONFIRMED);
         }
@@ -342,7 +419,7 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
             throw new BusinessException(ErrorCodes.PLAN_DIFF_NOT_FOUND_OR_INVALID);
         }
 
-        // 应用 diff
+        // 应用 diff（applyDiff 行为不变：定时任务 / 考试结算共用同一系统入口）
         planDiffService.applyDiff(diffId);
     }
 
@@ -350,11 +427,9 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
     @Transactional(rollbackFor = Exception.class)
     public void rejectDiff(Long diffId) {
         String tenantId = StudentContext.getTenantId();
-        PlanAdjustmentDiff diff = diffMapper.selectById(diffId);
+        // P0-2：拒绝前先做学生归属校验，避免 A 把 B 的调整方案置为 rejected
+        PlanAdjustmentDiff diff = requireOwnedDiff(diffId);
 
-        if (diff == null || !tenantId.equals(diff.getTenantId())) {
-            throw new BusinessException(ErrorCodes.PLAN_ADJUST_NOT_FOUND);
-        }
         if (!"pending".equals(diff.getStatus())) {
             throw new BusinessException(ErrorCodes.PLAN_DIFF_NOT_FOUND_OR_INVALID);
         }
@@ -377,23 +452,29 @@ public class PlanAdjustmentServiceImpl implements PlanAdjustmentService {
 
     @Override
     public PlanDiffDetailVO getDiffDetail(Long diffId) {
-        String tenantId = StudentContext.getTenantId();
-        PlanAdjustmentDiff diff = diffMapper.selectById(diffId);
-
-        if (diff == null || !tenantId.equals(diff.getTenantId())) {
-            throw new BusinessException(ErrorCodes.PLAN_ADJUST_NOT_FOUND);
-        }
-
-        return convertToDetailVO(diff);
+        // P0-2：读路径同样按学生归属过滤（此前只校验 tenantId，同租户可读他人调整方案）
+        return convertToDetailVO(requireOwnedDiff(diffId));
     }
 
     @Override
     public PageResult<AdjustmentHistoryVO> getAdjustmentHistory(Integer page, Integer size) {
         String tenantId = StudentContext.getTenantId();
+        Long studentId = StudentContext.getStudentId();
+
+        // P0-2：plan_adjustment_log 只有 goal_id，学生归属在 learning_goal → 先取当前学生的 goalIds
+        // 失败/无身份时按空列表处理（禁止退化为「只按 tenant_id」的全租户查询）
+        List<Long> goalIds = studentId == null
+                ? List.of()
+                : goalMapper.selectGoalIdsByStudent(studentId, tenantId);
+        if (goalIds == null || goalIds.isEmpty()) {
+            log.info("调整历史：当前学生无目标，返回空分页: studentId={}", studentId);
+            return PageResult.of(0L, page, size, List.of());
+        }
 
         // 修复 M-1：统一使用 MyBatis-Plus Page 分页，避免 wrapper.last() 字符串拼接
         LambdaQueryWrapper<PlanAdjustmentLog> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(PlanAdjustmentLog::getTenantId, tenantId)
+                .in(PlanAdjustmentLog::getGoalId, goalIds)
                 .orderByDesc(PlanAdjustmentLog::getActionAt);
 
         Page<PlanAdjustmentLog> pageParam = new Page<>(page, size);

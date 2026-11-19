@@ -11,6 +11,7 @@ import com.jiang.model.entity.LearningGoal;
 import com.jiang.model.entity.PlanAdjustmentDiff;
 import com.jiang.model.entity.PlanAdjustmentLog;
 import com.jiang.model.enums.PlanStatus;
+import com.jiang.security.StudentContext;
 import com.jiang.service.impl.PlanDiffServiceImpl;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ import static org.mockito.Mockito.*;
  *   <li>`newContent` 非空 → `pending`（学生可直接作答）</li>
  *   <li>过去日期的修改必须跳过，历史计划不得被重置</li>
  * </ul>
+ *
+ * <p>P0-2：{@code applyDiff} 是系统入口（定时任务 / 考试结算 / 学生确认都复用），
+ * 归属校验由学生端调用方负责，本类补充"无 HTTP 上下文仍可用"的回归用例。</p>
  *
  * @author StudyMate Team
  * @since 2026-11-10
@@ -195,6 +199,48 @@ class PlanDiffServiceTest {
         planDiffService.applyDiff(DIFF_ID);
 
         verify(planMapper, never()).updateById(any(DailyPlan.class));
+    }
+
+    // ==================== P0-2：系统路径（无 HTTP 上下文）回归 ====================
+
+    @Test
+    @DisplayName("系统路径：无学生上下文（定时任务/考试结算）也能应用 diff，租户取自 diff 自身")
+    void should_applyDiffWithoutStudentContext_when_systemPathInvokes() {
+        // AutoAdjustmentTask / ExamSignalAdjustServiceImpl 直接调用 applyDiff，全程没有 HTTP 上下文
+        StudentContext.clear();
+        assertNull(StudentContext.getStudentId(), "系统路径不应存在学生身份");
+        assertNull(StudentContext.getTenantId(), "系统路径不应存在租户上下文");
+
+        LocalDate date = LocalDate.now().plusDays(1);
+        PlanAdjustmentDiff diff = buildDiff(diffContent(date, "[]"), "pending");
+        when(diffMapper.selectById(DIFF_ID)).thenReturn(diff);
+        when(planMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, date))
+                .thenReturn(buildPlan(date, PlanStatus.PENDING.getCode(), "[]"));
+
+        assertDoesNotThrow(() -> planDiffService.applyDiff(DIFF_ID));
+
+        assertEquals("confirmed", diff.getStatus());
+        // 租户必须来自 diff 自身，而不是 ThreadLocal
+        verify(planMapper).selectByGoalIdAndDate(GOAL_ID, TENANT_ID, date);
+        ArgumentCaptor<PlanAdjustmentLog> logCaptor = ArgumentCaptor.forClass(PlanAdjustmentLog.class);
+        verify(logMapper).insert(logCaptor.capture());
+        assertEquals(TENANT_ID, logCaptor.getValue().getTenantId());
+    }
+
+    @Test
+    @DisplayName("系统路径：applyDiff 不做学生归属校验（不查 learning_goal 归属，也不要求 studentId）")
+    void should_notRequireStudentOwnership_when_applyingDiff() {
+        LocalDate date = LocalDate.now().plusDays(1);
+        PlanAdjustmentDiff diff = buildDiff(diffContent(date, "[]"), "pending");
+        when(diffMapper.selectById(DIFF_ID)).thenReturn(diff);
+        when(planMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, date))
+                .thenReturn(buildPlan(date, PlanStatus.PENDING.getCode(), "[]"));
+
+        planDiffService.applyDiff(DIFF_ID);
+
+        // 无策略字段 → 根本不需要读目标；归属校验由学生端调用方（confirmDiff）负责
+        verifyNoInteractions(goalMapper);
+        assertEquals("confirmed", diff.getStatus());
     }
 
     // ==================== 辅助方法 ====================

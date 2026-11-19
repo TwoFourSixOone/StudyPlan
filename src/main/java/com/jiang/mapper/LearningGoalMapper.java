@@ -7,6 +7,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 学习目标 Mapper 接口
@@ -46,4 +47,40 @@ public interface LearningGoalMapper extends BaseMapper<LearningGoal> {
                                                @Param("tenantId") String tenantId,
                                                @Param("subjectId") Long subjectId,
                                                @Param("today") LocalDate today);
+
+    /**
+     * 查询某学生的全部目标 ID（计划调整历史按学生过滤用）
+     *
+     * <p><b>必须带 {@code student_id}</b>（隐性约定 #44）：{@code plan_adjustment_log} 只有
+     * {@code goal_id}，学生归属在 {@code learning_goal}。此前调整历史只按 {@code tenant_id} 分页，
+     * 会返回同租户内所有学生的调整记录。</p>
+     *
+     * <p>不过滤 {@code status}：历史记录要能回溯已结束/已过期的目标，漏掉会让学生"看不到自己的调整"。</p>
+     *
+     * @param studentId 当前登录学生 ID
+     * @param tenantId  租户 ID
+     * @return 目标 ID 列表（无目标时为空列表）
+     */
+    @Select("SELECT goal_id FROM learning_goal " +
+            "WHERE student_id = #{studentId} AND tenant_id = #{tenantId} " +
+            "ORDER BY goal_id DESC")
+    List<Long> selectGoalIdsByStudent(@Param("studentId") Long studentId,
+                                      @Param("tenantId") String tenantId);
+
+    /**
+     * 校验目标归属（学生端写入口的越权防护：触发计划调整）
+     *
+     * <p>只返回 {@code goal_id}（存在即归属成立），供 {@code triggerAdjustment(Long)} 在
+     * 调用系统重载前做「他人的 goalId → 目标不存在」判定；不区分存在性，避免探测他人目标。</p>
+     *
+     * @param goalId    目标 ID（来自客户端入参）
+     * @param studentId 当前登录学生 ID（服务端上下文）
+     * @param tenantId  租户 ID
+     * @return 归属成立时返回 goal_id；否则 {@code null}
+     */
+    @Select("SELECT goal_id FROM learning_goal " +
+            "WHERE goal_id = #{goalId} AND student_id = #{studentId} AND tenant_id = #{tenantId}")
+    Long selectOwnedGoalId(@Param("goalId") Long goalId,
+                           @Param("studentId") Long studentId,
+                           @Param("tenantId") String tenantId);
 }
