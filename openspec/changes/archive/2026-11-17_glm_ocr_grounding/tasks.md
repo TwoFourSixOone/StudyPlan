@@ -32,3 +32,14 @@
 ## T6 待验证（需 Key）
 - [ ] 配置 `ZHIPU_API_KEY` 后重传真实卷：验证 √7、跨页表格、配图裁剪是否改善
 - [ ] 计费/耗时实测（预期 4 页约 6–10s、约 1–2 分钱）
+
+## 归档说明（2026-11-17）
+
+- **归档依据**：客户端 / Prompt 注入 / bbox 吸附 / 降级链路均已完成并通过单测；归档时全量 `mvn test` = **956 用例通过**（跳过 5）。
+- **归档时仍未做（需真实样本，未阻塞归档）**：上面 2 条未勾选项——配 `ZHIPU_API_KEY` 重传真实卷对比 OCR 前后效果；计费/耗时实测。
+- **归档后追加的修复（同批 change 内）**：
+  - bbox 语义与配图：OCR 框改为**候选**（不覆盖模型框，`ParsedFigureRects`/`FigureRects` + 双候选裁剪），二次确认判定收紧（`FigureCheckDecision`）、被拒裁剪件落盘；
+  - OCR 输入：双版本路径在 clean 图上跑 OCR（跳过红笔抑制重复解码）；回退整卷时**复用已构建 OCR**，不重复调用；
+  - Prompt 模板加载改为显式 UTF-8（此前平台默认字符集下整卷/clean/answers 模板会整体乱码）；
+  - 表格渲染：题干内联 HTML 表格改由 `HtmlRichText` 出受控 HTML + 小程序 `rich-text` 渲染，宽表格 `scroll-view` 横向滚动（判分仍用 `HtmlTableTextifier` 纯文本派生）。
+- **回归方式**：`mvn -o test`。

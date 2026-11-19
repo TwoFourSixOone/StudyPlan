@@ -15,7 +15,7 @@
 ## 测试
 
 ```
-mvn test → Tests run: 861, Failures: 0, Errors: 0, Skipped: 5 → BUILD SUCCESS
+mvn test → Tests run: 956, Failures: 0, Errors: 0, Skipped: 5 → BUILD SUCCESS（归档时 2026-11-17 复跑）
 ```
 
 | 用例 | 覆盖 |
@@ -37,3 +37,9 @@ mvn test → Tests run: 861, Failures: 0, Errors: 0, Skipped: 5 → BUILD SUCCES
 1. 配置环境变量（用户级）：`setx ZHIPU_API_KEY "你的key"`，然后**重启后端进程**；
 2. 关闭 OCR 通道：`exam.parse.ocr.grounding=false`（或删掉 Key）；
 3. 观察日志：`GLM-OCR grounding 完成: successPages=...` / `ocr_grounding_skip` / `ocr_grounding_partial`。
+
+## 归档（2026-11-17）
+
+- 按 `openspec/changes/README.md` 约定移入 `openspec/changes/archive/`（目录名不变）。
+- 未完成项仅为真实样本/计费依赖的手工验证，已在 tasks.md「归档说明」登记。
+- 同批修复（配图双候选、二次确认收紧、OCR 复用、模板 UTF-8、表格 rich-text）见 tasks.md「归档说明」。
