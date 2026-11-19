@@ -22,7 +22,7 @@
 >
 > 1. 编号 #5–#8 在本文件中**空缺**（历史遗留），**不复用**，新增约定统一从 #21 起顺序编号（起点已按序顺延，当前见第 3 条）。保留空号是为了不破坏已归档 change 中对 #9–#20 的既有引用（`archive/` 只读，无法回改）。
 > 2. 历史工件中出现的「隐性约定 #7 JWT 登录态」为**悬空引用**——该条不存在，其真实出处是 **产品规则 #7**（学生登录态与数据隔离）与 **约定 #15**（管理端 JWT 鉴权）。后续新增工件请直接引用这两处。
-> 3. （2026-11-15 补）当前最大编号为 **#36**，新增约定从 **#37** 起顺序编号；以 §3 维护规则第 2 条为准。
+> 3. （2026-11-17 补）当前最大编号为 **#43**，新增约定从 **#44** 起顺序编号；以 §3 维护规则第 2 条为准。
 
 ### 约定 #1：统一响应结构
 
@@ -393,24 +393,192 @@
 - **约定内容**：
     - 整卷解析前对每页调用 GLM-OCR（`POST /api/paas/v4/layout_parsing`，`model=glm-ocr`，file 支持 url/base64），
       把 `md_results`（Markdown，含表格 HTML）作为 **OCR 文本** 注入视觉解析 Prompt；`layout_details` 的
-      `label=image` bbox 用于**吸附**题目 `figureRect`（`OcrFigureSnapper`，中心距 ≤0.35）
+      `label=image` bbox 用于提供**配图候选框**（`OcrFigureSnapper`，中心距 ≤0.35）
+    - **bbox 语义**：官方 `bbox_2d` 是**归一化 [x1,y1,x2,y2]（0..1）**，不是像素坐标；落地前按
+      `FigureRects.isPlausible` 过滤（面积 1.5%~90%、两边 ≥5%、宽高比 0.2~5），整页/细条/碎片不参与
+    - **候选不覆盖模型框**：OCR 框写入 `ParsedQuestion#ocrFigureRect`，与模型 `figureRect` 组成有序候选
+      （模型框优先）。裁剪阶段逐个裁剪 + 二次确认，任一通过即采用，**全部不通过才回退整页原图**；
+      破坏性覆盖会让"模型框对但被 OCR 装饰图顶掉"且没有第二次机会（2026-11-17 修复）
+    - **二次确认判定**（`FigureCheckDecision`）：先看明确结论词（`printed`/`invalid`，跳过"不是印刷图形"这类否定），
+      再退回宽匹配；**带坐标轴/标注字母/图例的图形仍判合格**，"以文字为主/题号分值/手写草稿/空白"才判不合格
     - Prompt 规则：题干/选项/表格内容**以 OCR 文本为准**；表格必须内联进题干；**学生手写仍只从图片读**；
       OCR 缺失的页按图片识别
     - **降级（必须）**：无 API Key / 开关关闭 → 完全不启用；单页超时/非 200/非法响应 → 跳过该页；
       总预算（默认 90s）到点 → 停止剩余页；全部失败 → 写降级日志 `ocr_grounding_skip` 后按纯视觉解析；
       部分失败 → `ocr_grounding_partial`；单页注入字符上限 6000（防 prompt 爆炸）
     - Key 从环境变量 `ZHIPU_API_KEY` 或 `exam.parse.ocr.api-key` 读取，**不得写入仓库**
-- **影响范围**：`ZhipuOcrClient`、`OcrPageResult`、`OcrFigureSnapper`、`ExamParsePaperContext.ocrText`、
-  `exam_parse_paper_v1.txt`、`ExamParseServiceImpl.buildOcrGrounding`
+- **影响范围**：`ZhipuOcrClient`、`OcrPageResult`、`OcrFigureSnapper`、`FigureRects`、`FigureCheckDecision`、
+  `ExamParsePaperContext.ocrText`、`exam_parse_paper_v1.txt`、`ExamParseServiceImpl.buildOcrGrounding`、
+  `ExamPaperServiceImpl#cropQuestionFigures/isPrintedFigure`
 - **违反后果**：OCR 不可用时若抛异常/阻塞，会把整个解析拖垮；把 OCR 里的手写当题干会污染题目；
   不截断 OCR 文本会导致 prompt 过大、模型超时
 - **发现时间**：2026-11-17（低清照片导致 √7→√3、编题、跨页表格缺失）
 - **正确做法**：OCR 只是"参考文本 + 精确 bbox"，任何失败都必须静默回退纯视觉解析
 
+### 约定 #38：试卷图片页序以客户端 pageNo 为准，并行上传不得丢失顺序
+
+- **约定内容**：
+    - 小程序并发上传（约定 #30 不变）时，每张图在 multipart 里带可选 `pageNo`（1..8，**该图在上传时待上传列表中的
+      1-based 下标**）；**删除待上传图片后必须对剩余项重排 1..n**（`ExamUpload.vue#renumberPageNos`），
+      失败重试沿用该次上传已确定的值
+    - 服务端 `exam_paper.image_page_nos` 与 `image_urls` **等长、同下标**，单条 `JSON_ARRAY_APPEND` 同时追加；
+      `pageNo` 缺失/越界 → 按「当前张数+1」补齐（等价到达顺序），**不阻断上传**
+    - 解析入参、配图裁剪、详情 VO、学习记录快照**四处必须使用同一份有序列表**（`ExamPaperImages.ordered`）；
+      旧数据 `image_page_nos=NULL` 按 `image_urls` 到达顺序（不回填）
+    - 30 分钟超期复用 / 失败重传重置会话时，`image_page_nos` 与 `image_urls` 一起清空
+    - 前端阈值常量（`EXAM_MIN_LONG_SIDE/EXAM_MIN_SHORT_SIDE`）与后端 `exam.parse.min-long-side/min-short-side`
+      默认值必须同批改（无接口下发），否则会出现"前端放行、后端 1193"或反向不一致
+- **影响范围**：`ExamPaper#imagePageNos`、`ExamPaperMapper#appendImageUrl/resetImageUrls/resetFailedPaperForReupload/selectDetailWithSubject`、
+  `ExamPaperController#uploadImage`、`ExamPaperServiceImpl#uploadImage/orderedImageUrls/persistQuestions/cropQuestionFigures/getPaperDetail`、
+  `ExamPaperImages`、`student-app/src/pages/exam-upload/ExamUpload.vue`（`chooseImages/removeImage/renumberPageNos`）、
+  `student-app/src/api/exam.ts#uploadPaperImage`
+- **违反后果**：4 张并发上传后页序变成「第4→第1→第3→第2」，整卷题号/配图整体错位；
+  解析按页序排序而配图仍用到达顺序时，配图会裁到别的页；
+  删除后不重排会让补选的图拿到重复 pageNo，稳定排序后解析页序与缩略图顺序不一致
+- **发现时间**：2026-11-17（同一组 4 张图上传 4 次，image_urls 顺序每次不同，卷面 17/18/19 题变成 App 的 1/2/3；
+  同日评审发现"删除 2 张再补选 2 张 → 重复 pageNo → 页序错位"）
+- **正确做法**：页序由客户端显式提供；删除后重排、重试沿用；服务端只做稳定排序与回退；四个消费点共用同一有序列表；旧数据不回填
+
+### 约定 #39：题号保真（卷面题号）与解析缺题必须告警
+
+- **约定内容**：
+    - **题号保留卷面题号**：解析模型输出 `paperNo`（卷面印刷题号），当全部题目都有合法（1..60）、互不重复、
+      且不超过 `paperQuestionTotal` 的题号时，`exam_question.question_index` **直接取 paperNo**（可能不连续，
+      如缺第 16 题）；列表按 `question_index` 升序，详情页显示「第 X 题」
+    - 题号缺失/重复/越界/超出总题数 → **回退按图片顺序 1..N**，并在详情页给出回退原因（缺 paperNo：`未能识别卷面题号`；
+      重复：`题号重复（第 X 题）`；越界：`题号超出范围（应 1..60）`；超总数：`题号超过整卷题数（最大 X / 总数 Y）`）
+      + 统一结论 `已按图片顺序编号`；禁止"补号"（不把 17 改成 16）
+    - 模型同时输出 `paperQuestionTotal`；识别数≠总数、缺号、重复、回退 → 写 `exam_paper.remark`
+      （详情页 `imageWarning` banner）与降级日志 `parse_question_gap`
+    - **禁止静默丢题**：`checkExamParseItem` 丢弃的题必须计数并写入 warning（`已丢弃 N 道…`）；
+      `explanation` 上限与 schema 对齐为 1500 字（此前卡 1000 会静默丢整题）；
+      `questionIndex` 与 `paperNo` **至少给一个**（只给 paperNo 也算合法，服务端会用它编号），避免"漏 questionIndex 整题被丢"
+- **影响范围**：`exam_parse_paper_v1.txt`、`exam_parse_schema.json`、`ParsedQuestion#paperNo`、`ExamParseImageResult#paperQuestionTotal/#droppedCount`、
+  `ExamParseAgentImpl`、`ExamParseNumbering`、`ExamParseServiceImpl#mergeAndAttribute`、`AgentOutputValidator`、
+  `student-app/src/pages/exam-detail/ExamDetail.vue`
+- **违反后果**：按图序重排会把卷面 17/18/19 题变成 1/2/3；丢题无告警时学生只看到 18/19 题且无法定位；
+  题号重复会让配图/归因按 `questionIndex` 建的 key 互相覆盖
+- **发现时间**：2026-11-17（第 4 次解析丢第 16 题，App 显示 5/18；题号按图序整体错位）
+- **正确做法**：题号是卷面事实，不是数组下标；缺失就保留缺口；任何回退/丢题都必须可见
+
+### 约定 #40：作答归属——学生答案、老师批改、印刷内容必须分开
+
+- **约定内容**：
+    - 卷面三类笔迹：**印刷内容**（题干/选项/表格/图形）、**学生作答**、**老师批改**。题目字段只允许来自对应类别
+    - **先看颜色**：红笔（或与题面/主体笔迹明显不同的批改色）默认是老师批改；
+      **黑笔、蓝笔、铅笔/灰色笔才可能是学生作答**（考试中勾选/填空常用铅笔；铅笔痕迹淡、与印刷难区分时，
+      只采信位于作答位置且与同卷其他作答笔迹一致的痕迹，仍无法判断 → `unreadable`）
+    - **黑/蓝/铅笔的勾选/圈选/划线就是学生作答**：映射为选项标签写入 `studentAnswer`；不能因为"老师也勾了"就丢掉
+    - **红笔写的选项字母（常见于题号左侧/页边）、正确答案、解题过程、分数、√/× 都是老师批改**：
+      不进题干、不进 `studentAnswer`、**不作为 `correctAnswer` 的依据**；整页只有红笔批改、没有学生黑/蓝笔作答时，
+      所有题 `blank`，禁止用红笔答案填充
+    - 老师批改（卷首/得分栏/题号旁/页边：分数、扣分、√/×、圈画、划线、订正、日期、时间、签名、评语）
+      **一律忽略**：不进题干、不进 `studentAnswer`、**不作为 `correctAnswer` 的依据**
+    - 同色卷面（没有红笔）：两个勾——学生答对时叠在同一选项（该选项即学生答案）；答错时按「老师勾落在正确答案上」
+      区分，无法判断 → `answerStatus=unreadable`；学生没勾/没写、只有老师勾 → `blank`
+    - `studentAnswer` 仅为 `√ × ✓ ✗` 等纯对错符号时，服务端按老师批改处理（`blank` + 空串）
+    - **OCR 文本只作印刷内容真值**：OCR 里混入的学生手写/老师批改片段不得并入题干或选项；
+      与"以 OCR 为准"冲突时**先剔除手写/批改片段，再按 OCR 取印刷部分**（可读性优先于逐字照抄）
+    - **OCR 前红笔抑制**：`RedInkSuppressor` 把红色像素刷白后再送 GLM-OCR（单次整卷/逐图路径用原图；
+      双版本路径的 OCR 输入是已去色的 clean 图，等效且跳过重复解码）；无红笔时原样返回、不重编码
+- **影响范围**：`exam_parse_paper_v1.txt` 第 6/18/19 条、`exam_parse_clean_v1.txt`、`exam_parse_answers_v1.txt`、
+  `ExamParseAgentImpl#toQuestion`、`ExamParseServiceImpl#buildOcrGrounding`、`RedInkSuppressor`、
+  `student-app/src/pages/exam-detail/ExamDetail.vue`
+- **违反后果**：把老师订正当成学生答案 → 学生"被做对"/判分错误；把学生勾选当批改 → 整题空白；
+  把卷首扣分/日期写进题干 → 题目不可读；错题本/掌握度随之污染
+- **发现时间**：2026-11-17（第 2 题学生勾 C、老师也勾 C，解析记为 B；第 3 题学生勾 D，解析记为印刷公式 `a²+b²=c²`；
+  同日新增红笔批改卷样本：题号左侧红笔字母 = 正确答案，红笔解题过程/√× = 老师批改，整页无学生作答）
+- **正确做法**：先看颜色（红=老师）；黑/蓝/铅笔在作答位置的痕迹才是作答；老师勾/红笔答案只表示对错；分不清归属时落 `unreadable`，禁止猜测
+
+### 约定 #41：试卷双版本解析（clean 题目版 + student 作答版）
+
+- **约定内容**：
+    - 每页派生两版：**clean** 去红/蓝/绿彩色笔迹（题目版）；**student** 只去红（作答版，保留学生黑/蓝）；
+      黑笔与印刷同色时两版都等于原图，靠两次 Prompt「只读印刷」/「只读手写」隔离（`separation=prompt_only`）
+    - **蓝/绿取舍**：clean 默认连蓝/绿一起去（它们通常是学生彩色笔迹），但蓝/绿像素**无法区分彩色印刷内容**
+      （蓝表格线、绿图表、彩色题头）→ 彩色印刷较多的卷可置 `exam.parse.dual-channel.remove-cool-ink=false`，
+      降级为"只去红 + Prompt 隔离"
+    - **clean Prompt 必须继承整卷 Prompt 的强制规则**（多选判据与字母序连写、`figureRect`「如图必须给」、
+      封面/纯答题卡页不产题、模糊题仍要输出、阅读顺序、解析分步），不得因换模板而丢规则
+    - **clean 调用**只出题目/正确答案/解析，`studentAnswer` 强制空、`answerStatus=blank`；
+      **student 调用**只出 `paperNo → studentAnswer/answerStatus`，按题目清单逐题输出、禁止编造；
+      **必须覆盖答题卡页作答**（题号/方框/填涂按 paperNo 映射）与铅笔作答
+    - **按 paperNo 合并**；未匹配 → blank + 告警；student 多出的题号忽略
+    - **对齐前提**：clean 的 paperNo 必须全部非空、1..60、**互不重复**；不满足即视为对齐不可靠 → 回退单次整卷
+      （重复会让同一份作答贴到两道题上）
+    - **作答覆盖率守卫**：`answers` 为空数组 → 校验直接失败；匹配到的 paperNo 少于 clean 题数一半 → 回退单次整卷
+      （缺失题会落 blank，而判分把「学生空 + 标准答案有」判错 → 等价整卷/大面积 0 分）
+    - **降级**：clean 失败/缺 paperNo/paperNo 重复 → 回退单次整卷；student 失败/覆盖不足 → 也回退单次整卷
+      （避免整卷被判 0 分）；单次整卷再失败才逐图；**回退复用已构建的 OCR，不重复调用外部 OCR**
+    - 开关 `exam.parse.dual-channel`（默认开）、`save-images`（派生图落盘，扩展名跟随实际媒体类型）、
+      `remove-cool-ink`（默认开）、`max-digest-chars`（默认 6000）
+- **影响范围**：`ExamInkFilter`、`exam_parse_clean_v1.txt`、`exam_parse_answers_v1.txt`、
+  `exam_parse_answers_schema.json`、`ExamParseAgent#parseCleanPaper/parseStudentAnswers`、
+  `ExamParseServiceImpl#tryParseDualChannel/mergeDualAnswers/isPaperNoAlignable/isAnswerCoverageSufficient`、
+  `AgentOutputValidator#validateExamAnswers`
+- **违反后果**：clean 调用把红笔答案/学生手写当印刷内容；student 调用把老师红笔答案当学生答案；
+  两边题号对不上会错位判分；student 失败直接留空会把整卷判 0 分
+- **发现时间**：2026-11-17（老师红笔答案卷 + 同色黑笔卷两种输入，单次调用题目/作答互相污染）
+- **正确做法**：先派生两版再分路抽取；paperNo 对齐（唯一）；作答覆盖不足一律回退；回退复用 OCR，不产生 0 分脏数据
+
+### 约定 #42：标准答案与解析结论必须一致，服务端以解析结论兜底
+
+- **约定内容**：
+    - 视觉模型把 `correctAnswer` 与 `explanation` **分别生成**，两者可能自相矛盾（实测「解析写故选 ABD /
+      `correctAnswer` 字段 AB」→ 详情页出现「我的答案 ABD / 标准答案 AB / 0 分 / 解析却写 ABD」，
+      学生被判错且掌握度被污染）
+    - 选择题：服务端从解析结论抽取选项标签集合，**两级保守抽取**：
+      ① 先只看解析**末尾 2 个非空行**（结论区），允许弱引导词「选 A / 选A」；
+      ② 末尾抽不到时全文只认强引导词（`故选/应选/答案选/答案为/答案是/正确答案是(为｜：)/正确选项是(为｜：)/选择/答案：`）；
+      ③ 多处命中取**最后一处**；命中后紧跟「则/都/均/或/与/和/、/若/但/才/就」的丢弃
+      （"若选 A 则…"、"选 A、B 都错" 属干扰项分析，不是结论）
+    - 不一致且标签全部落在本卷选项内 → **以解析结论为准**写回 `correctAnswer`（改完还要过一次选项白名单）；
+      同时写 `exam_paper.remark`「已按解析结论修正 N 道标准答案」+ 降级日志 `answer_explanation_mismatch`
+    - `correctAnswer` 缺失但解析有合法结论 → 用结论补齐（同样写告警）
+    - 抽不到结论 / 抽出的标签不在本卷选项 / 非选择题 → **保持原值**，不猜测、不改写
+    - Prompt 侧同步要求：解析**最后一行固定写成 `答案：X`**（机器可读结论行，多选按字母序连写），
+      且必须与 `correctAnswer` 完全一致；解析中修正了答案必须写回 `correctAnswer`
+- **影响范围**：`AnswerConclusionExtractor`、`ExamParseAgentImpl#toQuestion/buildWarning`、
+  `exam_parse_paper_v1.txt` 第 8 条、`exam_parse_clean_v1.txt` 第 3 条、`ChoiceAnswer`
+- **违反后果**：答案与解析不一致时，学生按解析作答仍被判错 → 得分/正确率/掌握度/错题本全部错误；
+  学生会认为"系统答案错了"而失去信任
+- **发现时间**：2026-11-17（真实卷多选第 9 题：我的答案 ABD / 标准答案 AB / 0 分，解析第 4 步写"故选 ABD"；
+  同日真实卷单选：解析第 4 步"故 f(-3/4)=-1/2，选 A"，标准答案字段却是 C，学生 D 被判错）
+- **正确做法**：答案以"算得出的结论"为准；两个字段分别生成时必须服务端兜底对齐，并把修正动作写进告警；
+  抽取要容忍"故选/答案为/答案：/选 A"多种写法、排除干扰项分析；存量试卷不回填（重解析才生效）
+
+### 约定 #43：题干/解析用受控 HTML + rich-text 渲染（表格必须长得像表格）
+
+- **约定内容**：
+    - 试卷题干里的表格（列联表、统计表…）由模型以**最简 HTML** 内联（只允许
+      `table/thead/tbody/tfoot/tr/td/th/col/colgroup/p/div/span/br/b/strong/i/em/u/s/sub/sup/ul/ol/li/hr`，
+      **禁止任何属性/样式/脚本**）
+    - **存储层**保留受控 HTML（`LlmTextSanitizer` 第一步调 `HtmlRichText.sanitizeForStorage`：
+      删 `<script>/<style>` 整块、丢弃白名单外标签、任何属性都不入库；文本与换行原样保留）
+    - **展示层**由服务端出富文本：`stemBlocks`（`HtmlRichText.toBlocks`，有序 text/table 块，主用）与
+      `stemHtml`（整段 HTML，等价拼接，备用）。块内白名单标签保留、文本 HTML 转义、换行转 `<br/>`，
+      并给 `table/td/th` **注入内联边框样式**（rich-text 不吃外部 class）
+    - **宽表格横向滚动**：表格块额外带 `minWidthPx`（列数 × 84px，≥280px），前端
+      `text` 块用 `<rich-text>` 正常折行、`table` 块套 `<scroll-view scroll-x>` 并把 `minWidthPx` 作为
+      rich-text 的 `min-width`；**必须分块**——整段套 scroll-view 只能给整段加 `nowrap`，文字会被挤坏
+    - 前端回退顺序：`stemBlocks` → `stemHtml` → `<text>{{stem}}</text>`
+    - **纯文本派生**（判分入参、兼容字段 `stem`、学习记录）：读时用
+      `HtmlTableTextifier.textifyTablesOnly` 把表格转成「行标题：列名 值、列名 值」，
+      不含 `<table` 的文本原样返回（不误伤 `a<b`）
+    - 未知标签一律按文本处理并转义（数学写法 `x<y 且 y>3` 不会被当标签吞掉）
+- **影响范围**：`HtmlRichText`、`HtmlTableTextifier`、`LlmTextSanitizer#sanitize`、
+  `ExamPaperServiceImpl#toQuestionItem/judgeQuestions`、`ExamQuestionItemVO#stemHtml`、
+  `student-app/src/api/exam.ts`（`stemHtml` 类型）、`student-app/src/pages/exam-detail/ExamDetail.vue`（`<rich-text>`）、
+  `exam_parse_paper_v1.txt` 第 18 条、`exam_parse_clean_v1.txt` 第 6 条
+- **违反后果**：题干显示成 `<table><tr><td>…` 标签墙（真实卷概率统计题）；或反向——把脚本/事件属性带进页面；
+  或把数学表达式里的 `<` 当标签吞掉导致题干缺字
+- **发现时间**：2026-11-17（真实卷概率统计题：列联表以 HTML 标签原样显示；demo 阶段要求表格按表格渲染）
+- **正确做法**：存储层"受控 HTML"、展示层"rich-text + 内联样式"、判分层"纯文本派生"，
+  三层各管一件事；白名单 + 丢弃属性是安全边界，未知标签按文本处理是防误伤边界
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #38 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #44 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充
