@@ -56,7 +56,7 @@
 - 知识点掌握度状态表的维护与更新（可解释、可回滚）
 - 试卷上传、异步解析任务管理
 - 计划调整触发、diff 结果存储与确认
-- MySQL 5.7+ 数据存储，表结构预留 `tenant_id`（暂不实现多租户）
+- MySQL 5.7+ 数据存储，表结构包含 `tenant_id`（租户取自请求上下文，无上下文回退 `'default'`，见规则 #7）
 - **MySQL 5.7 限制说明**：不支持 `jsonb`（仅 `json` 类型，不支持函数索引）、不支持 `CHECK` 约束（8.0 才支持）、不支持部分索引。因此：数值范围校验在**应用层实现**，不依赖 DB 约束；JSON 字段使用 `json` 类型且不建函数索引；所有表字符集统一使用 `utf8mb4`（支持数学符号与 emoji）。
 
 **（3）AI Agent 服务（AgentScope Java 嵌入 Spring Boot）**
@@ -292,15 +292,22 @@ m_new = max(0.05, m_current - delta_m_down)
 
 ### 规则 #7：学生登录态与数据隔离
 
-- **规则描述**：学生端静默获取 `openid` 作为登录态，不强制手机号授权；所有学习数据按学生隔离；接口鉴权采用 JWT (JSON Web Token)。
-- **适用场景**：小程序端所有接口。
+- **规则描述**：学生端静默获取 `openid` 作为登录态，不强制手机号授权；所有学习数据按学生隔离；接口鉴权采用 JWT (JSON Web Token)。系统只有两类角色：**学生**与**管理员**（管理端角色），两类 token 互不通用。
+- **适用场景**：小程序端与管理端所有接口。
 - **登录与鉴权流程**：
-    - 学生端通过微信小程序静默登录获取身份标识，后端签发 JWT。
+    - 学生端通过微信小程序静默登录获取身份标识，后端签发 JWT（`role=student`）。
+    - 管理端使用用户名 + 密码登录（`POST /api/admin/auth/login`），校验通过后签发 `role=admin` 的 JWT（`sub` 为管理员 ID）。
     - **JWT 有效期**：2 小时，过期后前端静默刷新，无需用户操作。**刷新时序**：前端在 JWT 过期前 5 分钟内发起请求时，后端返回新 JWT（通过响应头携带），前端自动替换本地令牌；若请求到达时 JWT 已过期，后端返回 HTTP 401，前端拦截后自动执行静默刷新并重放原请求（单次重放，不循环）。
+- **角色隔离与跨学生边界（2026-11-19 补充）**：
+    - **管理端接口只允许管理员**：`/api/admin/**` 仅接受 `role=admin` 的 token；学生 token 与改造前签发、无 `role` claim 的旧 token **一律 HTTP 403**（`code=403`「无权限访问」），不进入业务层。管理端 Controller 必须标注 `com.jiang.security.AdminApi`（角色判定的权威依据，漏标即绕过鉴权；护栏为 `AdminGoalControllerTest` 的「管理端映射注解覆盖」用例）。
+    - **"跨学生可见"只属于管理端角色**：管理端可按 `studentId` 查询目标、掌握度等（开发者/运维视角；学习记录接口目前仅学生端，不支持跨学生查看），该能力**不对学生端开放**；学生端任何接口都只返回当前登录学生自己的数据。
+    - **学生端跨学生不可读、不可写**：每日作业（隐性约定 #44）、计划调整 diff 与调整历史（隐性约定 #46）、学习记录、试卷、错题、评测均按当前 `studentId + tenantId` 过滤；学生传入他人的 `goalId` / `diffId` / `planId` 一律按"不存在"处理（不区分存在性，避免探测他人数据）。
+    - **admin 身份不写入学生上下文**：管理端请求只写 `AdminContext`（adminId/openid/tenantId），不写 `StudentContext.studentId`，避免管理员 ID 被当成真实学生 ID 串数据（隐性约定 #45）。
 - **边界条件**：
-    - 身份标识缺失或无效时返回未登录态（HTTP 401）。
-    - 表结构预留 `tenant_id` 字段，**Demo 阶段以固定租户 `'default'` 运行**，后续多租户改造时零成本切换。
-    - 新增记录时 `tenant_id` 默认填充 `'default'`，不允许为 NULL。
+    - 身份标识缺失或无效时返回未登录态（HTTP 401）；角色不符（学生 token / 旧 token 访问管理端）返回 HTTP 403。
+    - 表结构包含 `tenant_id` 字段，**租户取自请求上下文**（JWT 的 `tenantId`）；无请求上下文（定时任务/Worker/启动期）回退 `'default'`，不再固定单租户运行（隐性约定 #47）。
+    - 新增记录时 `tenant_id` 由 `AutoFillHandler` 按当前请求上下文填充（与读过滤同源），不允许为 NULL。
+    - **admin 初始账号**：仓库内不写任何账号/密码；首次部署用环境变量 `ADMIN_BOOTSTRAP_USERNAME`（默认 `admin`）与 `ADMIN_BOOTSTRAP_PASSWORD` 初始化首个管理员（`AdminAuthServiceImpl#bootstrapAdmin` 幂等；未设置密码则不创建账号并 WARN），入库只存 PBKDF2WithHmacSHA256 哈希。**上线前必须修改初始密码**，演示账号按需停用/重建。
 
 ### 规则 #8：知识点来源与治理
 

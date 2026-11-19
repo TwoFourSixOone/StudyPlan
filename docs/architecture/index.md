@@ -161,7 +161,7 @@ StudyPlan/
 - **类型**：MySQL 5.7+
 - **字符集**：所有表统一使用 `utf8mb4`（支持数学符号与 emoji）
 - **MySQL 5.7 限制**：不支持 `jsonb`（仅 `json` 类型）、不支持 `CHECK` 约束、不支持函数索引。数值范围校验在应用层实现。**注意**：`knowledge_point.mastery_criteria`、`diagnostic_question`、`question_bank.choices` 等 JSON 字段不支持索引，若需按这些字段查询将全表扫描，当前设计不对其建查询条件。
-- **多租户约定**：Demo 阶段以固定租户 `'default'` 运行，所有表包含 `tenant_id` 字段（对应产品规则 #7）
+- **多租户约定**：所有表包含 `tenant_id` 字段；租户取自请求上下文（学生/管理端 JWT 的 `tenantId`），无上下文（定时任务/Worker/启动期）回退 `'default'`；写入与读过滤同源（对应产品规则 #7、隐性约定 #47）
 
 ### 5.2 核心数据表分组
 
@@ -202,9 +202,9 @@ StudyPlan/
 #### 规则 #7 实现细节
 
 - **登录流程**：学生端通过 `wx.login()` 获取 `code` → 后端调用微信接口换取 `openid` → 签发 JWT
-- **JWT payload**：`openid`、`student_id`、`tenant_id`（固定 `'default'`）
+- **JWT payload**：`openid`、`student_id`、`tenant_id`（登录账号所属租户，不再固定 `'default'`）
 - **JWT 刷新**：有效期 2 小时，前端在过期前 5 分钟内请求时后端通过响应头返回新 JWT；已过期时后端返回 401，前端拦截后静默重新 `wx.login()` 换取新 JWT 并重放原请求（单次重放）。**Demo 阶段不实现令牌黑名单/轮换，旧 JWT 在有效期内仍可用；多端登录场景后续扩展**
-- **tenant_id 注入**：后端每个接口从 JWT 中提取 `tenant_id` 自动注入查询条件
+- **tenant_id 注入**：后端从 JWT claims 取 `tenantId` 写入请求上下文（`StudentContext` / `AdminContext`），由 MyBatis-Plus 租户插件自动追加 `tenant_id` 条件；无请求上下文（定时任务/Worker/启动期）回退 `'default'`
 
 #### 规则 #3 实现细节（generated_question 表）
 

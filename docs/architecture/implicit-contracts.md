@@ -22,7 +22,7 @@
 >
 > 1. 编号 #5–#8 在本文件中**空缺**（历史遗留），**不复用**，新增约定统一从 #21 起顺序编号（起点已按序顺延，当前见第 3 条）。保留空号是为了不破坏已归档 change 中对 #9–#20 的既有引用（`archive/` 只读，无法回改）。
 > 2. 历史工件中出现的「隐性约定 #7 JWT 登录态」为**悬空引用**——该条不存在，其真实出处是 **产品规则 #7**（学生登录态与数据隔离）与 **约定 #15**（管理端 JWT 鉴权）。后续新增工件请直接引用这两处。
-> 3. （2026-11-19 补）当前最大编号为 **#44**，新增约定从 **#45** 起顺序编号；以 §3 维护规则第 2 条为准。
+> 3. （2026-11-19 补）当前最大编号为 **#47**，新增约定从 **#48** 起顺序编号；以 §3 维护规则第 2 条为准。
 
 ### 约定 #1：统一响应结构
 
@@ -594,10 +594,123 @@
 - **发现时间**：2026-11-19（学生端每日作业页截图：数学 15/15 可批改、语文 0/15 只读且内容不属于本人）
 - **正确做法**：计划归属只能经 `learning_goal` 表达 → 读计划必须带 `student_id`；提交明细双条件；
   写路径继续用服务端上下文取 studentId；用 SQL 反射测试防回归
+
+### 约定 #45：管理端接口必须按角色隔离，admin 身份不得写入学生上下文
+
+- **约定内容**：
+    - **管理端 Controller 必须标注 `com.jiang.security.AdminApi`**（类级注解）。它是角色门禁的**权威判定依据**：
+      `JwtInterceptor#isAdminRequest` 在 handler 是 `HandlerMethod` 时只看 `handlerMethod.getBeanType()` 是否带该注解
+      （`AnnotatedElementUtils.hasAnnotation`）。**新增管理端接口漏标 = 绕过鉴权**。
+      回归护栏：`AdminGoalControllerTest#should_annotateAllAdminMappedHandlers_when_adminApiContract` 动态扫描
+      `RequestMappingHandlerMapping` 中所有映射到 `/api/admin`、`/api/admin/**` 的 handler，断言 beanType 带
+      `@AdminApi` 且数量 ≥ 9（防扫描为空导致假绿）。
+    - **路径匹配只作兜底**：仅当 handler 不是 `HandlerMethod`（静态资源等）时才用
+      `JwtInterceptor#resolveNormalizedPath`（`UrlPathHelper#getPathWithinApplication` 解码 + 剥离 matrix 参数，
+      再 `sanitizePath` 折叠 `//`、去 `.`/`..` 段）+ 预编译 `PathPattern` 匹配 `/api/admin` 与 `/api/admin/**`。
+      **禁止**再用 `request.getRequestURI()` 字符串前缀判定——Tomcat 返回的原始 URI 与 Spring MVC 路由语义不一致，
+      `/api/admin;x=1/goal/1`、`/api/%61dmin/goal/1` 能命中管理端 handler 却绕过字符串前缀（R2 复核实测 200 + 执行 admin handler）。
+    - **角色来源**：`JwtUtil#isAdmin(Claims)` 读 `role` claim；`JwtUtil#generateToken(openid, studentId, tenantId)`
+      默认签 `role=student`，管理端登录用 `JwtUtil#generateAdminToken` 签 `role=admin`（`sub` = 管理员 ID）。
+      **缺失/非法 `role` claim 的旧 token 一律按 student 处理**：学生接口照常可用（不强制重新登录），管理端 403。
+    - **403 语义**：非 admin 访问管理端 → `JwtInterceptor#writeForbidden` 直写 **HTTP 403** +
+      `Result.error(ErrorCodes.FORBIDDEN)` JSON（`code=403`），`return false` 不执行 handler；
+      WARN 日志记规范化 path + openid + role（**不打印 token**）。
+      **不要**改抛 `BusinessException(FORBIDDEN)`：`GlobalExceptionHandler#handleBusinessException` 只把
+      `UNAUTHORIZED` 映射为 HTTP 状态码，其余业务异常返回 HTTP 200（前端按 `error.response.status === 403` 处理会失效）。
+      CORS 预检（`CorsUtils.isPreFlightRequest`）必须先行放行，否则 OPTIONS 会被 401 误伤。
+    - **身份上下文分离**：admin 请求只写 `AdminContext`（adminId/openid/tenantId）**+** `StudentContext#setTenantId`
+      （管理端服务仍依赖租户过滤），**不写** `StudentContext#setStudentId` / `setOpenid`——admin token 的 `sub` 是管理员 ID，
+      写进学生上下文会变成 `student_id=1` 的真实学生数据（越权/串数据）。`JwtInterceptor#afterCompletion` 必须
+      `AdminContext.clear()` + `StudentContext.clear()`（覆盖线程池复用）。
+    - **刷新保持原角色**：临近过期时 admin token 刷新仍签 `generateAdminToken`，不得降级为学生 token。
+- **影响范围**：`com.jiang.security.AdminApi`、`AdminContext`、`JwtUtil`、`JwtInterceptor`、`WebMvcConfig#addInterceptors`、
+  9 个管理端 Controller（`AdminGoal` / `AdminMastery` / `AdminQuestion` / `AdminKnowledgePoint` / `AdminDependency` /
+  `AdminStandard` / `AdminImportLog` / `AdminAuth` + `DataImportController`）、admin-web `src/api/request.js`（403 分支清 token 回登录页）
+- **违反后果**：学生 token 可读管理端数据（目标、掌握度、题库/知识点/导入日志等）或写导入数据；admin 的 `sub=1` 被当学生 ID 写入，污染真实学生数据；
+  新增管理端接口漏标注解后门禁静默失效；403 走业务异常映射会让前端拿到 HTTP 200 而无法触发重新登录
+- **发现时间**：2026-11-19（R2 复核发现：`WebMvcConfig` 只注册一个 `JwtInterceptor`，`AdminAuthServiceImpl` 复用学生 JWT 结构，
+  学生 token 可访问 `/api/admin/**`；随后发现按原始 URI 前缀判定存在 matrix/percent 路径绕过）
+- **正确做法**：管理端身份用 `@AdminApi` 标注表达（与 Spring 路由结果天然一致）；admin 身份只进 `AdminContext`；
+  403 由拦截器直写状态码 + 统一响应体；用「注解覆盖扫描」+「路径变体」两类测试防回归
+
+### 约定 #46：计划调整 diff/日志的归属经 learning_goal 表达，读/写必须带 student_id
+
+- **约定内容**：
+    - **归属模型**：`plan_adjustment_diff` / `plan_adjustment_log` 只有 `goal_id`（`src/main/resources/db/V7__plan_adjustment.sql`），
+      学生归属在 `learning_goal.student_id`。**禁止**只按 `tenant_id` 读/写这两张表。
+    - **读路径（三入口）**：`PlanAdjustmentServiceImpl#getDiffDetail` / `#confirmDiff` / `#rejectDiff` 统一走
+      `PlanAdjustmentServiceImpl#requireOwnedDiff` → `PlanAdjustmentDiffMapper#selectByIdWithStudent(diffId, studentId, tenantId)`
+      （`JOIN learning_goal lg ON d.goal_id = lg.goal_id`，同时带 `d.tenant_id`、`lg.tenant_id`、`lg.student_id`）。
+      不存在 / 非本人 / 非本租户统一 `PLAN_ADJUST_NOT_FOUND(1140)`，**不区分存在性**（避免用 diffId 探测他人数据）。
+      **状态类错误（已确认/已拒绝/已过期）必须在归属校验之后判定**，否则会向他人泄漏 diff 状态。
+    - **写路径（两处）**：
+      ① `triggerAdjustment(Long)`（学生入口）先 `PlanAdjustmentServiceImpl#requireOwnedGoal` →
+      `LearningGoalMapper#selectOwnedGoalId(goalId, studentId, tenantId)`，他人的 goalId 统一 1140，避免对别人的目标生成 diff
+      （pending diff 会阻塞目标所有者 7 天内的再次调整）；
+      ② `confirmDiff` 在调用 `PlanDiffService#applyDiff` **之前**完成归属校验（`applyDiff` 会改写目标策略与未来 `daily_plan`）。
+    - **历史列表**：`getAdjustmentHistory` 先 `LearningGoalMapper#selectGoalIdsByStudent(studentId, tenantId)`（**不过滤 status**，
+      否则已结束目标的历史会丢）→ goalIds 为空（含无学生上下文）直接返回空分页；非空用
+      `LambdaQueryWrapper.in(PlanAdjustmentLog::getGoalId, goalIds)` + MyBatis-Plus `Page` 分页，
+      **禁止** `wrapper.last()` 拼 SQL，**禁止**在无 goalIds 时退化为"只按 tenant_id"的全租户查询。
+    - **系统路径例外（必须保留）**：`PlanDiffService#applyDiff(diffId)` 同时被 01:30 自动调整（`AutoAdjustmentTask`）与
+      考试结算（`ExamSignalAdjustServiceImpl`）复用，**没有 HTTP 上下文、没有学生身份**；因此 `applyDiff` 本身
+      **不做** studentId 归属校验（其 Javadoc 已写明"归属校验由调用方负责；系统路径无学生上下文"），租户取自 diff 自身 `tenantId`。
+      同样，显式重载 `PlanAdjustmentService#triggerAdjustment(goalId, studentId, tenantId)` 是系统入口，不读 `StudentContext`、不做归属校验。
+      给系统入口硬加学生身份会直接打断定时任务/考试结算链路。
+    - **回归护栏**：`PlanAdjustmentIsolationSqlTest` 4 例反射钉 SQL（JOIN + 两侧租户 + `student_id`，含"删任一条件"的弱化形态反证）；
+      `PlanAdjustmentServiceTest` 覆盖他人 goalId、他人 diffId、空 goalIds、无学生上下文四类分支。
+- **影响范围**：`PlanAdjustmentServiceImpl`（`requireOwnedGoal` / `requireOwnedDiff` / 四入口）、`PlanAdjustmentDiffMapper#selectByIdWithStudent`、
+  `LearningGoalMapper#selectOwnedGoalId` / `#selectGoalIdsByStudent`、`PlanDiffServiceImpl#applyDiff`（仅 Javadoc）、
+  `PlanAdjustmentIsolationSqlTest`、`PlanAdjustmentServiceTest`、`PlanDiffServiceTest`
+- **违反后果**：同租户学生 A 拿到 B 的 diffId 即可读 B 的调整方案；confirm 后改写 B 的目标策略与未来计划；
+  调整历史返回全租户记录；对他人 goalId 触发调整会生成 pending diff 并阻塞对方调整
+- **发现时间**：2026-11-19（P0-2 越权修复：三个 diff 入口此前只校验 `tenant_id`；评审阶段补充发现 `triggerAdjustment(Long)` 同样是写路径）
+- **正确做法**：归属一律经 `learning_goal` 表达；读/写入口先查归属再判状态；系统入口保持无学生身份并在 Javadoc 声明归属责任；
+  用 SQL 反射测试 + 服务层行为测试双护栏
+
+### 约定 #47：租户与凭证的安全默认（请求上下文租户、CORS 空白名单不放行、admin 密码只存哈希）
+
+- **约定内容**：
+    - **租户读取**：`TenantHandler#resolveTenantId()` 优先级 `AdminContext#getTenantId` → `StudentContext#getTenantId` →
+      `DEFAULT_TENANT_ID('default')`；空串/空白一律视为无上下文（`hasText`）；无请求上下文的定时任务、MQ/Worker 线程、
+      启动期回退 `default`（保证 01:30 自动调整、考试结算等系统路径照常可用）。`TenantLineInnerInterceptor` 统一走该入口。
+    - **写路径与读过滤同源（关键）**：`AutoFillHandler#insertFill` 的 `tenantId` 必须调用 `TenantHandler::resolveTenantId`，
+      **禁止**再写死 `default`——MyBatis-Plus 租户插件对"实体已带 tenant 列"的 INSERT 不覆盖该值，
+      否则出现"读按请求租户过滤、写固定 default"的数据分割（请求租户 t1 写入的行 t1 自己读不到）。
+    - **忽略表**：`TenantHandler#ignoreTable` 当前返回 `false`（没有任何表忽略租户过滤）。后续新增无 `tenant_id` 的全局表
+      （字典/全局配置）必须逐表 `return true` 并写明原因与影响面，**禁止**用"所有表都忽略"绕过。
+    - **CORS**：白名单 `app.cors.allowed-origins`，默认仅本地开发来源
+      `http://localhost:5173,http://127.0.0.1:5173,http://localhost:*`；生产用环境变量
+      `APP_CORS_ALLOWED_ORIGINS` 或启动参数 `--app.cors.allowed-origins` 覆盖（不改仓库 yml）。
+      **空白名单不得退化为 `*`**：`WebMvcConfig#addCorsMappings` 必须先 `.allowedOrigins(new String[0])` 清掉
+      `CorsRegistration` 自带的 `"*"`，空白名单 → 只允许同源 + 启动 WARN 一次；`allowCredentials(true)` 与 `"*"` 互斥。
+    - **admin 凭证**：账号落 `admin_user` 表（`src/main/resources/db/V17__admin_user.sql`，`uk_username(username, tenant_id)`，
+      **租户内**唯一）；密码只存 PBKDF2WithHmacSHA256 哈希 `pbkdf2$<iterations>$<saltBase64>$<hashBase64>`
+      （`AdminAuthServiceImpl#hashPassword`：210000 迭代、16 字节随机盐、`MessageDigest.isEqual` 常量时间比较，单次约 60–80ms）。
+      **禁止**在源码、迁移、前端里写明文密码或固定哈希；登录失败统一 401（不区分"用户不存在/密码错误"），
+      日志只记 username/status，**不打印密码与哈希**。
+    - **首个管理员初始化**：`AdminAuthServiceImpl#bootstrapAdmin`（`@PostConstruct`）仅当 `admin_user` 为空且
+      `ADMIN_BOOTSTRAP_PASSWORD` 非空时创建（`ADMIN_BOOTSTRAP_USERNAME` 默认 `admin`，空白回退 admin）；未设置密码不创建 + WARN；
+      表缺失/DB 异常只 WARN、不拖垮应用启动；重复启动幂等（表非空跳过）。首批密码只从环境变量读，绝不落仓库。
+    - **admin 登录的租户**：`/api/admin/auth/login` 免鉴权且无请求上下文 → 按**默认租户**查 `admin_user`；
+      多租户下"指定租户登录"需后续 header 方案（当前未实现，已在 `AdminUserMapper#selectByUsername` 注释说明）。
+    - **凭证卫生**：`.qoder/settings.local.json` 已被 `.gitignore` 精确条目 `/.qoder/settings.local.json` 移出跟踪
+      （skills/agents 继续跟踪），防止本地工具口令随仓库扩散；受保护配置（`application*.yml`）不得写真实口令，
+      用 `${DB_PASSWORD:}` 等环境变量占位；口令一旦进过 commit，改文件不能消除历史泄漏，**必须轮换**。
+- **影响范围**：`TenantHandler`、`AutoFillHandler`、`MybatisPlusConfig`、`WebMvcConfig#addCorsMappings`、`AdminAuthServiceImpl`、
+  `AdminUser` / `AdminUserMapper`、`src/main/resources/db/V17__admin_user.sql`、`src/test/resources/schema.sql`（H2）、
+  `TenantHandlerTest`、`AutoFillHandlerTest`、`WebMvcConfigTest`、`AdminAuthServiceTest`
+- **违反后果**：写路径租户与读过滤不一致 → 跨租户数据割裂；CORS 空白名单退化为 `*` + 携带凭证 → 任意站点可盗用登录态；
+  明文/硬编码管理员口令随源码与仓库扩散；`admin_user` 未迁移时管理端无法登录
+- **发现时间**：2026-11-19（上线加固：`TenantHandler` 固定返回 default、`WebMvcConfig` 允许 `*` 且带 credentials、
+  `AdminAuthServiceImpl` 硬编码账号密码；R3 复核补充写路径一致性）
+- **正确做法**：租户只从一个解析入口取（读写同源）；CORS 白名单可配置且空值安全；admin 账号入库 + PBKDF2 + 环境变量 bootstrap；
+  迁移脚本人工执行顺序化（当前工程未接入 Flyway）
+
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #45 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #48 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充

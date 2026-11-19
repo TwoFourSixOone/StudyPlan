@@ -66,7 +66,7 @@
 - 脚本必须包含回滚方案
 - **AI 不得直接修改数据库脚本文件**，需通过 change 流程
 - 脚本目录约定：
-    - `src/main/resources/db/`：Flyway 迁移脚本（`V*__*.sql`），**只放 DDL**，由应用启动时自动执行
+    - `src/main/resources/db/`：按版本号排列的 DDL 迁移脚本（`V*__*.sql`），**只放 DDL**；**当前工程未接入 Flyway（`pom.xml` 无 flyway 依赖、`application*.yml` 无 `spring.flyway` 配置），迁移需人工按版本号顺序执行**（执行前备份；每个脚本含回滚注释）。若后续接入 Flyway，再改回"应用启动自动执行"并补 `flyway_schema_history` 说明
     - `docs/ops/`：人工执行的运维/排障脚本（数据清理、重置、修复），**不进 Flyway、不自动执行**，每个脚本必须包含诊断与校验语句
 
 ---
@@ -92,12 +92,12 @@
 
 ---
 
-## 7. 多租户预留约定
+## 7. 多租户约定
 
 > 对应产品规则 #7。
 
-- Demo 阶段以固定租户 `'default'` 运行，所有表均包含 `tenant_id` 字段。
+- 所有表均包含 `tenant_id` 字段；租户取自请求上下文（学生/管理端登录态 JWT 的 `tenantId`），无上下文（定时任务/Worker/启动期）回退 `'default'`（详见隐性约定 #47）。
 - **所有查询必须携带 `tenant_id` 条件**，即使当前只有一个租户。
-- 联合索引设计须包含 `tenant_id` 列，以便后续多租户改造时零成本切换。
-- 新增记录时 `tenant_id` 默认填充 `'default'`，不允许为 NULL。
+- 联合索引设计须包含 `tenant_id` 列，以保证租户隔离下按租户维度查询的索引命中（多租户已按请求上下文生效）。
+- 新增记录时 `tenant_id` 由 `AutoFillHandler#insertFill` 按当前请求上下文填充（与读过滤同源，见 `TenantHandler#resolveTenantId`），无上下文回退 `'default'`，不允许为 NULL。
 - 编写 SQL 时不得硬编码租户过滤逻辑为可选分支，应作为固定条件。
