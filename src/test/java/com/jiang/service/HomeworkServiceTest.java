@@ -558,17 +558,40 @@ class HomeworkServiceTest {
     @Test
     @DisplayName("查询作业：无计划 → 返回空列表")
     void should_returnEmpty_when_noPlan() {
-        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, STUDENT_ID, TENANT_ID, PLAN_DATE)).thenReturn(null);
 
         List<HomeworkVO> result = homeworkService.getHomeworkByDate(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
         assertTrue(result.isEmpty());
     }
 
     @Test
+    @DisplayName("2026-11-19 回归：查询当日作业必须带当前 studentId（防止读到同租户其他学生的作业）")
+    void should_scopeHomeworkByStudent_when_getByDate() {
+        DailyPlan plan = buildDailyPlan(PlanStatus.PENDING);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, STUDENT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
+        when(contentParser.parse(plan.getContent()))
+                .thenReturn(List.of(new DailyPlanQuestionRef(1L, "bank", "review")));
+        QuestionBank qb = new QuestionBank();
+        qb.setQuestionId(1L);
+        qb.setContent("题干");
+        qb.setAnswer("A");
+        qb.setType("choice");
+        qb.setDifficulty("basic");
+        qb.setKnowledgePointId("kp_001");
+        when(questionBankMapper.selectBatchIds(anyCollection())).thenReturn(List.of(qb));
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID)).thenReturn(Collections.emptyList());
+
+        homeworkService.getHomeworkByDate(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
+
+        verify(dailyPlanMapper).selectBySubjectAndDate(SUBJECT_ID, STUDENT_ID, TENANT_ID, PLAN_DATE);
+        verify(submissionMapper).selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID);
+    }
+
+    @Test
     @DisplayName("查询作业：有计划 + 题库题 → 正确组装 HomeworkVO")
     void should_returnHomeworkList_when_planExists() {
         DailyPlan plan = buildDailyPlan(PlanStatus.PENDING);
-        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, STUDENT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
 
         List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(1L, "bank", "review"));
         when(contentParser.parse(plan.getContent())).thenReturn(refs);
@@ -581,7 +604,7 @@ class HomeworkServiceTest {
         qb.setDifficulty("basic");
         qb.setKnowledgePointId("kp_001");
         when(questionBankMapper.selectBatchIds(anyCollection())).thenReturn(List.of(qb));
-        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(Collections.emptyList());
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID)).thenReturn(Collections.emptyList());
 
         List<HomeworkVO> result = homeworkService.getHomeworkByDate(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
 
@@ -596,7 +619,7 @@ class HomeworkServiceTest {
     @DisplayName("查询作业：生成题题干与选项中的 LaTeX 被清洗为纯文本（隐性约定 #24）")
     void should_sanitizeGeneratedQuestionText() {
         DailyPlan plan = buildDailyPlan(PlanStatus.PENDING);
-        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, STUDENT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
 
         List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(7L, "generated", "similar"));
         when(contentParser.parse(plan.getContent())).thenReturn(refs);
@@ -610,7 +633,7 @@ class HomeworkServiceTest {
                 + "{\"label\":\"B\",\"text\":\"$\\\\frac{1}{2}$\"}],"
                 + "\"answer\":\"A\",\"formatType\":\"choice\",\"difficulty\":\"standard\"}");
         when(generatedQuestionMapper.selectBatchIds(anyCollection())).thenReturn(List.of(gq));
-        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(Collections.emptyList());
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID)).thenReturn(Collections.emptyList());
 
         List<HomeworkVO> result = homeworkService.getHomeworkByDate(STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
 
@@ -834,7 +857,7 @@ class HomeworkServiceTest {
         sub.setQuestionSource("bank");
         sub.setStudentAnswer("A");
         sub.setKnowledgePointId("kp_001");
-        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(new ArrayList<>(List.of(sub)));
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID)).thenReturn(new ArrayList<>(List.of(sub)));
 
         // 题目引用
         List<DailyPlanQuestionRef> refs = List.of(new DailyPlanQuestionRef(100L, "bank", "review"));
@@ -872,7 +895,7 @@ class HomeworkServiceTest {
         stubStudentGrade();
         DailyPlan plan = buildDailyPlan(PlanStatus.IN_PROGRESS);
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
-        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(Collections.emptyList());
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID)).thenReturn(Collections.emptyList());
         when(contentParser.parse(plan.getContent())).thenReturn(Collections.emptyList());
 
         // 状态机校验失败（另一线程已更新）

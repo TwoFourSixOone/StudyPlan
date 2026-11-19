@@ -321,10 +321,10 @@ class ExamRedoIntegrationTest {
         plan.setStatus(PlanStatus.PENDING.getCode());
         plan.setTenantId(TENANT_ID);
         plan.setContent(contentCaptor.getValue());
-        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
+        when(dailyPlanMapper.selectBySubjectAndDate(SUBJECT_ID, STUDENT_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
         when(examQuestionMapper.selectBatchIds(anyCollection()))
                 .thenReturn(List.of(examQuestionWithAnswer()));
-        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID)).thenReturn(List.of());
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID)).thenReturn(List.of());
 
         List<HomeworkVO> homework = homeworkService.getHomeworkByDate(
                 STUDENT_ID, TENANT_ID, SUBJECT_ID, PLAN_DATE);
@@ -470,7 +470,7 @@ class ExamRedoIntegrationTest {
                 .startDate(PLAN_DATE.minusDays(10)).endDate(PLAN_DATE.plusMonths(3))
                 .build()));
         when(dailyPlanMapper.selectByGoalIdAndDate(GOAL_ID, TENANT_ID, PLAN_DATE)).thenReturn(plan);
-        when(submissionMapper.selectByPlanId(PLAN_ID, TENANT_ID))
+        when(submissionMapper.selectByPlanId(PLAN_ID, STUDENT_ID, TENANT_ID))
                 .thenReturn(new ArrayList<>(List.of(submission)));
         when(examQuestionMapper.selectBatchIds(anyCollection()))
                 .thenReturn(List.of(examQuestionWithAnswer()));

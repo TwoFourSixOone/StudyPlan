@@ -643,7 +643,7 @@ public class HomeworkServiceImpl implements HomeworkService {
     @Override
     public List<HomeworkVO> getHomeworkByDate(Long studentId, String tenantId, Long subjectId, LocalDate planDate) {
         // 1. 直接根据 subjectId 和日期查询 daily_plan（不依赖活跃目标，支持查看历史作业）
-        DailyPlan plan = dailyPlanMapper.selectBySubjectAndDate(subjectId, tenantId, planDate);
+        DailyPlan plan = dailyPlanMapper.selectBySubjectAndDate(subjectId, studentId, tenantId, planDate);
         if (plan == null) {
             return List.of();
         }
@@ -681,7 +681,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         Map<Long, ExamQuestion> examMap = loadExamQuestionMap(examIds);
 
         // 5. 查询学生作答记录
-        List<HomeworkSubmissionDetail> submissions = submissionMapper.selectByPlanId(plan.getPlanId(), tenantId);
+        List<HomeworkSubmissionDetail> submissions = submissionMapper.selectByPlanId(plan.getPlanId(), studentId, tenantId);
         Map<Long, HomeworkSubmissionDetail> submissionMap = submissions.stream()
                 .collect(Collectors.toMap(HomeworkSubmissionDetail::getQuestionId, s -> s, (a, b) -> a));
 
@@ -782,7 +782,7 @@ public class HomeworkServiceImpl implements HomeworkService {
         }
 
         // 3. 查询当日所有提交记录
-        List<HomeworkSubmissionDetail> rawSubmissions = submissionMapper.selectByPlanId(plan.getPlanId(), tenantId);
+        List<HomeworkSubmissionDetail> rawSubmissions = submissionMapper.selectByPlanId(plan.getPlanId(), studentId, tenantId);
 
         // IMP-AD: 优先按 create_time ASC, submission_id ASC 排序（避免雪花算法 submissionId 非严格递增）
         // IMP-W: 排序保证“同一 questionId 多条 redo 时取最后一条”语义稳定

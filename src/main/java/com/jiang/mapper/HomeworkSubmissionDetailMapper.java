@@ -38,6 +38,9 @@ public interface HomeworkSubmissionDetailMapper extends BaseMapper<HomeworkSubmi
 
     /**
      * 查询当日提交记录（按 question_id 去重，取最新 submission_id）
+     *
+     * <p><b>必须带 student_id（2026-11-19 修复）</b>：该表冗余了 student_id 列（含 idx_student 索引），
+     * 作业读取整体按学生隔离——即使调用方误传他人 plan_id 也读不到别人的作答。</p>
      */
     @Select("SELECT s1.submission_id, s1.plan_id, s1.question_id, s1.question_source, " +
             "s1.question_type, s1.student_answer, s1.is_correct, " +
@@ -47,10 +50,12 @@ public interface HomeworkSubmissionDetailMapper extends BaseMapper<HomeworkSubmi
             "INNER JOIN (" +
             "  SELECT question_id, MAX(submission_id) AS max_id " +
             "  FROM homework_submission_detail " +
-            "  WHERE plan_id = #{planId} AND tenant_id = #{tenantId} " +
+            "  WHERE plan_id = #{planId} AND student_id = #{studentId} AND tenant_id = #{tenantId} " +
             "  GROUP BY question_id" +
-            ") s2 ON s1.submission_id = s2.max_id")
+            ") s2 ON s1.submission_id = s2.max_id " +
+            "WHERE s1.student_id = #{studentId} AND s1.tenant_id = #{tenantId}")
     List<HomeworkSubmissionDetail> selectByPlanId(@Param("planId") Long planId,
+                                                  @Param("studentId") Long studentId,
                                                   @Param("tenantId") String tenantId);
 
     /**

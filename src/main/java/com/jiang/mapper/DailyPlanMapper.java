@@ -32,17 +32,25 @@ public interface DailyPlanMapper extends BaseMapper<DailyPlan> {
                                     @Param("planDate") LocalDate planDate);
 
     /**
-     * 查询指定科目在指定日期的作业计划（不依赖活跃目标，支持查看历史作业）
-     * 通过 JOIN learning_goal 表关联 subject_id
+     * 查询**指定学生**在指定科目/日期的作业计划（不依赖活跃目标，支持查看历史作业）
+     *
+     * <p><b>必须带 student_id（2026-11-19 修复）</b>：{@code daily_plan} 表没有 student_id 列，
+     * 归属信息在 {@code learning_goal.student_id}。此前 WHERE 只有 subject_id + tenant_id + plan_date
+     * 且 {@code ORDER BY create_time DESC LIMIT 1}，会返回**同租户内该科目该日期任意学生**的计划，
+     * 进而按 plan_id 取出别人的作答 → 跨学生数据泄漏。</p>
      */
     @Select("SELECT dp.plan_id, dp.goal_id, dp.plan_date, dp.content, dp.status, " +
             "dp.tenant_id, dp.create_time, dp.update_time " +
             "FROM daily_plan dp " +
             "JOIN learning_goal lg ON dp.goal_id = lg.goal_id " +
-            "WHERE lg.subject_id = #{subjectId} AND dp.tenant_id = #{tenantId} " +
+            "WHERE lg.student_id = #{studentId} " +
+            "AND lg.subject_id = #{subjectId} " +
+            "AND lg.tenant_id = #{tenantId} " +
+            "AND dp.tenant_id = #{tenantId} " +
             "AND dp.plan_date = #{planDate} " +
             "ORDER BY dp.create_time DESC LIMIT 1")
     DailyPlan selectBySubjectAndDate(@Param("subjectId") Long subjectId,
+                                      @Param("studentId") Long studentId,
                                       @Param("tenantId") String tenantId,
                                       @Param("planDate") LocalDate planDate);
 
