@@ -40,13 +40,30 @@ class ExamPaperMapperSqlTest {
     @DisplayName("A3：追加图片带 JSON_LENGTH < maxImages 条件（并发 TOCTOU 守卫）+ uploading 状态条件")
     void should_guardAppendImageUrl_withJsonLength() throws Exception {
         String sql = updateSql(ExamPaperMapper.class, "appendImageUrl",
-                Long.class, String.class, String.class, int.class);
+                Long.class, String.class, String.class, int.class, int.class);
 
         assertTrue(sql.contains("JSON_ARRAY_APPEND(image_urls, '$', #{imageUrl})"), sql);
+        assertTrue(sql.contains("image_page_nos = JSON_ARRAY_APPEND(COALESCE(image_page_nos, JSON_ARRAY()), '$', #{pageNo})"),
+                "页序必须与 URL 同语句追加，实际 SQL: " + sql);
         assertTrue(sql.contains("JSON_LENGTH(image_urls) < #{maxImages}"),
                 "缺少并发张数守卫（A3），实际 SQL: " + sql);
         assertTrue(sql.contains("status = 'uploading'"), sql);
         assertTrue(sql.contains("tenant_id = #{tenantId}"), sql);
+    }
+
+    @Test
+    @DisplayName("2026-11-17：两处重置会话必须同时清空 image_page_nos（否则页序长度与 URL 不一致）")
+    void should_resetImagePageNos_alongWithUrls() throws Exception {
+        String resetReuse = updateSql(ExamPaperMapper.class, "resetImageUrls", Long.class, String.class);
+        assertTrue(resetReuse.contains("image_urls = JSON_ARRAY()"), resetReuse);
+        assertTrue(resetReuse.contains("image_page_nos = JSON_ARRAY()"),
+                "30 分钟超期复用必须同时清空页序，实际 SQL: " + resetReuse);
+
+        String resetFailed = updateSql(ExamPaperMapper.class, "resetFailedPaperForReupload",
+                Long.class, String.class);
+        assertTrue(resetFailed.contains("image_urls = JSON_ARRAY()"), resetFailed);
+        assertTrue(resetFailed.contains("image_page_nos = JSON_ARRAY()"),
+                "失败当天重传必须同时清空页序，实际 SQL: " + resetFailed);
     }
 
     @Test

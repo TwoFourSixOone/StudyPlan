@@ -280,17 +280,93 @@ class AgentOutputValidatorTest {
 
             com.fasterxml.jackson.databind.JsonNode item = schema.at("/properties/questions/items");
             String required = item.get("required").toString();
-            assertTrue(required.contains("questionIndex"));
             assertTrue(required.contains("stem"));
             assertTrue(required.contains("formatType"));
             assertTrue(required.contains("studentAnswer"));
             assertTrue(required.contains("answerStatus"));
+            // 2026-11-17：questionIndex 不再必填（服务端以 paperNo 重新编号），
+            // 但题号至少给一个 —— schema 用 anyOf(questionIndex | paperNo) 表达，与校验器一致
+            assertFalse(required.contains("questionIndex"), "questionIndex 已移出 required: " + required);
+            String anyOf = item.get("anyOf").toString();
+            assertTrue(anyOf.contains("questionIndex"), anyOf);
+            assertTrue(anyOf.contains("paperNo"), anyOf);
             assertEquals(8, item.at("/properties/choices/maxItems").asInt());
             assertTrue(item.at("/properties/formatType/enum").toString().contains("choice"));
             assertTrue(item.at("/properties/answerStatus/enum").toString().contains("unreadable"));
             assertTrue(item.at("/properties/difficulty/enum").toString().contains("challenge"));
             assertEquals(200, schema.at("/properties/imageWarning/maxLength").asInt());
+            assertEquals(60, schema.at("/properties/paperQuestionTotal/maximum").asInt());
+            assertEquals(60, item.at("/properties/paperNo/maximum").asInt());
         }
+    }
+
+    @Test
+    @DisplayName("试卷解析：explanation 1200 字通过、1600 字拒绝（上限与 schema 1500 对齐）")
+    void should_allowLongerExplanation() {
+        String template = "{\"questions\":[{\"questionIndex\":1,\"stem\":\"题干\",\"formatType\":\"short\","
+                + "\"studentAnswer\":\"\",\"answerStatus\":\"blank\",\"knowledgePointId\":\"\","
+                + "\"explanation\":\"%s\"}]}";
+        assertTrue(validator.validateExamParse(String.format(template, "解".repeat(1200))).isSuccess());
+        assertFalse(validator.validateExamParse(String.format(template, "解".repeat(1600))).isSuccess());
+    }
+
+    @Test
+    @DisplayName("作答版（2026-11-17）：合法通过；缺字段/paperNo 越界/status 非法 → 失败")
+    void should_validateExamAnswers() {
+        String valid = "{\"answers\":[{\"paperNo\":1,\"studentAnswer\":\"C\","
+                + "\"answerStatus\":\"answered\"}]}";
+        assertTrue(validator.validateExamAnswers(valid).isSuccess());
+
+        assertFalse(validator.validateExamAnswers(
+                "{\"answers\":[{\"paperNo\":1,\"studentAnswer\":\"C\"}]}").isSuccess());
+        assertFalse(validator.validateExamAnswers(
+                "{\"answers\":[{\"paperNo\":0,\"studentAnswer\":\"\","
+                        + "\"answerStatus\":\"blank\"}]}").isSuccess());
+        assertFalse(validator.validateExamAnswers(
+                "{\"answers\":[{\"paperNo\":1,\"studentAnswer\":\"\","
+                        + "\"answerStatus\":\"maybe\"}]}").isSuccess());
+        assertFalse(validator.validateExamAnswers("{\"answers\":\"x\"}").isSuccess());
+    }
+
+    @Test
+    @DisplayName("作答版：answers 为空数组 → 失败（题目清单必须逐题输出，否则整卷会被判 0 分）")
+    void should_failExamAnswers_when_answersEmpty() {
+        assertFalse(validator.validateExamAnswers("{\"answers\":[]}").isSuccess());
+        assertFalse(validator.validateExamAnswers("{\"answers\":[],\"imageWarning\":\"无法读取\"}").isSuccess());
+    }
+
+    @Test
+    @DisplayName("作答版：unclearFields 超过 6 项 → 该条非法（与 schema maxItems 对齐）")
+    void should_rejectAnswerItem_when_unclearFieldsTooMany() throws Exception {
+        String item = "{\"paperNo\":1,\"studentAnswer\":\"C\",\"answerStatus\":\"answered\","
+                + "\"unclearFields\":[\"a\",\"b\",\"c\",\"d\",\"e\",\"f\",\"g\"]}";
+        com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper()
+                .readTree(item);
+        String error = validator.checkExamAnswerItem(node);
+        assertNotNull(error);
+        assertTrue(error.contains("unclearFields"), error);
+
+        // 6 项以内合法
+        assertNull(validator.checkExamAnswerItem(new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                "{\"paperNo\":1,\"studentAnswer\":\"C\",\"answerStatus\":\"answered\","
+                        + "\"unclearFields\":[\"a\",\"b\",\"c\",\"d\",\"e\",\"f\"]}")));
+    }
+
+    @Test
+    @DisplayName("题目：questionIndex 缺失但 paperNo 存在 → 合法（不因缺 questionIndex 静默丢题）")
+    void should_passExamParseItem_when_onlyPaperNoPresent() throws Exception {
+        com.fasterxml.jackson.databind.JsonNode node = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                "{\"paperNo\":17,\"stem\":\"题干\",\"formatType\":\"short\",\"studentAnswer\":\"\","
+                        + "\"answerStatus\":\"blank\",\"knowledgePointId\":\"\"}");
+        assertNull(validator.checkExamParseItem(node));
+
+        // 两者都缺 → 仍非法
+        com.fasterxml.jackson.databind.JsonNode noNo = new com.fasterxml.jackson.databind.ObjectMapper().readTree(
+                "{\"stem\":\"题干\",\"formatType\":\"short\",\"studentAnswer\":\"\","
+                        + "\"answerStatus\":\"blank\",\"knowledgePointId\":\"\"}");
+        String error = validator.checkExamParseItem(noNo);
+        assertNotNull(error);
+        assertTrue(error.contains("题号"), error);
     }
 }
 

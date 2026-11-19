@@ -5,14 +5,19 @@ import com.jiang.common.exception.ErrorCodes;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
  * 试卷图片上传校验测试（design §2.3：≤8 张 / 单张 9.5MB / 累计 30MB / 仅 jpg-jpeg-png）
@@ -161,5 +166,87 @@ class ExamUploadValidatorTest {
         assertEquals(ErrorCodes.FILE_TYPE_INVALID.getCode(),
                 assertThrows(BusinessException.class,
                         () -> validator.validateSingleFile(shortFile)).getCode());
+    }
+
+    // ==================== 2026-11-17：分辨率门槛 ====================
+
+    private static MockMultipartFile realImage(int width, int height, String format) throws Exception {
+        BufferedImage image = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(image, format, out);
+        String contentType = "png".equalsIgnoreCase(format) ? "image/png" : "image/jpeg";
+        String name = "real." + ("png".equalsIgnoreCase(format) ? "png" : "jpg");
+        return new MockMultipartFile("file", name, contentType, out.toByteArray());
+    }
+
+    @Test
+    @DisplayName("400×300 低清图 → 1193，提示带实际尺寸")
+    void should_throw1193_when_lowResolution() throws Exception {
+        BusinessException exception = assertThrows(BusinessException.class,
+                () -> validator.validateSingleFile(realImage(400, 300, "jpg")));
+        assertEquals(ErrorCodes.EXAM_IMAGE_RESOLUTION_TOO_LOW.getCode(), exception.getCode());
+        assertTrue(exception.getMessage().contains("400×300"), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("800×1131 清晰扫描页 → 通过（2026-11-17 真实样本）")
+    void should_pass_when_cleanScanAt800Width() throws Exception {
+        assertDoesNotThrow(() -> validator.validateSingleFile(realImage(800, 1131, "png")));
+    }
+
+    @Test
+    @DisplayName("900×400 → 1193（短边不足）")
+    void should_throw1193_when_shortSideTooSmall() throws Exception {
+        assertEquals(ErrorCodes.EXAM_IMAGE_RESOLUTION_TOO_LOW.getCode(),
+                assertThrows(BusinessException.class,
+                        () -> validator.validateSingleFile(realImage(900, 400, "jpg"))).getCode());
+    }
+
+    @Test
+    @DisplayName("1242×1574 高清页 → 通过")
+    void should_pass_when_resolutionEnough() throws Exception {
+        assertDoesNotThrow(() -> validator.validateSingleFile(realImage(1242, 1574, "jpg")));
+    }
+
+    @Test
+    @DisplayName("400×300 PNG → 1193")
+    void should_throw1193_when_smallPng() throws Exception {
+        assertEquals(ErrorCodes.EXAM_IMAGE_RESOLUTION_TOO_LOW.getCode(),
+                assertThrows(BusinessException.class,
+                        () -> validator.validateSingleFile(realImage(400, 300, "png"))).getCode());
+    }
+
+    @Test
+    @DisplayName("阈值置 0 → 关闭校验（回滚开关）")
+    void should_disableResolutionCheck_when_thresholdsZero() throws Exception {
+        ExamUploadValidator disabled = new ExamUploadValidator();
+        ReflectionTestUtils.setField(disabled, "minLongSide", 0);
+        ReflectionTestUtils.setField(disabled, "minShortSide", 0);
+        assertDoesNotThrow(() -> disabled.validateSingleFile(realImage(500, 684, "jpg")));
+    }
+
+    @Test
+    @DisplayName("读不出尺寸的构造图 → 放行 + WARN（不新增阻断点）")
+    void should_pass_when_dimensionUnreadable() {
+        assertDoesNotThrow(() -> validator.validateSingleFile(png("fake.png", 2048)));
+    }
+
+    @Test
+    @DisplayName("压线样本 500×684（长边 684≥600、短边 500≥500）→ 放行（proposal 验收项）")
+    void should_pass_when_exactlyAtShortSideThreshold() throws Exception {
+        assertDoesNotThrow(() -> validator.validateSingleFile(realImage(500, 684, "jpg")));
+    }
+
+    @Test
+    @DisplayName("压线样本 600×500 → 放行；599×500 与 600×499 → 1193")
+    void should_enforceBoundary_when_atThreshold() throws Exception {
+        assertDoesNotThrow(() -> validator.validateSingleFile(realImage(600, 500, "png")));
+
+        assertEquals(ErrorCodes.EXAM_IMAGE_RESOLUTION_TOO_LOW.getCode(),
+                assertThrows(BusinessException.class,
+                        () -> validator.validateSingleFile(realImage(599, 500, "png"))).getCode());
+        assertEquals(ErrorCodes.EXAM_IMAGE_RESOLUTION_TOO_LOW.getCode(),
+                assertThrows(BusinessException.class,
+                        () -> validator.validateSingleFile(realImage(600, 499, "png"))).getCode());
     }
 }

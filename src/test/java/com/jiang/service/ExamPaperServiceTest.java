@@ -420,14 +420,61 @@ class ExamPaperServiceTest {
             when(fileStorageService.upload(any(MultipartFile.class), anyString()))
                     .thenReturn("http://localhost:8080/uploads/exam-papers/100/new.jpg");
             when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT),
-                    eq("http://localhost:8080/uploads/exam-papers/100/new.jpg"), anyInt())).thenReturn(1);
+                    eq("http://localhost:8080/uploads/exam-papers/100/new.jpg"), anyInt(), anyInt())).thenReturn(1);
 
             var vo = service.uploadImage(PAPER_ID, jpeg("new.jpg", 1024));
 
             assertEquals(3, vo.getUploadedCount());
             assertEquals("uploading", vo.getStatus());
             assertNull(vo.getTaskId());
-            verify(examPaperMapper).appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt());
+            verify(examPaperMapper).appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt(), anyInt());
+        }
+
+        @Test
+        @DisplayName("2026-11-17：带 pageNo 上传 → 页序原样落库（并行上传保序）")
+        void should_passPageNo_when_provided() {
+            when(examPaperMapper.selectById(PAPER_ID)).thenReturn(paper("uploading", 2));
+            when(fileStorageService.size(anyString())).thenReturn(1024L);
+            when(fileStorageService.upload(any(MultipartFile.class), anyString()))
+                    .thenReturn("http://localhost:8080/uploads/exam-papers/100/p3.jpg");
+            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), eq(3), anyInt()))
+                    .thenReturn(1);
+
+            service.uploadImage(PAPER_ID, jpeg("p3.jpg", 1024), 3);
+
+            verify(examPaperMapper).appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), eq(3), anyInt());
+        }
+
+        @Test
+        @DisplayName("2026-11-17：pageNo 缺失 → 按「当前张数+1」补齐（旧客户端等价到达顺序）")
+        void should_fallbackPageNo_when_absent() {
+            when(examPaperMapper.selectById(PAPER_ID)).thenReturn(paper("uploading", 2));
+            when(fileStorageService.size(anyString())).thenReturn(1024L);
+            when(fileStorageService.upload(any(MultipartFile.class), anyString()))
+                    .thenReturn("http://localhost:8080/uploads/exam-papers/100/legacy.jpg");
+            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt(), anyInt()))
+                    .thenReturn(1);
+
+            service.uploadImage(PAPER_ID, jpeg("legacy.jpg", 1024));
+
+            verify(examPaperMapper).appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), eq(3), anyInt());
+        }
+
+        @Test
+        @DisplayName("2026-11-17：pageNo 越界（0 / 9）→ 归一为「当前张数+1」，不阻断上传")
+        void should_fallbackPageNo_when_outOfRange() {
+            when(examPaperMapper.selectById(PAPER_ID)).thenReturn(paper("uploading", 1));
+            when(fileStorageService.size(anyString())).thenReturn(1024L);
+            when(fileStorageService.upload(any(MultipartFile.class), anyString()))
+                    .thenReturn("http://localhost:8080/uploads/exam-papers/100/bad.jpg");
+            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt(), anyInt()))
+                    .thenReturn(1);
+
+            service.uploadImage(PAPER_ID, jpeg("bad0.jpg", 1024), 0);
+            service.uploadImage(PAPER_ID, jpeg("bad9.jpg", 1024), 9);
+
+            verify(examPaperMapper, times(2))
+                    .appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), eq(2), anyInt());
         }
 
         @Test
@@ -437,7 +484,7 @@ class ExamPaperServiceTest {
             when(fileStorageService.size(anyString())).thenReturn(1024L);
             when(fileStorageService.upload(any(MultipartFile.class), anyString()))
                     .thenReturn("http://localhost:8080/uploads/exam-papers/100/8.jpg");
-            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt())).thenReturn(1);
+            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt(), anyInt())).thenReturn(1);
             when(examPaperMapper.casToPending(PAPER_ID, TENANT)).thenReturn(1);
             when(examAnalysisTaskMapper.insert(any(ExamAnalysisTask.class))).thenAnswer(invocation -> {
                 ExamAnalysisTask t = invocation.getArgument(0);
@@ -488,7 +535,7 @@ class ExamPaperServiceTest {
             when(fileStorageService.size(anyString())).thenReturn(1024L);
             when(fileStorageService.upload(any(MultipartFile.class), anyString()))
                     .thenReturn("http://localhost:8080/uploads/exam-papers/100/8.jpg");
-            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt()))
+            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt(), anyInt()))
                     .thenReturn(0);
 
             assertEquals(ErrorCodes.EXAM_PAPER_IMAGE_LIMIT_REACHED.getCode(),
@@ -504,7 +551,7 @@ class ExamPaperServiceTest {
             when(fileStorageService.size(anyString())).thenReturn(1024L);
             when(fileStorageService.upload(any(MultipartFile.class), anyString()))
                     .thenReturn("http://localhost:8080/uploads/exam-papers/100/3.jpg");
-            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt()))
+            when(examPaperMapper.appendImageUrl(eq(PAPER_ID), eq(TENANT), anyString(), anyInt(), anyInt()))
                     .thenReturn(0);
 
             assertEquals(ErrorCodes.EXAM_UPLOAD_SESSION_NOT_FOUND.getCode(),

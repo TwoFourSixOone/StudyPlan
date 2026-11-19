@@ -93,6 +93,77 @@ class ExamParsePromptContractTest {
         assertTrue(text.contains("{ocrText}"), "缺 OCR 文本占位符");
         assertTrue(text.contains("OCR"), "整卷 Prompt 需包含 OCR 文本使用规则");
         assertTrue(text.contains("表格"), "需说明表格内联进题干");
+        assertTrue(text.contains("paperNo"), "需输出卷面题号 paperNo");
+        assertTrue(text.contains("paperQuestionTotal"), "需输出整卷题数 paperQuestionTotal");
+        assertTrue(text.contains("勾选"), "需说明选择题勾选即学生作答");
+        assertTrue(text.contains("老师批改"), "需说明老师批改不得进入学生答案");
+        assertTrue(text.contains("红笔"), "需说明红笔默认是老师批改（正确答案/解题过程不是学生答案）");
+        assertTrue(text.contains("印刷内容"), "OCR 只作印刷内容真值");
+        // 2026-11-17：答案-解析一致性（真实卷出现"标准答案 C / 解析写选 A"）
+        assertTrue(text.contains("答案："), "解析最后一行需固定写成机器可读的 `答案：X`");
+        assertTrue(text.contains("correctAnswer** 完全一致") || text.contains("完全一致"),
+                "需要求结论行与 correctAnswer 一致");
+    }
+
+    @Test
+    @DisplayName("双版本 Prompt（clean / answers）：只读印刷 / 只提作答 / 按 paperNo 对齐")
+    void should_describeDualChannelPrompts() throws Exception {
+        String clean;
+        try (InputStream is = new ClassPathResource("prompts/versions/exam_parse_clean_v1.txt").getInputStream()) {
+            clean = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        assertTrue(clean.contains("只识别"), "clean Prompt 需强调只识别");
+        assertTrue(clean.contains("印刷内容"), "clean Prompt 需强调只读印刷");
+        assertTrue(clean.contains("studentAnswer"), "clean Prompt 需输出 studentAnswer 空串");
+        assertTrue(clean.contains("blank"), "clean Prompt 需固定 blank");
+        // 2026-11-17 修复：clean 版必须继承整卷 Prompt 的强制规则，否则默认路径会退化
+        assertTrue(clean.contains("多选"), "clean 版需保留多选判据");
+        assertTrue(clean.contains("字母序"), "clean 版需保留多选答案按字母序连写");
+        assertTrue(clean.contains("如图"), "clean 版需保留「如图必须给 figureRect」的强制项");
+        assertTrue(clean.contains("封面"), "clean 版需说明封面/答题卡页不产生题目");
+        assertTrue(clean.contains("编造"), "clean 版需禁止编造题目");
+        assertTrue(clean.contains("unclearFields"), "clean 版需保留辨认不清字段的标注要求");
+        assertTrue(clean.contains("第 1 步"), "clean 版需保留解析分步格式要求");
+
+        String answers;
+        try (InputStream is = new ClassPathResource("prompts/versions/exam_parse_answers_v1.txt").getInputStream()) {
+            answers = new String(is.readAllBytes(), StandardCharsets.UTF_8);
+        }
+        assertTrue(answers.contains("红笔"), "answers Prompt 需说明红笔是老师批改");
+        assertTrue(answers.contains("questionDigest"), "answers Prompt 需注入题目清单");
+        assertTrue(answers.contains("paperNo"), "answers Prompt 需按 paperNo 对齐");
+        assertTrue(answers.contains("blank"), "answers Prompt 需支持未作答");
+        assertTrue(answers.contains("答题卡"), "answers Prompt 需覆盖答题卡作答（整卷 Prompt 第 5 条）");
+        assertTrue(answers.contains("铅笔"), "answers Prompt 需覆盖铅笔/灰色笔作答");
+        assertTrue(answers.contains("空数组"), "answers Prompt 需明确不能返回空数组");
+    }
+
+    @Test
+    @DisplayName("2026-11-17：clean / answers Prompt 渲染后无残留占位符（占位符漂移可被发现）")
+    void should_renderDualChannelPrompts_withoutResidualPlaceholders() {
+        ExamParseAgentImpl agent = new ExamParseAgentImpl();
+        com.jiang.dto.ExamParsePaperContext paperContext = com.jiang.dto.ExamParsePaperContext.builder()
+                .subjectName("数学").gradeLabel("高三").imageTotal(4).tenantId("default")
+                .ocrText("第1页 题干文本")
+                .kpCandidates(List.of(new KpCandidate("kp-1", "集合与函数")))
+                .build();
+        for (String path : List.of(ExamParseAgentImpl.PAPER_PROMPT_PATH, ExamParseAgentImpl.CLEAN_PROMPT_PATH)) {
+            String rendered = agent.buildWholePrompt(paperContext, "无", path);
+            assertFalse(rendered.matches("(?s).*\\{[a-zA-Z]+}.*"),
+                    path + " 渲染后残留未替换占位符");
+            assertTrue(rendered.contains("数学"));
+            assertTrue(rendered.contains("第1页 题干文本"));
+            assertTrue(rendered.contains("- kp-1 | 集合与函数"));
+        }
+
+        String answersRendered = agent.buildAnswersPrompt(
+                com.jiang.dto.ExamAnswerParseContext.builder()
+                        .subjectName("数学").gradeLabel("高三").imageTotal(4).tenantId("default")
+                        .questionDigest("- 第17题 | 题干：数列")
+                        .build(), "无");
+        assertFalse(answersRendered.matches("(?s).*\\{[a-zA-Z]+}.*"), "answers Prompt 渲染后残留未替换占位符");
+        assertTrue(answersRendered.contains("第17题"));
+        assertTrue(answersRendered.contains("高三"));
     }
 
     @Test

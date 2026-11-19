@@ -285,6 +285,34 @@ class ExamPaperReadServiceTest {
     }
 
     @Test
+    @DisplayName("2026-11-17：详情题干带 HTML 表格 → stem 为纯文本、stemHtml 为受控 HTML（rich-text 渲染）")
+    void should_exposeStemHtml_forTableInStem() {
+        when(examPaperMapper.selectDetailWithSubject(PAPER_ID, STUDENT_ID, TENANT))
+                .thenReturn(paperRow("completed"));
+        ExamQuestion question = dbQuestion(201L, 19, "short", "(1) p=0.9", 1, "kp-1", "answered");
+        question.setQuestionContent(ExamQuestionTextCodec.encode(
+                "列联表：<table><tr><td>合计</td><td>960</td></tr></table>(1) 求 p；",
+                List.of(), "0.9", "解析：代入得 0.9", "answered"));
+        when(examQuestionMapper.selectByPaperOrderByIndex(PAPER_ID, TENANT)).thenReturn(List.of(question));
+        when(knowledgePointMapper.selectNamesByIds(anyList(), eq(TENANT))).thenReturn(List.of());
+
+        ExamQuestionItemVO item = service.getPaperDetail(PAPER_ID).getQuestions().get(0);
+
+        // 纯文本字段：表格被转成行式文本（判分/兼容用）
+        assertFalse(item.getStem().toLowerCase().contains("<table"), item.getStem());
+        assertTrue(item.getStem().contains("合计 | 960"), item.getStem());
+        // 富文本字段：保留表格结构并注入内联样式
+        assertNotNull(item.getStemHtml());
+        assertTrue(item.getStemHtml().contains("<table style="), item.getStemHtml());
+        assertTrue(item.getStemHtml().contains("960"), item.getStemHtml());
+        // 分块（demo：宽表格横向滚动）：表格单独成块并带 min-width
+        assertNotNull(item.getStemBlocks());
+        assertTrue(item.getStemBlocks().stream().anyMatch(block -> "table".equals(block.getType())
+                        && block.getMinWidthPx() > 0),
+                "表格块需带 minWidthPx 供前端 scroll-view 横向滚动: " + item.getStemBlocks());
+    }
+
+    @Test
     @DisplayName("详情：解析中/失败且无题目 → 仍返回试卷头（questions 为空数组，不查知识点）")
     void should_returnHeaderOnly_when_noQuestions() {
         when(examPaperMapper.selectDetailWithSubject(PAPER_ID, STUDENT_ID, TENANT))
