@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Exam Student Answer Parse Output Schema",
+  "description": "学生作答提取输出（2026-11-17 双版本解析）",
+  "type": "object",
+  "required": ["answers"],
+  "properties": {
+    "answers": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 60,
+      "items": {
+        "type": "object",
+        "required": ["paperNo", "studentAnswer", "answerStatus"],
+        "properties": {
+          "paperNo": { "type": "integer", "minimum": 1, "maximum": 60 },
+          "studentAnswer": { "type": "string", "maxLength": 1000 },
+          "answerStatus": { "type": "string", "enum": ["answered", "blank", "unreadable"] },
+          "unclearFields": { "type": "array", "maxItems": 6, "items": { "type": "string" } }
+        }
+      }
+    },
+    "imageWarning": { "type": "string", "maxLength": 200 }
+  }
+}
