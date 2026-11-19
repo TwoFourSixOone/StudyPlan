@@ -37,4 +37,22 @@ public interface ExamParseAgent {
      * @return 整卷结果（questions 可能为空；failureReason 非空表示重试耗尽）
      */
     ExamParseImageResult parsePaper(java.util.List<VisionImage> images, ExamParsePaperContext context);
+
+    /**
+     * 印刷题目版解析（2026-11-17 双版本）：只读印刷内容，studentAnswer 固定空/blank
+     *
+     * @param images  clean 图（去红/蓝/绿后的图；黑笔卷可能等同原图）
+     * @param context 整卷上下文（含 OCR 文本与候选知识点）
+     */
+    ExamParseImageResult parseCleanPaper(java.util.List<VisionImage> images,
+                                         ExamParsePaperContext context);
+
+    /**
+     * 学生作答版解析（2026-11-17 双版本）：只提取作答，按 paperNo 对齐
+     *
+     * @param images  student 图（去红后的图，保留学生黑/蓝笔迹）
+     * @param context 作答上下文（题目清单 + 重试提示）
+     */
+    com.jiang.dto.ExamAnswerParseResult parseStudentAnswers(
+            java.util.List<VisionImage> images, com.jiang.dto.ExamAnswerParseContext context);
 }

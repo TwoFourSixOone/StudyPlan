@@ -26,6 +26,9 @@ import java.util.Set;
 @Slf4j
 public class AgentOutputValidator {
 
+    /** unclearFields 最大项数（与 prompts/schemas 的 maxItems 保持一致） */
+    public static final int UNCLEAR_FIELDS_MAX = 6;
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private JsonNode questionGenSchema;
     private JsonNode attributionSchema;
@@ -222,7 +225,9 @@ public class AgentOutputValidator {
         }
 
         // 必填字段（v4：knowledgePointId 由解析直出，允许空串但字段必须存在）
-        String[] requiredFields = {"questionIndex", "stem", "formatType", "studentAnswer", "answerStatus",
+        // 2026-11-17：questionIndex 移出必填——服务端已用 paperNo 重新编号，模型漏给 questionIndex
+        // 不应整题丢弃（否则又会构成一条"静默丢题"路径）；题号存在性在下方单独校验
+        String[] requiredFields = {"stem", "formatType", "studentAnswer", "answerStatus",
                 "knowledgePointId"};
         for (String field : requiredFields) {
             if (!item.has(field) || item.get(field).isNull()) {
@@ -237,14 +242,22 @@ public class AgentOutputValidator {
             return "knowledgePointId 必须是字符串";
         }
 
-        // 题号：1..60 的整数
+        // 题号：questionIndex（1..60）或 paperNo（1..60）至少给一个整数
         JsonNode questionIndex = item.get("questionIndex");
-        if (!questionIndex.isNumber()) {
-            return "questionIndex 必须是整数";
-        }
-        int index = questionIndex.asInt();
-        if (index < 1 || index > 60) {
-            return "questionIndex 必须在 1-60 之间，实际 " + index;
+        boolean hasIndex = questionIndex != null && !questionIndex.isNull();
+        if (hasIndex) {
+            if (!questionIndex.isNumber()) {
+                return "questionIndex 必须是整数";
+            }
+            int index = questionIndex.asInt();
+            if (index < 1 || index > 60) {
+                return "questionIndex 必须在 1-60 之间，实际 " + index;
+            }
+        } else {
+            JsonNode paperNo = item.get("paperNo");
+            if (paperNo == null || paperNo.isNull() || !paperNo.isNumber()) {
+                return "缺少题号（questionIndex 与 paperNo 至少提供一个整数）";
+            }
         }
 
         // 题干：1..2000
@@ -311,10 +324,125 @@ public class AgentOutputValidator {
             return "correctAnswer 超过 500 字";
         }
         if (item.has("explanation") && item.get("explanation").isTextual()
-                && item.get("explanation").asText().length() > 1000) {
-            return "explanation 超过 1000 字";
+                && item.get("explanation").asText().length() > 1500) {
+            // 2026-11-17：与 schema 的 maxLength=1500 对齐；此前卡 1000 会静默丢整题
+            return "explanation 超过 1500 字";
         }
 
+        return null;
+    }
+
+    /**
+     * 校验学生作答版输出（2026-11-17 双版本）
+     *
+     * <p>语义：JSON 解析失败/顶层非对象/answers 非数组/<b>answers 为空</b> → 整图失败（可重试）；
+     * 单条非法只丢弃该条，由 {@link #checkExamAnswerItem(JsonNode)} 暴露。</p>
+     *
+     * <p><b>为什么空数组也算失败</b>：作答版 Prompt 要求「题目清单里的每一道题都必须输出一条（没有作答也输出
+     * blank）」，因此空数组说明模型没有按清单作答 → 若当成功处理，会让整卷所有题落 {@code blank}，
+     * 而 {@code AnswerGradingServiceImpl} 对「学生空 + 标准答案有」判错 → 整卷 0 分并污染掌握度/错题
+     * （这正是双版本引入回退的原因）。与整卷题目校验里「空页合法」的语义不同，不要复用。</p>
+     */
+    public ValidationResult validateExamAnswers(String agentOutput) {
+        JsonNode jsonNode;
+        try {
+            jsonNode = OBJECT_MAPPER.readTree(JsonPayloadExtractor.extract(agentOutput));
+        } catch (Exception e) {
+            return ValidationResult.fail("JSON 解析失败: " + e.getMessage());
+        }
+        if (!jsonNode.isObject()) {
+            return ValidationResult.fail("输出必须是 JSON 对象");
+        }
+        JsonNode answers = jsonNode.get("answers");
+        if (answers == null || !answers.isArray()) {
+            return ValidationResult.fail("缺少或非法字段 answers（必须是 JSON 数组）");
+        }
+        if (answers.isEmpty()) {
+            return ValidationResult.fail("answers 为空：题目清单中的每道题都必须输出一条（无作答也要输出 blank）");
+        }
+        int validCount = 0;
+        List<String> invalidItems = new ArrayList<>();
+        for (int i = 0; i < answers.size(); i++) {
+            String error = checkExamAnswerItem(answers.get(i));
+            if (error == null) {
+                validCount++;
+            } else {
+                invalidItems.add("作答[" + i + "]: " + error);
+            }
+        }
+        if (validCount == 0) {
+            return ValidationResult.fail("answers 中没有任何合法作答: " + String.join("; ", invalidItems));
+        }
+        if (!invalidItems.isEmpty()) {
+            log.warn("作答版部分条目被丢弃: {}", String.join("; ", invalidItems));
+        }
+        return ValidationResult.success();
+    }
+
+    /**
+     * 校验单条学生作答
+     *
+     * @return 错误信息；合法返回 null
+     */
+    public String checkExamAnswerItem(JsonNode item) {
+        if (item == null || !item.isObject()) {
+            return "作答必须是 JSON 对象";
+        }
+        String[] requiredFields = {"paperNo", "studentAnswer", "answerStatus"};
+        for (String field : requiredFields) {
+            if (!item.has(field) || item.get(field).isNull()) {
+                return "缺少必填字段 " + field;
+            }
+        }
+        JsonNode paperNo = item.get("paperNo");
+        if (!paperNo.isNumber()) {
+            return "paperNo 必须是整数";
+        }
+        int value = paperNo.asInt();
+        if (value < 1 || value > 60) {
+            return "paperNo 必须在 1-60 之间，实际 " + value;
+        }
+        JsonNode studentAnswer = item.get("studentAnswer");
+        if (!studentAnswer.isTextual()) {
+            return "studentAnswer 必须是字符串";
+        }
+        if (studentAnswer.asText().length() > 1000) {
+            return "studentAnswer 超过 1000 字";
+        }
+        JsonNode answerStatus = item.get("answerStatus");
+        if (!answerStatus.isTextual()
+                || !Set.of("answered", "blank", "unreadable").contains(answerStatus.asText())) {
+            return "answerStatus 值非法: " + answerStatus.asText();
+        }
+        // 可选字段：unclearFields 与 schema 对齐（数组、≤6 项、字符串），避免模型回传超大数组
+        String unclearError = checkUnclearFields(item);
+        if (unclearError != null) {
+            return unclearError;
+        }
+        return null;
+    }
+
+    /**
+     * 可选字段 {@code unclearFields} 的结构/长度校验（schema：array，maxItems=6，items string）
+     *
+     * @return 错误信息；合法或缺省返回 null
+     */
+    String checkUnclearFields(JsonNode item) {
+        if (!item.has("unclearFields") || item.get("unclearFields").isNull()) {
+            return null;
+        }
+        JsonNode fields = item.get("unclearFields");
+        if (!fields.isArray()) {
+            return "unclearFields 必须是数组";
+        }
+        if (fields.size() > UNCLEAR_FIELDS_MAX) {
+            return "unclearFields 不能超过 " + UNCLEAR_FIELDS_MAX + " 项，实际 " + fields.size();
+        }
+        for (JsonNode field : fields) {
+            if (!field.isTextual()) {
+                return "unclearFields 的元素必须是字符串";
+            }
+        }
         return null;
     }
 

@@ -40,7 +40,17 @@ public interface ExamPaperService {
      * @param file    图片（multipart 字段名固定 {@code file}）
      * @return 已上传张数与状态（达到 8 张上限时自动创建解析任务）
      */
-    ExamImageUploadVO uploadImage(Long paperId, MultipartFile file);
+    /**
+     * 追加一张试卷图片（2026-11-17：pageNo = 选择顺序 1..8，用于还原卷面页序；null 按到达顺序）
+     */
+    ExamImageUploadVO uploadImage(Long paperId, MultipartFile file, Integer pageNo);
+
+    /**
+     * 兼容旧调用（不传页序）
+     */
+    default ExamImageUploadVO uploadImage(Long paperId, MultipartFile file) {
+        return uploadImage(paperId, file, null);
+    }
 
     /**
      * 提交解析（正常触发路径；uploadedCount ≥ 1，重复提交 1186）

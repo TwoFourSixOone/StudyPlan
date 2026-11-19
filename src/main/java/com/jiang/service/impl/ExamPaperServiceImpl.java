@@ -7,6 +7,7 @@ import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
 import com.jiang.common.util.BusinessDate;
+import com.jiang.common.util.ExamPaperImages;
 import com.jiang.common.util.ExamPaperTypeUtil;
 import com.jiang.common.util.ExamQuestionTextCodec;
 import com.jiang.common.util.GradeMatcher;
@@ -159,6 +160,10 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     @Value("${exam.parse.figure-verify:true}")
     private boolean figureVerifyEnabled;
 
+    /** 二次确认被拒的裁剪件是否落盘（2026-11-17，排查用；默认开） */
+    @Value("${exam.parse.figure-verify.save-rejected:false}")
+    private boolean figureVerifySaveRejected;
+
     /** 配图审核 Prompt 缓存 */
     private volatile String figureCheckPrompt;
     @Autowired
@@ -285,7 +290,7 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     }
 
     @Override
-    public ExamImageUploadVO uploadImage(Long paperId, MultipartFile file) {
+    public ExamImageUploadVO uploadImage(Long paperId, MultipartFile file, Integer pageNo) {
         Long studentId = StudentContext.getStudentId();
         String tenantId = StudentContext.getTenantId();
 
@@ -311,8 +316,9 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             // 4. 文件落盘（事务外）
             String url = fileStorageService.upload(file, "exam-papers/" + studentId);
 
-            // 5. 原子追加 URL（单条 JSON_ARRAY_APPEND + JSON_LENGTH 守卫，>=8 张时不生效）
-            int appended = examPaperMapper.appendImageUrl(paperId, tenantId, url, maxImages);
+            // 5. 原子追加 URL + 页序（单条 JSON_ARRAY_APPEND + JSON_LENGTH 守卫，>=8 张时不生效）
+            int pageNoValue = resolvePageNo(pageNo, imageUrls.size(), maxImages, paperId);
+            int appended = examPaperMapper.appendImageUrl(paperId, tenantId, url, pageNoValue, maxImages);
             if (appended == 0) {
                 // 条件更新失败：状态已被提交/复用，或并发追加把张数打满
                 ExamPaper latest = examPaperMapper.selectById(paperId);
@@ -481,7 +487,7 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             // 3. B7：TX-A 已提交过（库中已有题目）→ 跳过视觉解析与归因，直接用库中行判分
             ExamParseOutcome outcome = null;
             if (!hasPersistedQuestions(paper.getId(), tenantId)) {
-                List<String> imageUrls = fromJson(paper.getImageUrls());
+                List<String> imageUrls = orderedImageUrls(paper);
                 outcome = examParseService.parsePaper(
                         paper.getId(), paper.getSubjectId(), paper.getStudentId(), tenantId, imageUrls);
                 if (outcome.getQuestions().isEmpty()) {
@@ -491,7 +497,7 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                     }
                     throw new BusinessException(ErrorCodes.EXAM_PARSE_FAILED, reason);
                 }
-                persistQuestions(task, paper, outcome);
+                persistQuestions(task, paper, outcome, imageUrls);
             } else {
                 log.info("试卷已存在题目，跳过视觉解析与归因（重试幂等）: paperId={}, taskId={}",
                         paper.getId(), taskId);
@@ -511,13 +517,14 @@ public class ExamPaperServiceImpl implements ExamPaperService {
      * <p>所有解析出的题目都落库：答对/答错/未作答/无法判定（{@code is_correct} 统一为 NULL，
      * 判分在 TX-B 写），因此 0 题的图只留下告警，不影响其他题。</p>
      */
-    private void persistQuestions(ExamAnalysisTask task, ExamPaper paper, ExamParseOutcome outcome) {
+    private void persistQuestions(ExamAnalysisTask task, ExamPaper paper, ExamParseOutcome outcome,
+                                  List<String> orderedImageUrls) {
         String tenantId = task.getTenantId();
         List<ParsedQuestion> questions = outcome.getQuestions();
         String imageWarning = buildImageWarning(outcome);
 
         // 2026-11-12：题目配图（按模型给的归一化区域从原卷裁剪）。文件 IO 必须在事务外做。
-        Map<Integer, FigureData> figures = cropQuestionFigures(paper, questions);
+        Map<Integer, FigureData> figures = cropQuestionFigures(paper, questions, orderedImageUrls);
 
         transactionTemplate.execute(status -> {
             // 题号稳定升序落库（防御：即使上游顺序抖动也按 questionIndex 排一次）
@@ -579,11 +586,11 @@ public class ExamPaperServiceImpl implements ExamPaperService {
      * <p>裁剪失败/区域非法时回退为「整页原图」，保证学生至少能看到图形；文件 IO
      * （读原图、写裁剪件）全部在事务外完成，避免长事务。</p>
      */
-    private Map<Integer, FigureData> cropQuestionFigures(ExamPaper paper, List<ParsedQuestion> questions) {
+    private Map<Integer, FigureData> cropQuestionFigures(ExamPaper paper, List<ParsedQuestion> questions,
+                                                         List<String> imageUrls) {
         if (questions == null || questions.isEmpty()) {
             return Map.of();
         }
-        List<String> imageUrls = fromJson(paper.getImageUrls());
         Map<Integer, FigureData> figures = new HashMap<>();
         for (ParsedQuestion question : questions) {
             if (question.getQuestionIndex() == null) {
@@ -594,45 +601,63 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                 continue;
             }
             String sourceUrl = imageUrls.get(index);
-            // 模型判断有印刷图形、但没给区域 → 回退整页配图（学生草稿不算图，模型 hasFigure=false 时不挂）
-            if (!question.hasFigure()) {
+            // 候选框：模型框优先，其次 OCR bbox（2026-11-17：OCR 不再覆盖模型框，改为第二个候选）
+            List<Map<String, Double>> candidates = com.jiang.common.util.FigureRects.candidates(question);
+            if (candidates.isEmpty()) {
+                // 模型判断有印刷图形、但没给可用区域 → 回退整页配图
                 if (Boolean.TRUE.equals(question.getHasPrintedFigure())) {
                     figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
-                    log.info("模型标注有印刷图形但未给区域，回退整页配图: paperId={}, questionIndex={}",
+                    log.info("模型标注有印刷图形但无可用区域，回退整页配图: paperId={}, questionIndex={}",
                             paper.getId(), question.getQuestionIndex());
                 }
                 continue;
             }
+            byte[] source;
             try {
-                byte[] source = fileStorageService.readBytes(sourceUrl);
-                byte[] cropped = com.jiang.common.util.ImageCropper.cropJpeg(source, question.getFigureRect());
-                if (cropped == null || cropped.length == 0) {
-                    log.warn("题目配图裁剪失败，回退整页原图: paperId={}, questionIndex={}",
-                            paper.getId(), question.getQuestionIndex());
-                    figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
-                    continue;
-                }
-                String url = fileStorageService.uploadBytes(cropped, "exam-figures/" + paper.getStudentId(), ".jpg");
-                // 二次确认：裁出来的必须确实是印刷图形（否则是题号/分值/学生手写 → 回退整页）
-                if (figureVerifyEnabled && !isPrintedFigure(cropped)) {
-                    log.warn("配图二次确认不通过（疑似文字/题号/手写），回退整页原图: paperId={}, questionIndex={}",
-                            paper.getId(), question.getQuestionIndex());
-                    figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
-                    continue;
-                }
-                // 2026-11-12：配图同时落 base64（data URL），小程序端不依赖文件服务地址直接渲染
-                String base64 = "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(cropped);
-                figures.put(question.getQuestionIndex(), new FigureData(url, base64));
+                source = fileStorageService.readBytes(sourceUrl);
             } catch (Exception e) {
-                log.warn("题目配图处理失败，回退整页原图: paperId={}, questionIndex={}, reason={}",
+                log.warn("配图来源页读取失败，回退整页原图: paperId={}, questionIndex={}, reason={}",
                         paper.getId(), question.getQuestionIndex(), e.getMessage());
                 figures.put(question.getQuestionIndex(), pageFigure(sourceUrl));
+                continue;
             }
+            FigureData accepted = null;
+            for (int candidateIndex = 0; candidateIndex < candidates.size() && accepted == null; candidateIndex++) {
+                Map<String, Double> rect = candidates.get(candidateIndex);
+                String rectDesc = com.jiang.common.util.FigureRects.describe(rect);
+                byte[] cropped = com.jiang.common.util.ImageCropper.cropJpeg(source, rect);
+                if (cropped == null || cropped.length == 0) {
+                    log.warn("配图裁剪失败（候选 {}）: paperId={}, questionIndex={}, rect={}",
+                            candidateIndex, paper.getId(), question.getQuestionIndex(), rectDesc);
+                    continue;
+                }
+                if (figureVerifyEnabled && !isPrintedFigure(cropped, paper.getId(), question.getQuestionIndex(),
+                        candidateIndex, rectDesc)) {
+                    saveRejectedFigure(paper.getId(), question.getQuestionIndex(), candidateIndex, cropped);
+                    continue;
+                }
+                accepted = toFigureData(paper.getStudentId(), cropped);
+            }
+            if (accepted == null) {
+                log.warn("所有配图候选均未通过二次确认，回退整页原图: paperId={}, questionIndex={}, candidates={}",
+                        paper.getId(), question.getQuestionIndex(), candidates.size());
+                accepted = pageFigure(sourceUrl);
+            }
+            figures.put(question.getQuestionIndex(), accepted);
         }
         if (!figures.isEmpty()) {
             log.info("题目配图处理完成: paperId={}, figures={}", paper.getId(), figures.size());
         }
         return figures;
+    }
+
+    /**
+     * 裁剪件落盘 + base64（详情页直接渲染 base64，不依赖文件服务地址）
+     */
+    private FigureData toFigureData(Long studentId, byte[] cropped) {
+        String url = fileStorageService.uploadBytes(cropped, "exam-figures/" + studentId, ".jpg");
+        return new FigureData(url,
+                "data:image/jpeg;base64," + java.util.Base64.getEncoder().encodeToString(cropped));
     }
 
     /**
@@ -656,21 +681,49 @@ public class ExamPaperServiceImpl implements ExamPaperService {
     /**
      * 裁剪块二次确认（2026-11-12）：只接受「试卷印刷图形」；题号/分值/学生手写/空白 → false
      *
-     * <p>调用失败或回答含糊时保留裁剪块（true），避免网络抖动把配图全部丢掉。</p>
+     * <p>调用失败或回答含糊时保留裁剪块（true），避免网络抖动把配图全部丢掉。
+     * 2026-11-17：日志补候选序号/框坐标/裁剪件尺寸，便于判断"是框错了还是判定过严"。</p>
      */
-    private boolean isPrintedFigure(byte[] cropped) {
+    private boolean isPrintedFigure(byte[] cropped, Long paperId, Integer questionIndex,
+                                    int candidateIndex, String rectDesc) {
         try {
             com.jiang.dto.VisionImage image = com.jiang.dto.VisionImage.of("image/jpeg", cropped);
             String answer = agentScopeClient.callVision(figureCheckPrompt(), java.util.List.of(image));
             Boolean decision = com.jiang.common.util.FigureCheckDecision.classify(answer);
             if (Boolean.FALSE.equals(decision)) {
-                log.info("配图审核判定不合格: answer={}", answer);
+                log.warn("配图二次确认不通过（疑似文字/题号/手写）：paperId={}, questionIndex={}, candidate={}, "
+                                + "rect={}, cropBytes={}, answer={}",
+                        paperId, questionIndex, candidateIndex, rectDesc, cropped.length, answer);
                 return false;
+            }
+            if (decision == null) {
+                log.info("配图二次确认无法判定，保留裁剪块: paperId={}, questionIndex={}, answer={}",
+                        paperId, questionIndex, answer);
             }
             return true;
         } catch (Exception e) {
             log.warn("配图二次确认调用失败，保留裁剪块: {}", e.getMessage());
             return true;
+        }
+    }
+
+    /**
+     * 被二次确认拒绝的裁剪件落盘（2026-11-17，排查用）
+     *
+     * <p>只看日志分不清"框到了题号"还是"模型把带标注的图判成文字"，把裁剪件留下就能直接看图核对。
+     * 失败不影响主流程。</p>
+     */
+    private void saveRejectedFigure(Long paperId, Integer questionIndex, int candidateIndex, byte[] cropped) {
+        if (!figureVerifySaveRejected) {
+            return;
+        }
+        try {
+            String url = fileStorageService.uploadBytes(cropped,
+                    "exam-figure-rejected/" + paperId, ".jpg");
+            log.info("被拒配图已落盘（排查用）: paperId={}, questionIndex={}, candidate={}, url={}",
+                    paperId, questionIndex, candidateIndex, url);
+        } catch (Exception e) {
+            log.warn("被拒配图落盘失败（不影响流程）: {}", e.getMessage());
         }
     }
 
@@ -844,7 +897,8 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             requests.add(GradeRequest.builder()
                     .key(index)
                     .formatType(question.getQuestionType())
-                    .questionContent(decoded.stem())
+                    // 存量题干若含 HTML 表格，判分也希望看到纯文本（读时兜底，不含表格则原样）
+                    .questionContent(com.jiang.common.util.HtmlTableTextifier.textifyTablesOnly(decoded.stem()))
                     .correctAnswer(decoded.correctAnswer())
                     .studentAnswer(question.getStudentAnswer())
                     .answerStatus(decoded.answerStatus())
@@ -922,7 +976,7 @@ public class ExamPaperServiceImpl implements ExamPaperService {
         record.setStudentId(paper.getStudentId());
         record.setSubjectId(paper.getSubjectId());
         record.setExamName(examName);
-        record.setImageUrls(paper.getImageUrls());
+        record.setImageUrls(toJson(orderedImageUrls(paper)));
         record.setQuestions(toJson(payload));
         record.setTotalScore(BigDecimal.valueOf(judgedCount));
         record.setUserScore(BigDecimal.valueOf(correctCount));
@@ -1123,7 +1177,9 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             questionItems.add(toQuestionItem(question, kpNames.get(question.getKnowledgePointId())));
         }
 
-        List<String> imageUrls = fromJson((String) paperRow.get("imageUrls"));
+        List<String> imageUrls = ExamPaperImages.ordered(
+                fromJson((String) paperRow.get("imageUrls")),
+                fromJsonInts((String) paperRow.get("imagePageNos")));
         String paperType = (String) paperRow.get("paperType");
 
         return ExamPaperDetailVO.builder()
@@ -1178,6 +1234,11 @@ public class ExamPaperServiceImpl implements ExamPaperService {
      */
     private ExamQuestionItemVO toQuestionItem(ExamQuestion question, String knowledgePointName) {
         ExamQuestionTextCodec.Decoded decoded = ExamQuestionTextCodec.decode(question.getQuestionContent());
+        // 2026-11-17：存量试卷题干里可能已存了 HTML 表格（新解析在写入前已转纯文本）。
+        // 详情接口做一次"只针对表格"的读时兜底，避免把 <table> 标签显示给学生；
+        // 不含表格的文本原样返回，不做任何清洗（防误伤数学符号）。
+        String stem = com.jiang.common.util.HtmlTableTextifier.textifyTablesOnly(decoded.stem());
+        String explanation = com.jiang.common.util.HtmlTableTextifier.textifyTablesOnly(decoded.explanation());
         List<String> choices = decoded.choices() == null ? List.of()
                 : decoded.choices().stream()
                 .map(option -> option.get("text"))
@@ -1199,11 +1260,15 @@ public class ExamPaperServiceImpl implements ExamPaperService {
                 .questionIndex(question.getQuestionIndex())
                 .questionType(question.getQuestionType())
                 .difficulty(question.getDifficulty())
-                .questionContent(decoded.stem())
-                .stem(decoded.stem())
+                .questionContent(stem)
+                .stem(stem)
+                // demo：题干富文本（内联表格按表格渲染；受控 HTML，无脚本/事件属性）
+                // 分块输出供前端给表格套横向滚动（text 块仍正常折行）
+                .stemHtml(com.jiang.common.util.HtmlRichText.toRichText(decoded.stem()))
+                .stemBlocks(com.jiang.common.util.HtmlRichText.toBlocks(decoded.stem()))
                 .choices(choices)
                 .correctAnswer(decoded.correctAnswer())
-                .explanation(decoded.explanation())
+                .explanation(explanation)
                 .studentAnswer(question.getStudentAnswer())
                 .isCorrect(isCorrect)
                 .score(question.getScore())
@@ -1368,6 +1433,46 @@ public class ExamPaperServiceImpl implements ExamPaperService {
             log.warn("解析试卷图片列表失败，按空处理: {}", e.getMessage());
             return new ArrayList<>();
         }
+    }
+
+    /**
+     * 页序数组解析（2026-11-17）：失败按空处理（回退到达顺序）
+     */
+    private List<Integer> fromJsonInts(String json) {
+        if (json == null || json.isBlank()) {
+            return List.of();
+        }
+        try {
+            List<Integer> values = OBJECT_MAPPER.readValue(json, new TypeReference<List<Integer>>() {});
+            return values == null ? List.of() : values;
+        } catch (Exception e) {
+            log.warn("解析试卷页序失败，按到达顺序: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /**
+     * 按页序还原图片 URL（旧数据/缺页序回退到达顺序）
+     */
+    private List<String> orderedImageUrls(ExamPaper paper) {
+        if (paper == null) {
+            return List.of();
+        }
+        return ExamPaperImages.ordered(fromJson(paper.getImageUrls()),
+                fromJsonInts(paper.getImagePageNos()));
+    }
+
+    /**
+     * 页序归一（2026-11-17）：非法/缺失 → 当前张数+1（等价到达顺序），不阻断上传
+     */
+    private int resolvePageNo(Integer pageNo, int uploadedCount, int maxImages, Long paperId) {
+        if (pageNo != null && pageNo >= 1 && pageNo <= maxImages) {
+            return pageNo;
+        }
+        if (pageNo != null) {
+            log.warn("非法 pageNo，按到达顺序补齐: paperId={}, pageNo={}", paperId, pageNo);
+        }
+        return uploadedCount + 1;
     }
 
     private String truncate(String str, int maxLen) {

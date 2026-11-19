@@ -28,7 +28,7 @@ public interface ExamPaperMapper extends BaseMapper<ExamPaper> {
      *
      * @return 试卷（可能为 null），含 status / image_urls / id
      */
-    @Select("SELECT id, student_id, subject_id, exam_date, total_score, paper_type, image_urls, " +
+    @Select("SELECT id, student_id, subject_id, exam_date, total_score, paper_type, image_urls, image_page_nos, " +
             "status, grade_status, remark, tenant_id, create_time, update_time " +
             "FROM exam_paper " +
             "WHERE student_id = #{studentId} AND subject_id = #{subjectId} " +
@@ -47,18 +47,21 @@ public interface ExamPaperMapper extends BaseMapper<ExamPaper> {
      * @return 0 表示会话状态已变化或张数已达上限
      */
     @Update("UPDATE exam_paper SET image_urls = JSON_ARRAY_APPEND(image_urls, '$', #{imageUrl}), " +
+            "image_page_nos = JSON_ARRAY_APPEND(COALESCE(image_page_nos, JSON_ARRAY()), '$', #{pageNo}), " +
             "update_time = NOW() " +
             "WHERE id = #{paperId} AND tenant_id = #{tenantId} AND status = 'uploading' " +
             "AND JSON_LENGTH(image_urls) < #{maxImages}")
     int appendImageUrl(@Param("paperId") Long paperId,
                        @Param("tenantId") String tenantId,
                        @Param("imageUrl") String imageUrl,
+                       @Param("pageNo") int pageNo,
                        @Param("maxImages") int maxImages);
 
     /**
      * 复用超期 uploading 会话：清空图片列表（JSON 数组重置为 []）
      */
-    @Update("UPDATE exam_paper SET image_urls = JSON_ARRAY(), update_time = NOW() " +
+    @Update("UPDATE exam_paper SET image_urls = JSON_ARRAY(), image_page_nos = JSON_ARRAY(), " +
+            "update_time = NOW() " +
             "WHERE id = #{paperId} AND tenant_id = #{tenantId} AND status = 'uploading'")
     int resetImageUrls(@Param("paperId") Long paperId, @Param("tenantId") String tenantId);
 
@@ -73,7 +76,8 @@ public interface ExamPaperMapper extends BaseMapper<ExamPaper> {
      *
      * @return 0 表示状态已变化（非 failed 或已结算），调用方按重复上传处理
      */
-    @Update("UPDATE exam_paper SET image_urls = JSON_ARRAY(), status = 'uploading', grade_status = 'ungraded', " +
+    @Update("UPDATE exam_paper SET image_urls = JSON_ARRAY(), image_page_nos = JSON_ARRAY(), " +
+            "status = 'uploading', grade_status = 'ungraded', " +
             "remark = NULL, total_score = NULL, update_time = NOW() " +
             "WHERE id = #{paperId} AND tenant_id = #{tenantId} " +
             "AND status = 'failed' AND grade_status = 'ungraded'")
@@ -164,7 +168,8 @@ public interface ExamPaperMapper extends BaseMapper<ExamPaper> {
      */
     @Select("SELECT p.id AS paperId, p.student_id AS studentId, p.subject_id AS subjectId, " +
             "s.name AS subjectName, p.exam_date AS examDate, p.paper_type AS paperType, " +
-            "p.image_urls AS imageUrls, p.status AS status, p.grade_status AS gradeStatus, " +
+            "p.image_urls AS imageUrls, p.image_page_nos AS imagePageNos, p.status AS status, " +
+            "p.grade_status AS gradeStatus, " +
             "p.remark AS remark, p.total_score AS paperTotalScore, p.create_time AS createTime " +
             "FROM exam_paper p " +
             "LEFT JOIN subject s ON s.subject_id = p.subject_id AND s.tenant_id = p.tenant_id " +

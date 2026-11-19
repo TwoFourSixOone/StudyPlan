@@ -48,7 +48,9 @@ public final class LlmTextSanitizer {
         if (raw == null || raw.isEmpty()) {
             return raw;
         }
-        String text = raw;
+        // 0. HTML 清洗（2026-11-17）：保留白名单标签（试卷表格要能按表格渲染），
+        //    删掉 script/style 与白名单外标签；纯文本派生在展示/判分侧按需做（HtmlTableTextifier）。
+        String text = com.jiang.common.util.HtmlRichText.sanitizeForStorage(raw);
 
         // 1. 控制字符（\v、\f 等被误转义的结果）
         text = CONTROL.matcher(text).replaceAll("");

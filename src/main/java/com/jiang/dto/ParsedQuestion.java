@@ -25,6 +25,13 @@ public class ParsedQuestion {
     /** 题号（图内题号；跨图重排后为整卷题号 1..N） */
     private Integer questionIndex;
 
+    /**
+     * 卷面印刷题号（2026-11-17：保留卷面题号，不再按图序重排；缺失为 null）
+     *
+     * <p>全部题目都有合法且不重复的 paperNo 时，questionIndex 直接取该值；否则回退 1..N。</p>
+     */
+    private Integer paperNo;
+
     /** 题干（纯文本，约定 #24） */
     private String stem;
 
@@ -64,6 +71,15 @@ public class ParsedQuestion {
      * null 表示无图或模型未给出可用区域。</p>
      */
     private Map<String, Double> figureRect;
+
+    /**
+     * OCR 建议的配图区域（2026-11-17 修复）：来自 GLM-OCR `label=image` 的 bbox 吸附结果，
+     * **只作候选、不覆盖模型给出的 {@link #figureRect}**。
+     *
+     * <p>为什么要两套框：模型框可能框到题号/文字（二次确认会拒），OCR 框可能框到装饰图；
+     * 服务端按「模型框 → OCR 框」顺序裁剪 + 二次确认，任一通过即采用，都不过才回退整页原图。</p>
+     */
+    private Map<String, Double> ocrFigureRect;
 
     /** 模型自报无法辨认的字段名 */
     private List<String> unclearFields;

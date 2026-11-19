@@ -25,8 +25,8 @@ public interface ExamParseService {
      * @param subjectId   科目 ID（归因 Agent 入参）
      * @param studentId   学生 ID（取年级拼 Prompt）
      * @param tenantId    租户 ID（显式入参，Worker 不读 ThreadLocal）
-     * @param imageUrls   试卷图片 URL（按上传顺序）
-     * @return 整卷解析结果（题目已重排题号并完成归因）
+     * @param imageUrls   试卷图片 URL（**已按卷面页序还原**；调用方经 `ExamPaperImages.ordered` 排序）
+     * @return 整卷解析结果（题目按卷面题号排序并完成归因）
      */
     ExamParseOutcome parsePaper(Long examPaperId, Long subjectId, Long studentId,
                                 String tenantId, List<String> imageUrls);

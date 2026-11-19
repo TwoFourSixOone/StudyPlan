@@ -7,8 +7,12 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
+import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Iterator;
 import java.util.List;
 
 /**
@@ -43,6 +47,14 @@ public class ExamUploadValidator {
     /** 同一份试卷图片累计上限（MB） */
     @Value("${exam.parse.max-total-mb:30}")
     private int maxTotalMb = 30;
+
+    /** 长边下限（px，2026-11-17；≤0 关闭） */
+    @Value("${exam.parse.min-long-side:600}")
+    private int minLongSide = 600;
+
+    /** 短边下限（px，2026-11-17；≤0 关闭） */
+    @Value("${exam.parse.min-short-side:500}")
+    private int minShortSide = 500;
 
     /**
      * 校验创建会话时的声明张数
@@ -92,6 +104,58 @@ public class ExamUploadValidator {
             throw new BusinessException(ErrorCodes.FILE_TYPE_INVALID);
         }
         validateMagicBytes(file);
+        validateResolution(file);
+    }
+
+    /**
+     * 分辨率门槛（2026-11-17）：长边/短边低于阈值 → 1193
+     *
+     * <p>只读图片头取宽高，不解码整图；读不出尺寸（非标准 JPEG/构造图）→ 放行 + WARN，
+     * 不新增阻断点（魔数已挡住明显伪造，格式问题交给解析阶段暴露）。</p>
+     */
+    void validateResolution(MultipartFile file) {
+        if (minLongSide <= 0 && minShortSide <= 0) {
+            return;
+        }
+        int[] size = readImageSize(file);
+        if (size == null) {
+            log.warn("读取图片尺寸失败，按非标准图放行: name={}", file.getOriginalFilename());
+            return;
+        }
+        int width = size[0];
+        int height = size[1];
+        int longSide = Math.max(width, height);
+        int shortSide = Math.min(width, height);
+        boolean tooLow = (minLongSide > 0 && longSide < minLongSide)
+                || (minShortSide > 0 && shortSide < minShortSide);
+        if (tooLow) {
+            throw new BusinessException(ErrorCodes.EXAM_IMAGE_RESOLUTION_TOO_LOW,
+                    "图片分辨率过低（" + width + "×" + height + "），请上传原图或重新拍摄（长边≥"
+                            + minLongSide + "px、短边≥" + minShortSide + "px）");
+        }
+    }
+
+    private int[] readImageSize(MultipartFile file) {
+        try (InputStream inputStream = file.getInputStream();
+             ImageInputStream imageInputStream = ImageIO.createImageInputStream(inputStream)) {
+            if (imageInputStream == null) {
+                return null;
+            }
+            Iterator<ImageReader> readers = ImageIO.getImageReaders(imageInputStream);
+            if (!readers.hasNext()) {
+                return null;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(imageInputStream, true, true);
+                return new int[]{reader.getWidth(0), reader.getHeight(0)};
+            } finally {
+                reader.dispose();
+            }
+        } catch (IOException | RuntimeException e) {
+            log.warn("读取图片尺寸失败: {}", e.getMessage());
+            return null;
+        }
     }
 
     /** PNG 文件头：89 50 4E 47 0D 0A 1A 0A */

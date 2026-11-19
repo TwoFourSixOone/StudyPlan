@@ -52,6 +52,12 @@ public class ExamParseAgentImpl implements ExamParseAgent {
     /** 整卷（多图单次）Prompt 模板路径（2026-11-12） */
     static final String PAPER_PROMPT_PATH = "prompts/versions/exam_parse_paper_v1.txt";
 
+    /** 印刷题目版 Prompt（2026-11-17 双版本） */
+    static final String CLEAN_PROMPT_PATH = "prompts/versions/exam_parse_clean_v1.txt";
+
+    /** 学生作答版 Prompt（2026-11-17 双版本） */
+    static final String ANSWERS_PROMPT_PATH = "prompts/versions/exam_parse_answers_v1.txt";
+
     /** 单图最多重试次数（不含首次尝试） */
     static final int MAX_RETRIES = 2;
 
@@ -81,13 +87,38 @@ public class ExamParseAgentImpl implements ExamParseAgent {
     @Override
     public ExamParseImageResult parsePaper(java.util.List<VisionImage> images,
                                            com.jiang.dto.ExamParsePaperContext context) {
+        return parseWholePaper(images, context, PAPER_PROMPT_PATH);
+    }
+
+    /**
+     * 印刷题目版（2026-11-17 双版本）：同一套重试/校验链路，只换 Prompt
+     *
+     * <p>结果强制 `studentAnswer=""`、`answerStatus="blank"`——作答由 student 版单独提取，
+     * 防止 clean 调用从卷面手写里"顺带"读出学生答案。</p>
+     */
+    @Override
+    public ExamParseImageResult parseCleanPaper(java.util.List<VisionImage> images,
+                                                com.jiang.dto.ExamParsePaperContext context) {
+        ExamParseImageResult result = parseWholePaper(images, context, CLEAN_PROMPT_PATH);
+        if (result.getQuestions() != null) {
+            for (ParsedQuestion question : result.getQuestions()) {
+                question.setStudentAnswer("");
+                question.setAnswerStatus("blank");
+            }
+        }
+        return result;
+    }
+
+    private ExamParseImageResult parseWholePaper(java.util.List<VisionImage> images,
+                                                 com.jiang.dto.ExamParsePaperContext context,
+                                                 String promptPath) {
         StringBuilder lastError = new StringBuilder();
         String retryHint = "无";
         int retryCount = 0;
 
         for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
             retryCount = attempt;
-            String prompt = buildPaperPrompt(context, retryHint);
+            String prompt = buildWholePrompt(context, retryHint, promptPath);
             String rawOutput;
             try {
                 rawOutput = agentScopeClient.callVision(prompt, images);
@@ -112,11 +143,13 @@ public class ExamParseAgentImpl implements ExamParseAgent {
                 continue;
             }
 
-            List<ParsedQuestion> questions = extractQuestions(cleaned, 0);
+            ExtractResult extracted = extractQuestions(cleaned, 0);
             return ExamParseImageResult.builder()
-                    .questions(questions)
+                    .questions(extracted.questions())
+                    .paperQuestionTotal(extracted.paperQuestionTotal())
+                    .droppedCount(extracted.droppedCount())
                     .retryCount(retryCount)
-                    .warning(buildWarning(cleaned, questions))
+                    .warning(buildWarning(cleaned, extracted.questions(), extracted.droppedCount(), extracted.answerFixedCount()))
                     .failureReason(null)
                     .build();
         }
@@ -135,7 +168,17 @@ public class ExamParseAgentImpl implements ExamParseAgent {
      * 整卷 Prompt 渲染（占位符：subject/grade/imageTotal/retryHint/knowledgePoints）
      */
     String buildPaperPrompt(com.jiang.dto.ExamParsePaperContext context, String retryHint) {
-        String template = loadTemplate(PAPER_PROMPT_PATH);
+        return buildWholePrompt(context, retryHint, PAPER_PROMPT_PATH);
+    }
+
+    /**
+     * 整卷 Prompt 渲染（占位符：subject/grade/imageTotal/retryHint/knowledgePoints/ocrText）
+     *
+     * <p>package-private：契约测试直接调用它渲染 paper / clean 两套模板，断言无残留占位符。</p>
+     */
+    String buildWholePrompt(com.jiang.dto.ExamParsePaperContext context, String retryHint,
+                            String promptPath) {
+        String template = loadTemplate(promptPath);
         String subject = (context.getSubjectName() == null || context.getSubjectName().isBlank())
                 ? "当前学科" : context.getSubjectName().trim();
         String grade = (context.getGradeLabel() == null || context.getGradeLabel().isBlank())
@@ -161,12 +204,145 @@ public class ExamParseAgentImpl implements ExamParseAgent {
         try {
             ClassPathResource resource = new ClassPathResource(path);
             try (InputStream is = resource.getInputStream()) {
-                return new String(is.readAllBytes());
+                // 2026-11-17 修复：Prompt 模板是 UTF-8，必须显式按 UTF-8 解码。
+                // 用平台默认字符集时（Windows 中文 / POSIX C locale 下 JVM 默认 GBK），
+                // 整份 Prompt 会变成乱码 ⇒ 模型收到乱码指令、输出质量不可控。
+                // 与本类单图 Prompt 加载器（StandardCharsets.UTF_8）保持一致。
+                return new String(is.readAllBytes(), StandardCharsets.UTF_8);
             }
         } catch (IOException e) {
             log.error("加载试卷解析 Prompt 模板失败: path={}, reason={}", path, e.getMessage());
             throw new BusinessException(ErrorCodes.AGENT_CALL_FAILED, "试卷解析 Prompt 模板加载失败");
         }
+    }
+
+    // ==================== 学生作答版（2026-11-17 双版本） ====================
+
+    @Override
+    public com.jiang.dto.ExamAnswerParseResult parseStudentAnswers(
+            java.util.List<VisionImage> images,
+            com.jiang.dto.ExamAnswerParseContext context) {
+        StringBuilder lastError = new StringBuilder();
+        String retryHint = "无";
+        int retryCount = 0;
+
+        for (int attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+            retryCount = attempt;
+            String prompt = buildAnswersPrompt(context, retryHint);
+            String rawOutput;
+            try {
+                rawOutput = agentScopeClient.callVision(prompt, images);
+            } catch (BusinessException e) {
+                lastError = new StringBuilder("视觉模型调用失败: " + e.getMessage());
+                log.warn("作答版解析调用失败，准备重试 {}/{}: imageTotal={}, reason={}",
+                        attempt + 1, MAX_RETRIES, context.getImageTotal(), e.getMessage());
+                retryHint = "上次调用失败（" + truncate(e.getMessage(), RETRY_HINT_MAX_LENGTH)
+                        + "），请重新通读全部图片。";
+                continue;
+            }
+
+            String cleaned = stripCodeFence(rawOutput);
+            AgentOutputValidator.ValidationResult validation =
+                    agentOutputValidator.validateExamAnswers(cleaned);
+            if (!validation.isSuccess()) {
+                lastError = new StringBuilder("作答版输出校验失败: " + validation.getMessage());
+                log.warn("作答版输出不合格，准备重试 {}/{}: reason={}",
+                        attempt + 1, MAX_RETRIES, validation.getMessage());
+                retryHint = "上次输出不符合要求（"
+                        + truncate(validation.getMessage(), RETRY_HINT_MAX_LENGTH)
+                        + "），请严格按输出要求只返回合法 JSON。";
+                continue;
+            }
+
+            AnswersExtract extracted = extractAnswers(cleaned);
+            return com.jiang.dto.ExamAnswerParseResult.builder()
+                    .answers(extracted.answers())
+                    .droppedCount(extracted.droppedCount())
+                    .retryCount(retryCount)
+                    .warning(buildAnswerWarning(cleaned, extracted.droppedCount()))
+                    .failureReason(null)
+                    .build();
+        }
+
+        log.error("作答版解析重试耗尽: imageTotal={}, reason={}", context.getImageTotal(), lastError);
+        return com.jiang.dto.ExamAnswerParseResult.builder()
+                .answers(java.util.List.of())
+                .retryCount(retryCount)
+                .warning(null)
+                .failureReason(truncate("作答版解析重试 " + MAX_RETRIES + " 次后仍失败: " + lastError,
+                        RETRY_HINT_MAX_LENGTH * 2))
+                .build();
+    }
+
+    String buildAnswersPrompt(com.jiang.dto.ExamAnswerParseContext context, String retryHint) {
+        String template = loadTemplate(ANSWERS_PROMPT_PATH);
+        String subject = (context.getSubjectName() == null || context.getSubjectName().isBlank())
+                ? "当前学科" : context.getSubjectName().trim();
+        String grade = (context.getGradeLabel() == null || context.getGradeLabel().isBlank())
+                ? "当前" : context.getGradeLabel().trim();
+        String hint = (retryHint == null || retryHint.isBlank()) ? "无" : retryHint.trim();
+        String digest = context.getQuestionDigest() == null || context.getQuestionDigest().isBlank()
+                ? "（无题目清单）" : context.getQuestionDigest().trim();
+        String prompt = template
+                .replace("{subject}", subject)
+                .replace("{grade}", grade)
+                .replace("{imageTotal}", String.valueOf(context.getImageTotal()))
+                .replace("{retryHint}", hint)
+                .replace("{questionDigest}", digest);
+        Matcher matcher = UNRESOLVED_PLACEHOLDER.matcher(prompt);
+        if (matcher.find()) {
+            log.warn("作答版 Prompt 存在未替换占位符: {}", matcher.group());
+        }
+        return prompt;
+    }
+
+    private AnswersExtract extractAnswers(String json) {
+        List<com.jiang.dto.ParsedAnswer> answers = new ArrayList<>();
+        int dropped = 0;
+        try {
+            JsonNode root = OBJECT_MAPPER.readTree(com.jiang.common.util.JsonPayloadExtractor.extract(json));
+            JsonNode items = root.get("answers");
+            if (items == null || !items.isArray()) {
+                return new AnswersExtract(answers, dropped);
+            }
+            for (JsonNode item : items) {
+                String error = agentOutputValidator.checkExamAnswerItem(item);
+                if (error != null) {
+                    dropped++;
+                    log.warn("丢弃非法作答: reason={}", error);
+                    continue;
+                }
+                answers.add(com.jiang.dto.ParsedAnswer.builder()
+                        .paperNo(item.get("paperNo").asInt())
+                        .studentAnswer(sanitize(item.path("studentAnswer").asText("")))
+                        .answerStatus(item.get("answerStatus").asText())
+                        .unclearFields(textList(item.get("unclearFields")))
+                        .build());
+            }
+        } catch (Exception e) {
+            log.error("作答版 JSON 反序列化失败: {}", e.getMessage());
+        }
+        return new AnswersExtract(answers, dropped);
+    }
+
+    private String buildAnswerWarning(String json, int droppedCount) {
+        String warning = null;
+        try {
+            String modelWarning = OBJECT_MAPPER.readTree(json).path("imageWarning").asText("");
+            if (!modelWarning.isBlank()) {
+                warning = sanitize(modelWarning);
+            }
+        } catch (Exception ignored) {
+            // 警告提取失败不影响主流程
+        }
+        if (droppedCount > 0) {
+            String note = "已丢弃 " + droppedCount + " 条非法作答";
+            warning = warning == null ? note : warning + "；" + note;
+        }
+        return warning;
+    }
+
+    private record AnswersExtract(List<com.jiang.dto.ParsedAnswer> answers, int droppedCount) {
     }
 
     @Override
@@ -202,11 +378,13 @@ public class ExamParseAgentImpl implements ExamParseAgent {
                 continue;
             }
 
-            List<ParsedQuestion> questions = extractQuestions(cleaned, context.getImageSeq());
+            ExtractResult extracted = extractQuestions(cleaned, context.getImageSeq());
             return ExamParseImageResult.builder()
-                    .questions(questions)
+                    .questions(extracted.questions())
+                    .paperQuestionTotal(extracted.paperQuestionTotal())
+                    .droppedCount(extracted.droppedCount())
                     .retryCount(retryCount)
-                    .warning(buildWarning(cleaned, questions))
+                    .warning(buildWarning(cleaned, extracted.questions(), extracted.droppedCount(), extracted.answerFixedCount()))
                     .failureReason(null)
                     .build();
         }
@@ -315,33 +493,61 @@ public class ExamParseAgentImpl implements ExamParseAgent {
         return body.trim();
     }
 
-    private List<ParsedQuestion> extractQuestions(String json, int imageSeq) {
+    private ExtractResult extractQuestions(String json, int imageSeq) {
         List<ParsedQuestion> questions = new ArrayList<>();
+        Integer paperQuestionTotal = null;
+        int dropped = 0;
+        int answerFixed = 0;
         try {
             JsonNode root = OBJECT_MAPPER.readTree(com.jiang.common.util.JsonPayloadExtractor.extract(json));
+            JsonNode totalNode = root.get("paperQuestionTotal");
+            if (totalNode != null && totalNode.isNumber()) {
+                int value = totalNode.asInt();
+                if (value > 0 && value <= 60) {
+                    paperQuestionTotal = value;
+                }
+            }
             JsonNode items = root.get("questions");
             if (items == null || !items.isArray()) {
-                return questions;
+                return new ExtractResult(questions, paperQuestionTotal, dropped, answerFixed);
             }
             for (JsonNode item : items) {
                 String error = agentOutputValidator.checkExamParseItem(item);
                 if (error != null) {
                     // 单题非法：丢弃该题，不重试整图（design §3.4 步骤 2/3）
+                    dropped++;
                     log.warn("丢弃非法解析题目: imageSeq={}, reason={}", imageSeq, error);
                     continue;
                 }
-                questions.add(toQuestion(item, imageSeq));
+                boolean[] fixed = new boolean[1];
+                questions.add(toQuestion(item, imageSeq, fixed));
+                if (fixed[0]) {
+                    answerFixed++;
+                }
             }
         } catch (Exception e) {
             log.error("试卷解析结果 JSON 反序列化失败: {}", e.getMessage());
         }
-        return questions;
+        return new ExtractResult(questions, paperQuestionTotal, dropped, answerFixed);
+    }
+
+    /**
+     * 切题结果（2026-11-17：题数/丢弃数/答案修正数需要向上传递，不能只返回题目列表）
+     */
+    private record ExtractResult(List<ParsedQuestion> questions, Integer paperQuestionTotal,
+                                 int droppedCount, int answerFixedCount) {
     }
 
     private ParsedQuestion toQuestion(JsonNode item, int imageSeq) {
+        return toQuestion(item, imageSeq, new boolean[1]);
+    }
+
+    private ParsedQuestion toQuestion(JsonNode item, int imageSeq, boolean[] answerFixedFlag) {
         String formatType = item.get("formatType").asText();
         String correctAnswer = sanitize(textOf(item, "correctAnswer"));
+        String explanation = sanitize(textOf(item, "explanation"));
         List<Map<String, String>> choices = new ArrayList<>();
+        boolean answerFixedByExplanation = false;
 
         if ("choice".equals(formatType)) {
             // 选择题归一（约定 #25）：label 重排 A/B/C…、answer 转选项标签；归不出来 → 答案置 null
@@ -354,14 +560,31 @@ public class ExamParseAgentImpl implements ExamParseAgent {
             for (Map<String, String> option : choices) {
                 option.put("text", sanitize(option.get("text")));
             }
-            Object answerAfterCanonicalize = content.get("answer");
-            String answer = answerAfterCanonicalize == null ? null : sanitize(String.valueOf(answerAfterCanonicalize));
-            // 2026-11-12：支持多选题——答案可能是 "AB" / "A、B"；标签必须都能在本卷选项里找到
-            List<String> answerLabels = com.jiang.common.util.ChoiceAnswer.labels(answer);
             List<String> optionLabels = choices.stream()
                     .map(option -> option.get("label"))
                     .filter(label -> label != null)
                     .collect(java.util.stream.Collectors.toList());
+            // 2026-11-17：标准答案与解析结论对齐。模型两个字段分别生成时会自相矛盾
+            // （实测"解析故选 ABD / correctAnswer=AB"→ 学生答 ABD 被判错）。以解析结论为准。
+            String fromExplanation = com.jiang.common.util.AnswerConclusionExtractor
+                    .extractChoiceAnswer(explanation);
+            if (fromExplanation != null
+                    && com.jiang.common.util.ChoiceAnswer.withinOptions(
+                            com.jiang.common.util.ChoiceAnswer.labels(fromExplanation), optionLabels)) {
+                List<String> modelLabels = com.jiang.common.util.ChoiceAnswer.labels(correctAnswer);
+                String modelCanonical = com.jiang.common.util.ChoiceAnswer.withinOptions(modelLabels, optionLabels)
+                        ? com.jiang.common.util.ChoiceAnswer.canonical(modelLabels) : null;
+                if (!fromExplanation.equals(modelCanonical)) {
+                    log.warn("标准答案与解析结论不一致，按解析修正: imageSeq={}, correctAnswer={}, explanationAnswer={}",
+                            imageSeq, modelCanonical, fromExplanation);
+                    content.put("answer", fromExplanation);
+                    answerFixedByExplanation = true;
+                }
+            }
+            Object answerAfterCanonicalize = content.get("answer");
+            String answer = answerAfterCanonicalize == null ? null : sanitize(String.valueOf(answerAfterCanonicalize));
+            // 2026-11-12：支持多选题——答案可能是 "AB" / "A、B"；标签必须都能在本卷选项里找到
+            List<String> answerLabels = com.jiang.common.util.ChoiceAnswer.labels(answer);
             correctAnswer = com.jiang.common.util.ChoiceAnswer.withinOptions(answerLabels, optionLabels)
                     ? com.jiang.common.util.ChoiceAnswer.canonical(answerLabels) : null;
         }
@@ -376,6 +599,13 @@ public class ExamParseAgentImpl implements ExamParseAgent {
         if ("blank".equals(answerStatus)) {
             studentAnswer = "";
         }
+        // 2026-11-17：选择题的作答是"勾选项"，老师也会在正确选项上打勾；
+        // 模型若只把 √/× 当学生答案，按老师批改处理（不猜具体选项）。
+        if ("answered".equals(answerStatus) && isOnlyTickMark(studentAnswer)) {
+            log.info("学生答案仅为对错符号，按老师批改处理: imageSeq={}", imageSeq);
+            answerStatus = "blank";
+            studentAnswer = "";
+        }
 
         String difficulty = textOf(item, "difficulty");        if (difficulty != null) {
             difficulty = difficulty.trim();
@@ -384,10 +614,15 @@ public class ExamParseAgentImpl implements ExamParseAgent {
             }
         }
 
+        if (answerFixedFlag != null && answerFixedFlag.length > 0) {
+            answerFixedFlag[0] = answerFixedByExplanation;
+        }
+
         return ParsedQuestion.builder()
                 // 整卷模式（imageSeq=0）由模型标注每题所在图片；单图模式沿用图片序号
                 .sourceImageIndex(resolveSourceImageIndex(item, imageSeq))
-                .questionIndex(item.get("questionIndex").asInt())
+                .questionIndex(parseQuestionIndex(item))
+                .paperNo(parsePaperNo(item))
                 .stem(sanitize(item.get("stem").asText()))
                 .formatType(formatType)
                 .choiceMode(normalizeChoiceMode(textOf(item, "choiceMode"), formatType, correctAnswer))
@@ -396,7 +631,7 @@ public class ExamParseAgentImpl implements ExamParseAgent {
                 .studentAnswer(studentAnswer)
                 .answerStatus(answerStatus)
                 .difficulty(difficulty)
-                .explanation(sanitize(textOf(item, "explanation")))
+                .explanation(explanation)
                 .figureRect(parseFigureRect(item, imageSeq))
                 .hasPrintedFigure(hasPrintedFigure(item))
                 .unclearFields(textList(item.get("unclearFields")))
@@ -503,6 +738,42 @@ public class ExamParseAgentImpl implements ExamParseAgent {
         return Math.min(value, 1d);
     }
 
+    /** 纯对错符号（老师批改标记），不能当作学生答案 */
+    private static final java.util.Set<String> TICK_MARKS = java.util.Set.of("√", "✓", "✔", "×", "✗", "✘");
+
+    private boolean isOnlyTickMark(String answer) {
+        return answer != null && TICK_MARKS.contains(answer.trim());
+    }
+
+    /**
+     * 卷面题号：1..60 的整数；缺失/越界返回 null（新字段不参与丢弃判定）
+     */
+    private Integer parsePaperNo(JsonNode item) {
+        JsonNode node = item.get("paperNo");
+        if (node == null || !node.isNumber()) {
+            return null;
+        }
+        int value = node.asInt();
+        return value >= 1 && value <= 60 ? value : null;
+    }
+
+    /**
+     * 题号：优先 questionIndex（1..60），缺失/非法时回退 paperNo
+     *
+     * <p>2026-11-17：服务端最终会用 paperNo 重新编号，模型漏给 questionIndex 不应整题丢弃
+     * （否则又是一条"静默丢题"路径）。两者都没有时返回 null，由 {@code ExamParseNumbering} 兜底编号。</p>
+     */
+    private Integer parseQuestionIndex(JsonNode item) {
+        JsonNode node = item.get("questionIndex");
+        if (node != null && node.isNumber()) {
+            int value = node.asInt();
+            if (value >= 1 && value <= 60) {
+                return value;
+            }
+        }
+        return parsePaperNo(item);
+    }
+
     /**
      * 知识点 ID 归一：空白 → null；超长/多 ID → null + warn（规则 #8 的格式层防御）
      */
@@ -521,7 +792,8 @@ public class ExamParseAgentImpl implements ExamParseAgent {
         return value;
     }
 
-    private String buildWarning(String json, List<ParsedQuestion> questions) {
+    private String buildWarning(String json, List<ParsedQuestion> questions, int droppedCount,
+                                int answerFixedCount) {
         String warning = null;
         try {
             String modelWarning = OBJECT_MAPPER.readTree(json).path("imageWarning").asText("");
@@ -530,6 +802,16 @@ public class ExamParseAgentImpl implements ExamParseAgent {
             }
         } catch (Exception ignored) {
             // 警告提取失败不影响主流程
+        }
+        if (droppedCount > 0) {
+            // 2026-11-17：被丢弃的题不再静默，必须让学生/排障看到
+            String note = "已丢弃 " + droppedCount + " 道输出不合法的题目";
+            warning = warning == null ? note : warning + "；" + note;
+        }
+        if (answerFixedCount > 0) {
+            // 2026-11-17：标准答案按解析结论修正过 → 必须可见（否则学生看到"标准答案 AB / 解析故选 ABD"）
+            String note = "已按解析结论修正 " + answerFixedCount + " 道标准答案";
+            warning = warning == null ? note : warning + "；" + note;
         }
         if (questions.isEmpty() && warning == null) {
             warning = "本图未识别出题目";
@@ -551,6 +833,10 @@ public class ExamParseAgentImpl implements ExamParseAgent {
             return values;
         }
         for (JsonNode item : node) {
+            // 上限与 schema 的 unclearFields.maxItems 对齐（6），防止模型回传超长数组
+            if (values.size() >= AgentOutputValidator.UNCLEAR_FIELDS_MAX) {
+                break;
+            }
             String value = sanitize(item.asText(null));
             if (value != null && !value.isBlank()) {
                 values.add(value);

@@ -23,7 +23,12 @@ public class ExamQuestionItemVO {
     /** 题目 ID（exam_question.id） */
     private Long questionId;
 
-    /** 题号（1..N，升序稳定） */
+    /**
+     * 题号：**卷面题号**（2026-11-17 起可能不连续，如缺第 16 题时为 1..15,17..19）
+     *
+     * <p>模型未给出可信卷面题号时回退为按图片顺序的 1..N，并在 `exam_paper.remark` 告警；
+     * 存量试卷仍为 1..N。列表按本字段升序，详情页显示「第 X 题」。</p>
+     */
     private Integer questionIndex;
 
     /** 题型：choice/numeric/short/self */
@@ -37,6 +42,22 @@ public class ExamQuestionItemVO {
 
     /** 题干（解码） */
     private String stem;
+
+    /**
+     * 题干富文本（2026-11-17，demo：让内联表格按表格渲染）
+     *
+     * <p>受控 HTML：只保留白名单标签（表格/加粗/上下标/换行等），表格带内联边框样式与 {@code min-width}，
+     * 文本已转义、换行转 {@code <br/>}。与 {@link #stemBlocks} 等价（各块 html 拼接）。</p>
+     */
+    private String stemHtml;
+
+    /**
+     * 题干富文本分块（2026-11-17 demo：宽表格横向滚动）
+     *
+     * <p>text 块正常折行渲染；table 块带 {@code minWidthPx}，前端套 {@code <scroll-view scroll-x>}
+     * 即可横向滚动，窄屏不再把多列表格挤成一列一列换行。</p>
+     */
+    private List<ExamStemBlockVO> stemBlocks;
 
     /** 选项文本列表（选择题；非选择题为空数组） */
     private List<String> choices;

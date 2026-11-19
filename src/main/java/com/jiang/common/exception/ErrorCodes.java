@@ -191,6 +191,13 @@ public enum ErrorCodes {
      */
     EXAM_PAPER_TYPE_INVALID(1191, "试卷类型无效，可选：midterm/final/monthly/mock/other"),
 
+    /**
+     * 上传图片分辨率过低（2026-11-17，Change 2026-11-17_exam_parse_reliability）
+     *
+     * <p>文案由校验器覆盖为带实际尺寸的动态消息；阈值可配置（`exam.parse.min-long-side/min-short-side`）。</p>
+     */
+    EXAM_IMAGE_RESOLUTION_TOO_LOW(1193, "图片分辨率过低，请上传原图或重新拍摄"),
+
     // 计划调整去重（1192，Change: 2026-11-12_adjustment_signal_fix）
     /**
      * 同一目标去重窗口内已有确认的调整（规则 #5：12h 去重，覆盖手动 / 01:30 / 考试结算三个入口）

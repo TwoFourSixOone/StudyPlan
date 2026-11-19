@@ -63,6 +63,14 @@ public class ExamPaper extends BaseEntity {
     private String imageUrls;
 
     /**
+     * 图片页序数组（JSON，与 imageUrls 等长；2026-11-17）
+     *
+     * <p>元素为 1..8 的选择顺序；null 表示存量数据，按 imageUrls 到达顺序。</p>
+     */
+    @TableField(typeHandler = JsonStringTypeHandler.class)
+    private String imagePageNos;
+
+    /**
      * 状态：pending/processing/completed/failed
      */
     private String status;

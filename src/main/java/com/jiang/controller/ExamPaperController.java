@@ -91,16 +91,20 @@ public class ExamPaperController {
 
     /**
      * 追加一张试卷图片（multipart 字段名固定 file）
+     *
+     * <p>2026-11-17：新增可选 {@code pageNo}（1..8，图片在用户选择列表中的位置），用于还原卷面页序；
+     * 旧客户端不传时服务端按「当前张数+1」补齐，行为等价于到达顺序。</p>
      */
     @PostMapping("/papers/{paperId}/images")
     @Operation(summary = "上传单张试卷图片")
     public Result<ExamImageUploadVO> uploadImage(
             @PathVariable("paperId") Long paperId,
-            @RequestParam("file") MultipartFile file) {
-        log.info("上传试卷图片: paperId={}, size={}, contentType={}",
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(value = "pageNo", required = false) Integer pageNo) {
+        log.info("上传试卷图片: paperId={}, size={}, contentType={}, pageNo={}",
                 paperId, file == null ? 0 : file.getSize(),
-                file == null ? null : file.getContentType());
-        return Result.success(examPaperService.uploadImage(paperId, file));
+                file == null ? null : file.getContentType(), pageNo);
+        return Result.success(examPaperService.uploadImage(paperId, file, pageNo));
     }
 
     /**

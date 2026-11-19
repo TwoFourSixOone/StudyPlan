@@ -5,13 +5,19 @@ import com.jiang.agent.AttributionAgent;
 import com.jiang.agent.ExamParseAgent;
 import com.jiang.common.exception.BusinessException;
 import com.jiang.common.exception.ErrorCodes;
+import com.jiang.common.util.ExamInkFilter;
+import com.jiang.common.util.ExamParseNumbering;
 import com.jiang.common.util.GradeMatcher;
+import com.jiang.common.util.RedInkSuppressor;
 import com.jiang.common.util.SimilarityDetector;
+import com.jiang.dto.ExamAnswerParseContext;
+import com.jiang.dto.ExamAnswerParseResult;
 import com.jiang.dto.ExamParseContext;
 import com.jiang.dto.ExamParseImageResult;
 import com.jiang.dto.ExamParseOutcome;
 import com.jiang.dto.ExamQuestionAttributionDTO;
 import com.jiang.dto.ExamQuestionOcrDTO;
+import com.jiang.dto.ParsedAnswer;
 import com.jiang.dto.ParsedQuestion;
 import com.jiang.dto.VisionImage;
 import com.jiang.mapper.StudentMapper;
@@ -134,6 +140,27 @@ public class ExamParseServiceImpl implements ExamParseService {
     @Value("${exam.parse.single-call:true}")
     private boolean singleCallEnabled;
 
+    /** 双版本开关（2026-11-17：clean 题目版 + student 作答版；关闭回到单次整卷） */
+    @Value("${exam.parse.dual-channel:true}")
+    private boolean dualChannelEnabled;
+
+    /** 双版本派生图是否落盘（排查用） */
+    @Value("${exam.parse.dual-channel.save-images:true}")
+    private boolean saveDerivedImages;
+
+    /** 题目清单（student 调用输入）最大字符数 */
+    @Value("${exam.parse.dual-channel.max-digest-chars:6000}")
+    private int maxDigestChars;
+
+    /**
+     * clean（题目版）是否连蓝/绿笔迹一起去掉（2026-11-17，默认开）
+     *
+     * <p><b>取舍</b>：蓝/绿像素无法区分「学生蓝笔作答」与「彩色印刷内容」；关闭后 clean 只去红，
+     * 蓝/绿手写靠 Prompt「只读印刷」隔离（代价：蓝笔手写可能混入题干）。彩色印刷较多的卷可关掉。</p>
+     */
+    @Value("${exam.parse.dual-channel.remove-cool-ink:true}")
+    private boolean removeCoolInk;
+
     @Value("${exam.parse.max-questions:200}")
     private int maxQuestions;
 
@@ -160,15 +187,35 @@ public class ExamParseServiceImpl implements ExamParseService {
         log.info("试卷视觉解析开始: paperId={}, imageCount={}, subject={}, grade={}, singleCall={}",
                 examPaperId, total, subjectName, gradeLabel, singleCallEnabled);
 
+        // 2026-11-17 双版本：clean（题目版）+ student（作答版）两次调用（开关可关）
+        // 2026-11-17 修复：双版本失败回退时**复用已构建的 OCR**（design D5「降级不额外调用」），
+        // 避免同一份试卷跑两轮 GLM-OCR（8 页 × 90s 预算）把整卷推向超时。
+        OcrGrounding reusableOcr = null;
+        if (dualChannelEnabled) {
+            DualChannelAttempt attempt = tryParseDualChannel(examPaperId, urls, subjectName, gradeLabel,
+                    tenantId, kpSnapshot);
+            reusableOcr = attempt.ocr();
+            ExamParseImageResult dual = attempt.result();
+            if (dual != null && dual.getQuestions() != null && !dual.getQuestions().isEmpty()) {
+                Map<Integer, ImageTaskResult> dualResults = new HashMap<>();
+                dualResults.put(1, new ImageTaskResult(1, dual.getQuestions(), dual.getRetryCount(),
+                        dual.getWarning(), null, dual.getDroppedCount()));
+                return mergeAndAttribute(examPaperId, subjectId, tenantId, total, dualResults,
+                        dual.getPaperQuestionTotal(), kpSnapshot);
+            }
+            log.warn("双版本解析未产出可用结果，回退单次整卷: paperId={}", examPaperId);
+        }
+
         // 2026-11-12 v5：整卷一次调用（跨页题目/配图、答题卡答案、多选判断）
         if (singleCallEnabled) {
             ExamParseImageResult whole = tryParseWholePaper(examPaperId, urls, subjectName, gradeLabel,
-                    tenantId, kpSnapshot);
+                    tenantId, kpSnapshot, reusableOcr);
             if (whole != null && whole.getQuestions() != null && !whole.getQuestions().isEmpty()) {
                 Map<Integer, ImageTaskResult> wholeResults = new HashMap<>();
                 wholeResults.put(1, new ImageTaskResult(1, whole.getQuestions(), whole.getRetryCount(),
-                        whole.getWarning(), null));
-                return mergeAndAttribute(examPaperId, subjectId, tenantId, total, wholeResults, kpSnapshot);
+                        whole.getWarning(), null, whole.getDroppedCount()));
+                return mergeAndAttribute(examPaperId, subjectId, tenantId, total, wholeResults,
+                        whole.getPaperQuestionTotal(), kpSnapshot);
             }
             log.warn("整卷单次解析未产出题目，回退逐图解析: paperId={}", examPaperId);
         }
@@ -266,7 +313,7 @@ public class ExamParseServiceImpl implements ExamParseService {
             log.info("试卷解析预算到点后补收已完成图片: paperId={}, drained={}", examPaperId, drained);
         }
 
-        return mergeAndAttribute(examPaperId, subjectId, tenantId, total, results, kpSnapshot);
+        return mergeAndAttribute(examPaperId, subjectId, tenantId, total, results, null, kpSnapshot);
     }
 
     /**
@@ -296,7 +343,8 @@ public class ExamParseServiceImpl implements ExamParseService {
      */
     private ExamParseImageResult tryParseWholePaper(Long examPaperId, List<String> urls, String subjectName,
                                                     String gradeLabel, String tenantId,
-                                                    com.jiang.service.ExamKpCandidateService.CandidateSnapshot kpSnapshot) {
+                                                    com.jiang.service.ExamKpCandidateService.CandidateSnapshot kpSnapshot,
+                                                    OcrGrounding reusableOcr) {
         try {
             List<VisionImage> images = new ArrayList<>(urls.size());
             List<byte[]> raw = new ArrayList<>(urls.size());
@@ -328,7 +376,10 @@ public class ExamParseServiceImpl implements ExamParseService {
                 log.info("整卷解析请求体过大（{}KB），已降采样到 1600px: paperId={}", totalBytes / 1024, examPaperId);
             }
             // GLM-OCR 文本 grounding（2026-11-17）：失败/超时/无 Key 都静默降级为纯视觉解析
-            OcrGrounding ocr = buildOcrGrounding(examPaperId, forOcr, mediaTypes, tenantId);
+            // 双版本回退时直接复用 clean 图上已跑过的 OCR（2026-11-17 修复：降级不重复调用外部 OCR）
+            OcrGrounding ocr = reusableOcr != null
+                    ? reusableOcr
+                    : buildOcrGrounding(examPaperId, forOcr, mediaTypes, tenantId, false);
             log.info("整卷单次解析开始: paperId={}, images={}, ocrPages={}",
                     examPaperId, images.size(), ocr == null ? 0 : ocr.rectsByPage().size());
             ExamParseImageResult result = examParseAgent.parsePaper(images,
@@ -358,13 +409,306 @@ public class ExamParseServiceImpl implements ExamParseService {
     }
 
     /**
+     * 双版本解析（2026-11-17）：clean 题目版 + student 作答版
+     *
+     * <p>任一环节不可用（读图/clean 调用/缺 paperNo/paperNo 重复/作答版失败/作答覆盖率不足）
+     * 都返回不可用结果，由调用方回退现有单次整卷解析，避免整卷被判 0 分。</p>
+     *
+     * <p>返回的 {@link OcrGrounding} 无论成败都回带：回退整卷解析时直接复用，避免重复调用外部 OCR
+     * （design D5「降级不额外调用」）。</p>
+     */
+    private DualChannelAttempt tryParseDualChannel(
+            Long examPaperId, List<String> urls, String subjectName, String gradeLabel, String tenantId,
+            com.jiang.service.ExamKpCandidateService.CandidateSnapshot kpSnapshot) {
+        OcrGrounding ocr = null;
+        try {
+            List<byte[]> raw = new ArrayList<>(urls.size());
+            long totalBytes = 0L;
+            for (String url : urls) {
+                byte[] bytes = fileStorageService.readBytes(url);
+                if (bytes == null || bytes.length == 0) {
+                    log.warn("双版本解析读取图片为空，回退单次: paperId={}, url={}", examPaperId, url);
+                    return DualChannelAttempt.fallback(null);
+                }
+                raw.add(bytes);
+                totalBytes += bytes.length;
+            }
+            boolean downscale = totalBytes > SINGLE_CALL_MAX_BYTES;
+            List<byte[]> cleanBytes = new ArrayList<>(raw.size());
+            List<byte[]> studentBytes = new ArrayList<>(raw.size());
+            List<String> cleanTypes = new ArrayList<>(raw.size());
+            List<String> studentTypes = new ArrayList<>(raw.size());
+            int coloredPages = 0;
+            for (int index = 0; index < raw.size(); index++) {
+                byte[] bytes = downscale
+                        ? com.jiang.common.util.ImageDownscaler.downscaleJpeg(raw.get(index), 1600, 0.82f)
+                        : raw.get(index);
+                String mediaType = downscale ? "image/jpeg" : detectMediaType(urls.get(index));
+                ExamInkFilter.Result clean = ExamInkFilter.clean(bytes, mediaType, removeCoolInk);
+                ExamInkFilter.Result student = ExamInkFilter.student(bytes, mediaType);
+                cleanBytes.add(clean.bytes());
+                cleanTypes.add(clean.mediaType());
+                studentBytes.add(student.bytes());
+                studentTypes.add(student.mediaType());
+                if (clean.colored()) {
+                    coloredPages++;
+                }
+                saveDerivedImage(examPaperId, index + 1, "clean", clean);
+                saveDerivedImage(examPaperId, index + 1, "student", student);
+            }
+            log.info("双版本派生图完成: paperId={}, pages={}, coloredPages={}, separation={}, removeCoolInk={}",
+                    examPaperId, raw.size(), coloredPages,
+                    coloredPages == 0 ? "prompt_only" : "color", removeCoolInk);
+
+            // clean 图已在派生阶段去掉红笔，OCR 无需再做红笔抑制（避免 8 页重复解码）
+            ocr = buildOcrGrounding(examPaperId, cleanBytes, cleanTypes, tenantId, true);
+            List<VisionImage> cleanImages = new ArrayList<>(cleanBytes.size());
+            for (int index = 0; index < cleanBytes.size(); index++) {
+                cleanImages.add(VisionImage.of(cleanTypes.get(index), cleanBytes.get(index)));
+            }
+            ExamParseImageResult cleanResult = examParseAgent.parseCleanPaper(cleanImages,
+                    com.jiang.dto.ExamParsePaperContext.builder()
+                            .subjectName(subjectName)
+                            .gradeLabel(gradeLabel)
+                            .imageTotal(cleanImages.size())
+                            .tenantId(tenantId)
+                            .ocrText(ocr == null ? null : ocr.text())
+                            .kpCandidates(kpSnapshot == null ? List.of() : kpSnapshot.getParseCandidates())
+                            .build());
+            if (cleanResult == null || cleanResult.getQuestions() == null
+                    || cleanResult.getQuestions().isEmpty()) {
+                return DualChannelAttempt.fallback(ocr);
+            }
+            if (ocr != null && !ocr.rectsByPage().isEmpty()) {
+                com.jiang.common.util.OcrFigureSnapper.snap(cleanResult.getQuestions(), ocr.rectsByPage());
+            }
+            if (!isPaperNoAlignable(examPaperId, cleanResult.getQuestions())) {
+                return DualChannelAttempt.fallback(ocr);
+            }
+
+            String digest = buildQuestionDigest(cleanResult.getQuestions(), maxDigestChars);
+            List<VisionImage> studentImages = new ArrayList<>(studentBytes.size());
+            for (int index = 0; index < studentBytes.size(); index++) {
+                studentImages.add(VisionImage.of(studentTypes.get(index), studentBytes.get(index)));
+            }
+            ExamAnswerParseResult answerResult = examParseAgent.parseStudentAnswers(studentImages,
+                    ExamAnswerParseContext.builder()
+                            .subjectName(subjectName)
+                            .gradeLabel(gradeLabel)
+                            .imageTotal(studentImages.size())
+                            .tenantId(tenantId)
+                            .questionDigest(digest)
+                            .build());
+            if (answerResult == null || !answerResult.isSuccess()) {
+                log.warn("双版本：作答版解析失败，回退单次整卷: paperId={}, reason={}",
+                        examPaperId, answerResult == null ? null : answerResult.getFailureReason());
+                return DualChannelAttempt.fallback(ocr);
+            }
+            if (!isAnswerCoverageSufficient(examPaperId, tenantId, cleanResult.getQuestions(), answerResult)) {
+                return DualChannelAttempt.fallback(ocr);
+            }
+            mergeDualAnswers(examPaperId, cleanResult, answerResult);
+            log.info("双版本解析完成: paperId={}, questions={}, answers={}, droppedAnswers={}",
+                    examPaperId, cleanResult.getQuestions().size(),
+                    answerResult.getAnswers() == null ? 0 : answerResult.getAnswers().size(),
+                    answerResult.getDroppedCount());
+            return new DualChannelAttempt(cleanResult, ocr);
+        } catch (Exception e) {
+            log.warn("双版本解析异常，回退单次整卷: paperId={}, reason={}", examPaperId, e.getMessage());
+            return DualChannelAttempt.fallback(ocr);
+        }
+    }
+
+    /**
+     * paperNo 对齐前提：全部非空、互不重复（1..60）
+     *
+     * <p>重复 paperNo 会让 {@link #mergeDualAnswers} 的 map 互相覆盖，把同一份学生答案贴到两道题上，
+     * 因此视为「对齐不可靠」直接回退单次整卷（与 reliability change 对重复题号的处理一致）。</p>
+     */
+    private boolean isPaperNoAlignable(Long examPaperId, List<ParsedQuestion> questions) {
+        java.util.Set<Integer> seen = new java.util.HashSet<>();
+        for (ParsedQuestion question : questions) {
+            Integer paperNo = question.getPaperNo();
+            if (paperNo == null) {
+                log.warn("双版本：clean 题目缺 paperNo，无法与作答版对齐，回退单次: paperId={}", examPaperId);
+                return false;
+            }
+            if (paperNo < 1 || paperNo > ExamParseNumbering.MAX_PAPER_NO) {
+                log.warn("双版本：clean 题目 paperNo 越界({})，回退单次: paperId={}", paperNo, examPaperId);
+                return false;
+            }
+            if (!seen.add(paperNo)) {
+                log.warn("双版本：clean 题目 paperNo 重复({})，对齐不可靠，回退单次: paperId={}",
+                        paperNo, examPaperId);
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 作答覆盖率守卫：作答版必须覆盖至少一半题目
+     *
+     * <p>「模型没提取出任何作答」与「只提取到一小部分」都不能当成功——缺的题会落 {@code blank}，
+     * 判分把「学生空 + 标准答案有」判错，等价于整卷/大面积 0 分并污染掌握度，因此回退单次整卷。</p>
+     */
+    private boolean isAnswerCoverageSufficient(Long examPaperId, String tenantId,
+                                               List<ParsedQuestion> questions,
+                                               ExamAnswerParseResult answerResult) {
+        java.util.Set<Integer> answered = new java.util.HashSet<>();
+        if (answerResult.getAnswers() != null) {
+            for (ParsedAnswer answer : answerResult.getAnswers()) {
+                if (answer.getPaperNo() != null) {
+                    answered.add(answer.getPaperNo());
+                }
+            }
+        }
+        int total = questions.size();
+        int matched = 0;
+        for (ParsedQuestion question : questions) {
+            if (answered.contains(question.getPaperNo())) {
+                matched++;
+            }
+        }
+        if (total > 0 && matched * 2 >= total) {
+            return true;
+        }
+        log.warn("双版本：作答覆盖率不足（{}/{}），回退单次整卷以避免整卷判错: paperId={}",
+                matched, total, examPaperId);
+        degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                "paperId=" + examPaperId + ", matched=" + matched + ", total=" + total,
+                "作答版覆盖不足（" + matched + "/" + total + "），回退单次整卷",
+                "dual_answer_coverage_low", tenantId);
+        return false;
+    }
+
+    /**
+     * 双版本尝试结果：{@code result} 为 null 表示回退；{@code ocr} 用于回退时复用（不重复调用 OCR）
+     */
+    private record DualChannelAttempt(ExamParseImageResult result, OcrGrounding ocr) {
+
+        static DualChannelAttempt fallback(OcrGrounding ocr) {
+            return new DualChannelAttempt(null, ocr);
+        }
+    }
+
+    private void saveDerivedImage(Long examPaperId, int page, String kind, ExamInkFilter.Result result) {
+        if (!saveDerivedImages) {
+            return;
+        }
+        try {
+            // 扩展名跟随实际内容：无彩色像素时 filter 原样返回原图字节（可能是 JPEG）
+            String url = fileStorageService.uploadBytes(result.bytes(), "exam-derived/" + examPaperId,
+                    extensionOf(result.mediaType()));
+            log.info("派生图已落盘: paperId={}, page={}, kind={}, url={}", examPaperId, page, kind, url);
+        } catch (Exception e) {
+            log.warn("派生图落盘失败（不影响解析）: paperId={}, page={}, kind={}, reason={}",
+                    examPaperId, page, kind, e.getMessage());
+        }
+    }
+
+    /** 媒体类型 → 落盘扩展名（派生图排查用） */
+    static String extensionOf(String mediaType) {
+        if ("image/png".equalsIgnoreCase(mediaType)) {
+            return ".png";
+        }
+        if ("image/jpeg".equalsIgnoreCase(mediaType) || "image/jpg".equalsIgnoreCase(mediaType)) {
+            return ".jpg";
+        }
+        return ".bin";
+    }
+
+    String buildQuestionDigest(List<ParsedQuestion> questions, int maxChars) {
+        StringBuilder sb = new StringBuilder();
+        for (ParsedQuestion question : questions) {
+            StringBuilder line = new StringBuilder();
+            line.append("- 第").append(question.getPaperNo()).append("题");
+            String stem = truncate(question.getStem(), 120);
+            if (stem != null && !stem.isBlank()) {
+                line.append(" | 题干：").append(stem);
+            }
+            if (question.getChoices() != null && !question.getChoices().isEmpty()) {
+                line.append(" | 选项：");
+                int index = 0;
+                for (Map<String, String> choice : question.getChoices()) {
+                    if (index++ > 0) {
+                        line.append("；");
+                    }
+                    line.append(choice.getOrDefault("label", ""))
+                            .append(".").append(truncate(choice.get("text"), 40));
+                }
+            }
+            line.append('\n');
+            if (sb.length() + line.length() > maxChars) {
+                sb.append("（题目清单过长，已截断）\n");
+                break;
+            }
+            sb.append(line);
+        }
+        return sb.toString();
+    }
+
+    void mergeDualAnswers(Long examPaperId, ExamParseImageResult cleanResult,
+                                  ExamAnswerParseResult answerResult) {
+        Map<Integer, ParsedAnswer> byPaperNo = new java.util.LinkedHashMap<>();
+        if (answerResult.getAnswers() != null) {
+            for (ParsedAnswer answer : answerResult.getAnswers()) {
+                if (answer.getPaperNo() != null) {
+                    byPaperNo.put(answer.getPaperNo(), answer);
+                }
+            }
+        }
+        List<String> warnings = new ArrayList<>();
+        java.util.Set<Integer> used = new java.util.HashSet<>();
+        for (ParsedQuestion question : cleanResult.getQuestions()) {
+            ParsedAnswer answer = byPaperNo.get(question.getPaperNo());
+            if (answer == null) {
+                question.setStudentAnswer("");
+                question.setAnswerStatus("blank");
+                warnings.add("第 " + question.getPaperNo() + " 题未在作答版中找到");
+                continue;
+            }
+            used.add(question.getPaperNo());
+            String status = answer.getAnswerStatus();
+            String studentAnswer = answer.getStudentAnswer();
+            if ("unreadable".equals(status)) {
+                question.setStudentAnswer("");
+                question.setAnswerStatus("unreadable");
+            } else if ("blank".equals(status) || studentAnswer == null || studentAnswer.isBlank()) {
+                question.setStudentAnswer("");
+                question.setAnswerStatus("blank");
+            } else {
+                question.setStudentAnswer(studentAnswer);
+                question.setAnswerStatus("answered");
+            }
+        }
+        for (Integer paperNo : byPaperNo.keySet()) {
+            if (!used.contains(paperNo)) {
+                warnings.add("作答版多出第 " + paperNo + " 题，已忽略");
+            }
+        }
+        if (answerResult.getDroppedCount() > 0) {
+            warnings.add("作答版丢弃 " + answerResult.getDroppedCount() + " 条非法作答");
+        }
+        if (answerResult.getWarning() != null && !answerResult.getWarning().isBlank()) {
+            warnings.add(answerResult.getWarning());
+        }
+        if (!warnings.isEmpty()) {
+            String joined = String.join("；", warnings);
+            cleanResult.setWarning(cleanResult.getWarning() == null
+                    ? joined : cleanResult.getWarning() + "；" + joined);
+            log.warn("双版本合并告警: paperId={}, warnings={}", examPaperId, joined);
+        }
+    }
+
+    /**
      * 构建 GLM-OCR grounding（2026-11-17）
      *
      * <p>降级策略：通道未启用/无 Key → null；单页失败跳过；总预算超时停止剩余页；
      * 全部失败 → 写降级日志并返回 null（纯视觉解析，不影响可用性）。</p>
      */
     private OcrGrounding buildOcrGrounding(Long examPaperId, List<byte[]> images, List<String> mediaTypes,
-                                           String tenantId) {
+                                           String tenantId, boolean redAlreadyRemoved) {
         if (!ocrGroundingEnabled || images == null || images.isEmpty() || !zhipuOcrClient.isEnabled()) {
             return null;
         }
@@ -382,7 +726,20 @@ public class ExamParseServiceImpl implements ExamParseService {
             }
             com.jiang.dto.OcrPageResult page;
             try {
-                page = zhipuOcrClient.parse(images.get(i), mediaTypes.get(i));
+                // 2026-11-17：OCR 只读印刷内容——先把红笔批改刷白，避免老师答案/解题过程混入 OCR 文本。
+                // 双版本路径传入的 clean 图已在派生阶段去掉红笔，跳过这步（省一次整图解码）。
+                byte[] ocrBytes = images.get(i);
+                String ocrMediaType = mediaTypes.get(i);
+                if (!redAlreadyRemoved) {
+                    RedInkSuppressor.Result ocrInput = RedInkSuppressor.suppress(images.get(i), mediaTypes.get(i));
+                    if (ocrInput.removedPixels() > 0) {
+                        log.info("OCR 前抑制红笔: paperId={}, page={}, removedPixels={}",
+                                examPaperId, i + 1, ocrInput.removedPixels());
+                    }
+                    ocrBytes = ocrInput.bytes();
+                    ocrMediaType = ocrInput.mediaType();
+                }
+                page = zhipuOcrClient.parse(ocrBytes, ocrMediaType);
             } catch (Exception e) {
                 log.warn("GLM-OCR 单页异常，跳过: paperId={}, page={}, reason={}",
                         examPaperId, i + 1, e.getMessage());
@@ -452,7 +809,7 @@ public class ExamParseServiceImpl implements ExamParseService {
             List<ParsedQuestion> questions = result.getQuestions() == null
                     ? List.of() : result.getQuestions();
             return new ImageTaskResult(imageSeq, questions, result.getRetryCount(),
-                    truncate(result.getWarning()), result.getFailureReason());
+                    truncate(result.getWarning()), result.getFailureReason(), result.getDroppedCount());
         } catch (BusinessException e) {
             log.warn("试卷图片读取/解析失败: paperId={}, imageSeq={}, reason={}",
                     examPaperId, imageSeq, e.getMessage());
@@ -474,6 +831,7 @@ public class ExamParseServiceImpl implements ExamParseService {
      */
     private ExamParseOutcome mergeAndAttribute(Long examPaperId, Long subjectId, String tenantId,
                                                int imageTotal, Map<Integer, ImageTaskResult> resultsByImage,
+                                               Integer paperQuestionTotal,
                                                com.jiang.service.ExamKpCandidateService.CandidateSnapshot kpSnapshot) {
         List<ImageTaskResult> ordered = new ArrayList<>(resultsByImage.values());
         ordered.sort(Comparator.comparingInt(ImageTaskResult::imageSeq));
@@ -517,9 +875,23 @@ public class ExamParseServiceImpl implements ExamParseService {
             }
         }
 
-        // 题号重排：忽略模型给的题号，按"图序 → 图内顺序"重排为 1..N（design §3.6）
-        for (int index = 0; index < merged.size(); index++) {
-            merged.get(index).setQuestionIndex(index + 1);
+        int droppedQuestions = ordered.stream().mapToInt(ImageTaskResult::droppedCount).sum();
+        if (droppedQuestions > 0) {
+            degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                    "paperId=" + examPaperId + ", images=" + imageTotal,
+                    "已丢弃 " + droppedQuestions + " 道输出不合法的题目",
+                    "parse_item_dropped", tenantId);
+        }
+
+        // 2026-11-17：保留卷面题号（不再按图序重排 1..N）；缺失/重复时回退并告警
+        ExamParseNumbering.Result numbering = ExamParseNumbering.apply(merged, paperQuestionTotal);
+        warnings.addAll(numbering.warnings());
+        if (!numbering.warnings().isEmpty()) {
+            degradationLogger.log(AgentDegradationLogger.AGENT_TYPE_EXAM_PARSE,
+                    "paperId=" + examPaperId + ", total=" + paperQuestionTotal
+                            + ", missing=" + numbering.missingPaperNos()
+                            + ", duplicates=" + numbering.duplicatePaperNos(),
+                    String.join("；", numbering.warnings()), "parse_question_gap", tenantId);
         }
 
         // v4：直出为主 + 兜底归因（白名单 + 四档统计）
@@ -806,10 +1178,10 @@ public class ExamParseServiceImpl implements ExamParseService {
      * 单图任务结果（只含结构化字段，不含图片字节）
      */
     record ImageTaskResult(int imageSeq, List<ParsedQuestion> questions, int retryCount,
-                           String warning, String failureReason) {
+                           String warning, String failureReason, int droppedCount) {
 
         static ImageTaskResult failed(int imageSeq, String failureReason) {
-            return new ImageTaskResult(imageSeq, List.of(), 0, null, failureReason);
+            return new ImageTaskResult(imageSeq, List.of(), 0, null, failureReason, 0);
         }
     }
 }

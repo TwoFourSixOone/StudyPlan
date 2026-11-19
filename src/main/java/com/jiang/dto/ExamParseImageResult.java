@@ -30,6 +30,12 @@ public class ExamParseImageResult {
     /** 整图失败原因（为 null 表示解析成功；非 null 时 questions 为空） */
     private String failureReason;
 
+    /** 整卷题目总数（2026-11-17：模型自报；null/0 = 未知，逐图回退路径为 null） */
+    private Integer paperQuestionTotal;
+
+    /** 本次被丢弃的非法题目数（2026-11-17：拼进 warning，不再静默） */
+    private int droppedCount;
+
     public boolean isSuccess() {
         return failureReason == null;
     }
