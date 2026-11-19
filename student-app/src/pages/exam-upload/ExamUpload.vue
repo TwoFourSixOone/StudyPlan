@@ -170,7 +170,9 @@ import {
   EXAM_MAX_IMAGE_COUNT,
   EXAM_MAX_SINGLE_IMAGE_MB,
   EXAM_MAX_TOTAL_IMAGE_MB,
-  EXAM_MAX_OCR_RETRY
+  EXAM_MAX_OCR_RETRY,
+  EXAM_MIN_LONG_SIDE,
+  EXAM_MIN_SHORT_SIDE
 } from '@/api/exam';
 
 // ========== 登录态守卫 ==========
@@ -216,7 +218,9 @@ const paperTypeIndex = computed(() => {
 });
 const paperTypeNames = examPaperTypeNames;
 
-// 图片列表：{ path, size, status: 'pending' | 'uploading' | 'done' | 'failed', error }
+// 图片列表：{ path, size, pageNo, status: 'pending' | 'uploading' | 'done' | 'failed', error }
+// pageNo 是卷面页序（1-based，= 上传时的列表下标）：加入列表时确定，**删除会重排**，
+// 上传失败重试沿用该次的值；后端按它稳定排序还原页序（2026-11-17，隐性约定 #38）。
 const images = ref([]);
 
 // 上传 / 解析状态
@@ -396,6 +400,24 @@ function removeImage(idx) {
     return;
   }
   images.value.splice(idx, 1);
+  // 删除后必须重排页序：pageNo 语义是"上传时的列表下标"，不重排会让后续补选拿到
+  // 与残留项重复的 pageNo → 服务端按 pageNo 稳定排序后，解析页序与缩略图顺序不一致
+  // （2026-11-17 修复，隐性约定 #38）。
+  renumberPageNos();
+}
+
+/**
+ * 按当前列表顺序重排**未上传**图片的 pageNo（= 列表下标）
+ *
+ * 只在**上传前**发生（已上传的图片不能删除，且其页序已随 URL 落库，不再改动），
+ * 因此不会与"失败重试沿用原值"冲突：重试时 img.pageNo 已是该次上传确定的值。
+ */
+function renumberPageNos() {
+  images.value.forEach((img, index) => {
+    if (img.status !== 'done') {
+      img.pageNo = index + 1;
+    }
+  });
 }
 
 /** 选图：count 只给剩余额度，超出即拦截提示（后端 1182 兜底） */
@@ -459,6 +481,12 @@ async function chooseImages() {
         uploadSize = compressedSize > 0 ? compressedSize : originalSize;
       }
 
+      // 清晰度预检（2026-11-17，后端 1193 兜底）：长边 < EXAM_MIN_LONG_SIDE 或
+      // 短边 < EXAM_MIN_SHORT_SIDE 的图直接跳过，不加入待上传列表，避免"传完才被拒"。
+      // 压缩不做 resize，取最终上传路径的尺寸即可；循环本身逐张串行，这里直接 await。
+      const resolutionOk = await checkImageResolution(uploadPath);
+      if (!resolutionOk) continue;
+
       const sizeMb = uploadSize / 1024 / 1024;
       if (uploadSize > 0 && sizeMb > MAX_SINGLE_MB) {
         // 压缩后仍超限时明确提示，不静默上传（requirement 2）
@@ -474,7 +502,16 @@ async function chooseImages() {
         continue;
       }
       totalBytes += uploadSize;
-      accepted.push({ path: uploadPath, size: uploadSize, status: 'pending', error: '' });
+      // 卷面页序：已有张数 + 本次已接受张数 + 1 = 该图在列表中的 1-based 下标。
+      // 删除会让列表变短，removeImage 会重排已有序号，因此这里得到的值始终等于当前列表位置；
+      // 上传失败重试沿用 img.pageNo 原值（2026-11-17，隐性约定 #38）。
+      accepted.push({
+        path: uploadPath,
+        size: uploadSize,
+        pageNo: images.value.length + accepted.length + 1,
+        status: 'pending',
+        error: ''
+      });
     }
     images.value = [...images.value, ...accepted];
   } finally {
@@ -524,6 +561,47 @@ function getFileSize(filePath, fallbackSize) {
         resolve(size > 0 ? size : fallback);
       },
       fail: () => resolve(fallback)
+    });
+  });
+}
+
+/**
+ * 清晰度预检（2026-11-17 exam_parse_reliability）：长边 ≥ EXAM_MIN_LONG_SIDE 且短边
+ * ≥ EXAM_MIN_SHORT_SIDE；低于门槛的图后端会以 1193 拒绝，选图阶段就拦下并给可操作提示。
+ *
+ * 取的是**最终要上传的那份文件**（压缩后路径）的尺寸——压缩只调 quality、不做 resize，
+ * 与原图分辨率一致。尺寸读不到（getImageInfo 不可用 / 宽高为 0）时放行，交后端 1193 兜底：
+ * 不能因为前端能力缺失把用户明确选择的图误拦掉。
+ *
+ * @returns {Promise<boolean>} true = 达标（或无法判定，放行）；false = 已提示并应跳过该张
+ */
+function checkImageResolution(filePath) {
+  return new Promise((resolve) => {
+    if (typeof uni.getImageInfo !== 'function') {
+      resolve(true);
+      return;
+    }
+    uni.getImageInfo({
+      src: filePath,
+      success: (res) => {
+        const width = Number(res.width) || 0;
+        const height = Number(res.height) || 0;
+        if (width <= 0 || height <= 0) {
+          resolve(true);
+          return;
+        }
+        const longSide = Math.max(width, height);
+        const shortSide = Math.min(width, height);
+        if (longSide >= EXAM_MIN_LONG_SIDE && shortSide >= EXAM_MIN_SHORT_SIDE) {
+          resolve(true);
+          return;
+        }
+        showError(
+          `图片分辨率过低（${width}x${height}），请上传原图或重新拍摄（长边≥${EXAM_MIN_LONG_SIDE}px、短边≥${EXAM_MIN_SHORT_SIDE}px）`
+        );
+        resolve(false);
+      },
+      fail: () => resolve(true)
     });
   });
 }
@@ -628,7 +706,8 @@ async function uploadOne(img) {
   img.status = 'uploading';
   img.error = '';
   try {
-    const res = await uploadPaperImage(paperId.value, img.path);
+    // img.pageNo 在加入列表时确定、之后不重排；失败重试走同一路径，自动沿用原值。
+    const res = await uploadPaperImage(paperId.value, img.path, img.pageNo);
     img.status = 'done';
     // F1 修复 ③：满 8 张时后端自动触发解析并在响应里带回 taskId——记录下来，
     // 提交阶段优先用任务轮询（task 完成发生在 TX-B 判分结算之后，状态可信）。

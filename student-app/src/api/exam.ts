@@ -9,7 +9,7 @@
  *
  * 后端契约（统一前缀 /api，由 utils 拼接）：
  * - POST /student/exam/papers                      建上传会话
- * - POST /student/exam/papers/{paperId}/images     逐张追加图片（multipart 字段名 file）
+ * - POST /student/exam/papers/{paperId}/images     逐张追加图片（multipart 字段名 file + pageNo 卷面页序）
  * - POST /student/exam/papers/{paperId}/submit     提交解析（建 task 并入队）
  * - POST /student/exam/papers/{paperId}/retry      整卷重试（仅 failed 且 ocr_retry_count < 2）
  * - GET  /student/exam/tasks/{taskId}              解析任务进度（上传页轮询）
@@ -32,6 +32,21 @@ export const EXAM_MAX_IMAGE_COUNT = 8;
 
 /** 单张图片业务上限（MB，后端 1184 兜底，见 design §2.3） */
 export const EXAM_MAX_SINGLE_IMAGE_MB = 9.5;
+
+/**
+ * 图片清晰度门槛：长边最低像素（低于则后端 1193 拒绝，2026-11-17 联调期 600）
+ *
+ * ⚠ 与后端 `exam.parse.min-long-side` 默认值（`ExamUploadValidator`）必须保持一致：
+ * 前端只是"提前拦截"，后端才是权威判定；两处改动需同批发布（无接口下发该阈值）。
+ */
+export const EXAM_MIN_LONG_SIDE = 600;
+
+/**
+ * 图片清晰度门槛：短边最低像素（低于则后端 1193 拒绝，2026-11-17 联调期 500）
+ *
+ * ⚠ 与后端 `exam.parse.min-short-side` 默认值保持一致（同上）。
+ */
+export const EXAM_MIN_SHORT_SIDE = 500;
 
 /** 单卷图片总大小上限（MB，后端 1185 兜底，见 design §2.3 / §11.3） */
 export const EXAM_MAX_TOTAL_IMAGE_MB = 30;
@@ -131,6 +146,15 @@ export interface ExamTaskProgressVO {
 }
 
 /** 题目项出参（design §4.2；字段名与后端 ExamQuestionItemVO 一致） */
+export interface ExamStemBlockVO {
+  /** text | table */
+  type?: string;
+  /** 受控 HTML（rich-text 直接渲染） */
+  html?: string;
+  /** 表格块建议最小宽度（px），文字块为 0 */
+  minWidthPx?: number;
+}
+
 export interface ExamQuestionItemVO {
   questionId: number;
   questionIndex: number;
@@ -141,6 +165,15 @@ export interface ExamQuestionItemVO {
   questionContent?: string;
   /** 题干（codec 解码） */
   stem?: string;
+  /**
+   * 题干富文本分块（2026-11-17 demo：宽表格横向滚动）
+   *
+   * `text` 块用 `<rich-text>` 正常折行渲染；`table` 块套 `<scroll-view scroll-x>`，
+   * 并用 `minWidthPx` 作为 rich-text 的 min-width，窄屏也能滑动看完整张表。
+   */
+  stemBlocks?: ExamStemBlockVO[];
+  /** 题干富文本整段 HTML（= stemBlocks 各块拼接；不想分块渲染时可用） */
+  stemHtml?: string;
   /** 选项纯文本数组（label 由前端按序号渲染） */
   choices?: string[];
   /** 学生作答（独立列） */
@@ -219,11 +252,24 @@ export function createPaper(params: ExamPaperCreateParams): Promise<ExamPaperCre
 /**
  * ② 逐张追加图片（POST /student/exam/papers/{paperId}/images）
  * 隐性约定 #19 + S5：multipart 字段名必须是 `file`（`uploadWithAuth` 默认是 `files`，此处显式覆盖）。
+ *
+ * `pageNo` 是**图片在选择列表里的位置（1-based 上传时下标）**：多张并发上传时服务端按到达顺序
+ * 落库并不可靠，会造成卷面题号/配图错位（2026-11-17 exam_parse_reliability），
+ * 因此由前端带上页序供服务端还原。该值在上传时确定（删除会重排），上传失败重试沿用原值。
+ *
  * @param paperId 上传会话 ID
  * @param filePath 本地图片路径（uni.chooseImage / uni.compressImage 返回值）
+ * @param pageNo 卷面页序（1-based 列表下标；后端范围 1–8）
  */
-export function uploadPaperImage(paperId: number, filePath: string): Promise<ExamPaperImageVO> {
-  return uploadWithAuth(`/student/exam/papers/${paperId}/images`, filePath, 'file');
+export function uploadPaperImage(
+  paperId: number,
+  filePath: string,
+  pageNo: number
+): Promise<ExamPaperImageVO> {
+  // uni.uploadFile 的 formData 值按字符串传输（design D1.2），显式转换避免端间差异
+  return uploadWithAuth(`/student/exam/papers/${paperId}/images`, filePath, 'file', {
+    pageNo: String(pageNo)
+  });
 }
 
 /**

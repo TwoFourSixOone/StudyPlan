@@ -67,6 +67,8 @@
       <!-- 题目内容区域（只读，与 HomeworkDetail 相同的交互骨架，无提交按钮） -->
       <view class="question-area" v-if="currentQuestion">
         <view class="question-tags">
+          <!-- 卷面题号（后端 questionIndex，可能不连续）：与顶部进度条序号解耦，2026-11-17 -->
+          <text class="index-tag" v-if="currentQuestion.questionIndex != null">第 {{ currentQuestion.questionIndex }} 题</text>
           <!-- 字段对齐后端 ExamQuestionItemVO：questionType（design §4.2） -->
           <text class="type-tag" :class="'tag-' + currentQuestion.questionType">
             {{ typeLabel(currentQuestion) }}
@@ -94,7 +96,30 @@
           />
           <text class="figure-tip">👆 点击查看大图</text>
         </view>
-        <text class="question-content">{{ currentQuestion.stem || currentQuestion.questionContent || '题干缺失' }}</text>
+        <!-- 题干：分块富文本（表格按表格渲染 + 宽表格横向滚动，2026-11-17 demo）
+             无分块时回退整段富文本，再回退纯文本 -->
+        <view v-if="currentQuestion.stemBlocks && currentQuestion.stemBlocks.length" class="stem-rich">
+          <template v-for="(block, blockIndex) in currentQuestion.stemBlocks" :key="blockIndex">
+            <scroll-view
+              v-if="block.type === 'table'"
+              class="table-scroll"
+              scroll-x="true"
+            >
+              <rich-text
+                class="table-rich"
+                :style="'min-width:' + (block.minWidthPx || 0) + 'px'"
+                :nodes="block.html"
+              />
+            </scroll-view>
+            <rich-text v-else class="question-content" :nodes="block.html" />
+          </template>
+        </view>
+        <rich-text
+          v-else-if="currentQuestion.stemHtml"
+          class="question-content"
+          :nodes="currentQuestion.stemHtml"
+        />
+        <text v-else class="question-content">{{ currentQuestion.stem || currentQuestion.questionContent || '题干缺失' }}</text>
 
         <!-- 选择题选项（只读：我的答案高亮 + 正确答案高亮） -->
         <view
@@ -569,6 +594,14 @@ function difficultyLabel(diff) {
   gap: $spacing-sm;
   margin-bottom: $spacing-md;
 }
+/* 卷面题号（2026-11-17）：questionIndex 由后端给出，可能不连续 */
+.index-tag {
+  font-size: $font-xs;
+  padding: 4rpx 16rpx;
+  border-radius: $radius-sm;
+  color: $primary-color;
+  background-color: $primary-light;
+}
 .type-tag {
   font-size: $font-xs;
   padding: 4rpx 16rpx;
@@ -633,6 +666,31 @@ function difficultyLabel(diff) {
   line-height: 1.6;
   display: block;
   margin-bottom: $spacing-lg;
+  /* 题干含纯文本表格（表格内联进题干）时保留换行/对齐，长行自动折行 */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 题干分块富文本（rich-text 内部换行已由服务端转 <br/>，这里只管块间距） */
+.stem-rich {
+  display: block;
+  margin-bottom: $spacing-lg;
+}
+.stem-rich .question-content {
+  margin-bottom: 0;
+}
+/* 宽表格横向滚动容器：表格块按 min-width 撑开，窄屏可左右滑动 */
+.table-scroll {
+  width: 100%;
+  margin: $spacing-sm 0;
+  white-space: nowrap;
+}
+.table-rich {
+  display: inline-block;
+  font-size: $font-md;
+  color: $text-primary;
+  line-height: 1.5;
+  vertical-align: top;
 }
 
 /* 选择题选项 */
@@ -790,6 +848,9 @@ function difficultyLabel(diff) {
   font-size: $font-md;
   color: $text-primary;
   line-height: 1.6;
+  /* 分步解析按行显示（"第 1 步/第 2 步"各占一行） */
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .item-footer {
