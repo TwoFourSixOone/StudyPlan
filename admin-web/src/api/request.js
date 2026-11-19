@@ -39,7 +39,11 @@ request.interceptors.response.use(
       localStorage.removeItem('VITE_DEMO_TOKEN');
       window.location.href = '/login';
     } else if (error.response?.status === 403) {
-      showError('您没有权限访问');
+      // 403：无权限 / 旧 token（无 role claim，后端按 student 处理后拒绝）
+      // 与 401 对齐：清 token 并回登录页，否则升级后管理员会卡在“每页 403 弹提示”的状态
+      showError('登录状态已失效或无权限，请重新登录');
+      localStorage.removeItem('VITE_DEMO_TOKEN');
+      window.location.href = '/login';
     } else if (error.response?.status === 404) {
       showError('请求的资源不存在');
     } else if (error.response?.status === 500) {

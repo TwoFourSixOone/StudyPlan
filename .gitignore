@@ -41,6 +41,8 @@ build/
 
 ### 本地配置文件（包含敏感信息） ###
 src/main/resources/application-local.yml
+# 本地 MCP/工具设置（含数据库口令，禁止入库）；.qoder/skills/** 与 .qoder/agents/** 仍需跟踪
+/.qoder/settings.local.json
 
 ### 学生端小程序 ###
 student-app/node_modules/

@@ -2,6 +2,7 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
+import com.jiang.security.AdminApi;
 import com.jiang.service.GoalService;
 import com.jiang.vo.GoalVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @author StudyMate Team
  * @since 2026-10-31
  */
+@AdminApi
 @RestController
 @RequestMapping("/api/admin/goal")
 @Tag(name = "管理端 - 学习目标", description = "管理端学习目标查询接口")

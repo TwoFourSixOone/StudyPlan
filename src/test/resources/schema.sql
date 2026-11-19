@@ -310,3 +310,17 @@ CREATE TABLE IF NOT EXISTS `exam_analysis_task` (
     `update_time`           DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`)
 );
+
+-- 管理员账号表（上线加固：admin 账号落库，对齐 db/V17__admin_user.sql）
+CREATE TABLE IF NOT EXISTS `admin_user` (
+    `admin_id`      BIGINT       NOT NULL AUTO_INCREMENT,
+    `username`      VARCHAR(64)  NOT NULL,
+    `password_hash` VARCHAR(255) NOT NULL,
+    `role`          VARCHAR(32)  NOT NULL DEFAULT 'admin',
+    `status`        VARCHAR(20)  NOT NULL DEFAULT 'active',
+    `tenant_id`     VARCHAR(50)  NOT NULL DEFAULT 'default',
+    `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `update_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`admin_id`),
+    UNIQUE KEY `uk_username` (`username`, `tenant_id`)
+);

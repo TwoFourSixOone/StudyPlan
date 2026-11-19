@@ -4,6 +4,11 @@ package com.jiang.security;
  * 学生上下文（ThreadLocal）
  * 在请求线程中存储当前登录学生信息
  *
+ * <p><b>只有学生 token 才能写入 studentId / openid（P0-1）</b>：管理员 token 的 {@code sub}
+ * 是管理员 ID，写入这里会被当成 {@code student_id} 参与业务过滤（串数据）。
+ * admin 请求由 {@link AdminContext} 承载身份，仅复用本上下文的 {@code tenantId}
+ * （管理端服务依赖租户过滤）。</p>
+ *
  * @author StudyMate Team
  * @since 2026-10-30
  */

@@ -2,6 +2,7 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
+import com.jiang.security.AdminApi;
 import com.jiang.dto.AdminMasteryQueryRequest;
 import com.jiang.service.MasteryService;
 import com.jiang.vo.MasteryChangeLogVO;
@@ -23,6 +24,7 @@ import java.util.List;
  * @author StudyMate Team
  * @since 2026-11-02
  */
+@AdminApi
 @RestController
 @RequestMapping("/api/admin/mastery")
 @Tag(name = "管理端 - 掌握度", description = "管理端掌握度看板与变更历史接口")

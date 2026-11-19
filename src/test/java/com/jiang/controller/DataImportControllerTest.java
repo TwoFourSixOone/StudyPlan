@@ -49,12 +49,15 @@ class DataImportControllerTest {
 
     /**
      * 配置 JwtUtil mock 通用行为（模拟鉴权通过 + 不刷新 token）
+     *
+     * <p>P0-1：本测试打的是 {@code POST /api/admin/import}，必须 role=admin，否则拦截器直接 403。</p>
      */
     private void stubJwtAuth() {
         Claims claims = mock(Claims.class);
         when(claims.getSubject()).thenReturn("1");
         when(claims.get("openid", String.class)).thenReturn("test_openid");
         when(claims.get("tenantId", String.class)).thenReturn("default");
+        when(claims.get(JwtUtil.CLAIM_ROLE, String.class)).thenReturn(JwtUtil.ROLE_ADMIN);
 
         when(jwtUtil.parseAndValidateToken(anyString())).thenReturn(claims);
         when(jwtUtil.shouldRefresh(anyString())).thenReturn(false);

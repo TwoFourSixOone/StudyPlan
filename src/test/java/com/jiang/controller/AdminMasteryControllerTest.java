@@ -1,6 +1,7 @@
 package com.jiang.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.result.PageResult;
 import com.jiang.security.JwtUtil;
 import com.jiang.service.MasteryService;
@@ -23,6 +24,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -54,10 +56,20 @@ class AdminMasteryControllerTest {
     private static final String AUTH_HEADER = "Bearer valid_token";
 
     private void stubJwtAuth() {
+        stubJwtAuth(JwtUtil.ROLE_ADMIN);
+    }
+
+    /**
+     * 按角色 stub JWT（P0-1：/api/admin/** 必须 role=admin）
+     */
+    private void stubJwtAuth(String role) {
         Claims claims = mock(Claims.class);
         when(claims.getSubject()).thenReturn("1");
         when(claims.get("openid", String.class)).thenReturn("test_openid");
         when(claims.get("tenantId", String.class)).thenReturn("default");
+        if (role != null) {
+            when(claims.get(JwtUtil.CLAIM_ROLE, String.class)).thenReturn(role);
+        }
         when(jwtUtil.parseAndValidateToken(anyString())).thenReturn(claims);
         when(jwtUtil.shouldRefresh(anyString())).thenReturn(false);
     }
@@ -195,5 +207,29 @@ class AdminMasteryControllerTest {
     void should_return401_when_noJwt() throws Exception {
         mockMvc.perform(get("/api/admin/mastery/dashboard"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    // ==================== P0-1：管理端角色隔离 ====================
+
+    @Test
+    void should_return403_when_studentTokenCallsAdminApi() throws Exception {
+        stubJwtAuth(JwtUtil.ROLE_STUDENT);
+
+        mockMvc.perform(get("/api/admin/mastery/dashboard")
+                        .header("Authorization", AUTH_HEADER))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(ErrorCodes.FORBIDDEN.getCode()));
+        verifyNoInteractions(masteryService);
+    }
+
+    @Test
+    void should_return403_when_legacyTokenWithoutRoleCallsAdminApi() throws Exception {
+        stubJwtAuth(null);
+
+        mockMvc.perform(get("/api/admin/mastery/student/1/history/kp_001")
+                        .header("Authorization", AUTH_HEADER))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value(ErrorCodes.FORBIDDEN.getCode()));
+        verifyNoInteractions(masteryService);
     }
 }

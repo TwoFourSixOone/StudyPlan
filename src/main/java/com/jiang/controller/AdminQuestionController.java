@@ -2,6 +2,7 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
+import com.jiang.security.AdminApi;
 import com.jiang.service.AdminListQueryService;
 import com.jiang.vo.QuestionListVO;
 import io.swagger.v3.oas.annotations.Operation;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.*;
  * @author StudyMate Team
  * @since 2026-11-04
  */
+@AdminApi
 @RestController
 @RequestMapping("/api/admin/questions")
 @Tag(name = "题目管理（管理端）", description = "题目列表查询")

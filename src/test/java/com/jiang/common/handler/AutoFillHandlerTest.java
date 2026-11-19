@@ -1,73 +1,109 @@
 package com.jiang.common.handler;
 
-import org.junit.jupiter.api.Disabled;
+import com.baomidou.mybatisplus.core.MybatisConfiguration;
+import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
+import com.jiang.model.entity.Student;
+import com.jiang.security.AdminContext;
+import com.jiang.security.StudentContext;
+import org.apache.ibatis.builder.MapperBuilderAssistant;
+import org.apache.ibatis.reflection.SystemMetaObject;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
- * AutoFillHandler 单元测试
- * 
- * 注意：AutoFillHandler 的 strictInsertFill/strictUpdateFill 方法依赖 MyBatis-Plus 的 TableInfo 上下文，
- * 纯单元测试环境无法提供此上下文。以下测试需要集成测试环境（H2 内存库或 Testcontainers）才能运行。
+ * AutoFillHandler 单元测试（写路径租户一致性）
+ *
+ * <p>MyBatis-Plus 的租户插件对「INSERT 列里已有 tenant_id」不覆盖，因此实体落库的租户必须与
+ * 读过滤同源（AdminContext → StudentContext → default），否则请求租户 t1 写入的行会落到 default，
+ * 形成「写 default / 读 t1」的数据分割。</p>
  *
  * @author StudyMate Team
- * @since 2026-10-30
+ * @since 2026-11-19
  */
+@DisplayName("AutoFillHandler 写路径租户填充")
 class AutoFillHandlerTest {
 
-    @Test
-    @DisplayName("测试 AutoFillHandler 实例创建")
-    void testHandlerCreation() {
-        AutoFillHandler handler = new AutoFillHandler();
-        assertNotNull(handler, "AutoFillHandler 应该能正常创建实例");
+    private final AutoFillHandler autoFillHandler = new AutoFillHandler();
+
+    /**
+     * 单测没有 MyBatis 容器：strictInsertFill 依赖实体 TableInfo（填充标记）
+     */
+    @BeforeAll
+    static void initMybatisPlusTableInfo() {
+        MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
+        assistant.setCurrentNamespace("com.jiang.mapper.StudentMapper");
+        TableInfoHelper.initTableInfo(assistant, Student.class);
+    }
+
+    @AfterEach
+    void tearDown() {
+        AdminContext.clear();
+        StudentContext.clear();
     }
 
     @Test
-    @DisplayName("测试 TenantHandler 默认租户 ID")
-    void testDefaultTenantId() {
-        assertEquals("default", TenantHandler.DEFAULT_TENANT_ID, 
-            "默认租户 ID 应该是 'default'");
+    @DisplayName("学生请求：插入时 tenant_id 取 StudentContext（与读过滤同源）")
+    void should_fillStudentContextTenant_when_insert() {
+        StudentContext.setTenantId("tenant_a");
+        Student student = new Student();
+
+        autoFillHandler.insertFill(SystemMetaObject.forObject(student));
+
+        assertEquals("tenant_a", student.getTenantId());
+        assertNotNull(student.getCreateTime());
+        assertNotNull(student.getUpdateTime());
     }
 
     @Test
-    @Disabled("需要 MyBatis-Plus 上下文（TableInfo），纯单元测试环境无法运行。建议在集成测试中验证。")
-    @DisplayName("测试插入时自动填充 createTime")
-    void testInsertFillCreateTime() {
-        // 此测试需要 MyBatis-Plus 的 TableInfo 上下文
-        // 将在集成测试中验证
+    @DisplayName("管理端请求：插入时 tenant_id 取 AdminContext 租户")
+    void should_fillAdminContextTenant_when_insert() {
+        AdminContext.setTenantId("tenant_admin");
+        Student entity = new Student();
+
+        autoFillHandler.insertFill(SystemMetaObject.forObject(entity));
+
+        assertEquals("tenant_admin", entity.getTenantId());
     }
 
     @Test
-    @Disabled("需要 MyBatis-Plus 上下文（TableInfo），纯单元测试环境无法运行。建议在集成测试中验证。")
-    @DisplayName("测试插入时自动填充 updateTime")
-    void testInsertFillUpdateTime() {
-        // 此测试需要 MyBatis-Plus 的 TableInfo 上下文
-        // 将在集成测试中验证
+    @DisplayName("无请求上下文（定时任务/Worker）→ 回退 default，系统路径可写")
+    void should_fillDefaultTenant_when_noContext() {
+        Student entity = new Student();
+
+        autoFillHandler.insertFill(SystemMetaObject.forObject(entity));
+
+        assertEquals(TenantHandler.DEFAULT_TENANT_ID, entity.getTenantId());
+        assertNotNull(entity.getCreateTime());
     }
 
     @Test
-    @Disabled("需要 MyBatis-Plus 上下文（TableInfo），纯单元测试环境无法运行。建议在集成测试中验证。")
-    @DisplayName("测试插入时自动填充 tenantId")
-    void testInsertFillTenantId() {
-        // 此测试需要 MyBatis-Plus 的 TableInfo 上下文
-        // 将在集成测试中验证
+    @DisplayName("调用方显式指定租户（如 applyDiff 用 diff 自身租户）→ 不被覆盖")
+    void should_notOverwriteExplicitTenant_when_insert() {
+        StudentContext.setTenantId("tenant_a");
+        Student entity = new Student();
+        entity.setTenantId("tenant_explicit");
+
+        autoFillHandler.insertFill(SystemMetaObject.forObject(entity));
+
+        assertEquals("tenant_explicit", entity.getTenantId());
     }
 
     @Test
-    @Disabled("需要 MyBatis-Plus 上下文（TableInfo），纯单元测试环境无法运行。建议在集成测试中验证。")
-    @DisplayName("测试更新时自动填充 updateTime")
-    void testUpdateFillUpdateTime() {
-        // 此测试需要 MyBatis-Plus 的 TableInfo 上下文
-        // 将在集成测试中验证
-    }
+    @DisplayName("更新时只填 update_time，不动 tenant_id")
+    void should_fillOnlyUpdateTime_when_update() {
+        Student entity = new Student();
+        entity.setTenantId("tenant_a");
 
-    @Test
-    @Disabled("需要 MyBatis-Plus 上下文（TableInfo），纯单元测试环境无法运行。建议在集成测试中验证。")
-    @DisplayName("测试自动填充时间接近当前时间")
-    void testAutoFillTimeIsRecent() {
-        // 此测试需要 MyBatis-Plus 的 TableInfo 上下文
-        // 将在集成测试中验证
+        autoFillHandler.updateFill(SystemMetaObject.forObject(entity));
+
+        assertNotNull(entity.getUpdateTime());
+        assertEquals("tenant_a", entity.getTenantId());
+        assertNull(entity.getCreateTime());
     }
 }

@@ -13,6 +13,9 @@ import org.springframework.context.annotation.Configuration;
 /**
  * MyBatis-Plus 配置
  *
+ * <p>租户插件使用 {@link TenantHandler} 的**请求上下文租户**（管理端/学生端上下文 → 无上下文回退
+ * {@code default}），因此定时任务、Worker 线程等无 HTTP 上下文的系统路径照常可用。</p>
+ *
  * @author StudyMate Team
  * @since 2026-10-30
  */
@@ -27,7 +30,8 @@ public class MybatisPlusConfig {
     public MybatisPlusInterceptor mybatisPlusInterceptor() {
         MybatisPlusInterceptor interceptor = new MybatisPlusInterceptor();
         
-        // 租户插件（Demo 阶段固定 tenant_id = 'default'）
+        // 租户插件：tenant_id 取请求上下文（AdminContext → StudentContext → default），
+        // 详见 com.jiang.common.handler.TenantHandler#resolveTenantId
         interceptor.addInnerInterceptor(new TenantLineInnerInterceptor(new TenantHandler()));
         
         // 乐观锁插件（StudentKnowledgeState 等实体使用 @Version）

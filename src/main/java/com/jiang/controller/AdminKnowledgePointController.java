@@ -2,6 +2,7 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
+import com.jiang.security.AdminApi;
 import com.jiang.service.KnowledgePointGovernanceService;
 import com.jiang.vo.KnowledgePointDetailVO;
 import com.jiang.vo.KnowledgePointListVO;
@@ -20,6 +21,7 @@ import java.util.List;
  * @author StudyMate Team
  * @since 2026-11-04
  */
+@AdminApi
 @RestController
 @RequestMapping("/api/admin/knowledge-points")
 @Tag(name = "知识点管理（管理端）", description = "知识点列表、启停用、校对标记")

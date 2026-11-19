@@ -35,13 +35,13 @@
 
       <div class="login-tips">
         <el-alert
-          title="Demo 提示"
+          title="账号说明"
           type="info"
           :closable="false"
           show-icon
         >
-          <p>默认用户名：admin</p>
-          <p>默认密码：smileday159</p>
+          <p>管理员账号由运维在 admin_user 表创建（密码以 PBKDF2 哈希存储）</p>
+          <p>首次部署请用环境变量 ADMIN_BOOTSTRAP_USERNAME / ADMIN_BOOTSTRAP_PASSWORD 初始化；未设置密码不会创建账号</p>
         </el-alert>
       </div>
     </el-card>
@@ -59,8 +59,8 @@ const loginFormRef = ref(null);
 const loading = ref(false);
 
 const loginForm = reactive({
-  username: 'admin',
-  password: 'smileday159'
+  username: '',
+  password: ''
 });
 
 const rules = {

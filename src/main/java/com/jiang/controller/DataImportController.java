@@ -2,6 +2,7 @@ package com.jiang.controller;
 
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
+import com.jiang.security.AdminApi;
 import com.jiang.dto.ImportResultDTO;
 import com.jiang.model.entity.DataImportErrorLog;
 import com.jiang.service.DataImportService;
@@ -25,6 +26,7 @@ import org.springframework.web.multipart.MultipartFile;
  * @author StudyMate Team
  * @since 2026-10-31
  */
+@AdminApi
 @RestController
 @RequestMapping("/api/admin/import")
 @Tag(name = "数据导入管理", description = "管理后端数据导入接口")

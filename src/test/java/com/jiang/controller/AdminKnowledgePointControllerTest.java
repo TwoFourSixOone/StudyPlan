@@ -59,6 +59,8 @@ class AdminKnowledgePointControllerTest {
         when(claims.getSubject()).thenReturn("1");
         when(claims.get("openid", String.class)).thenReturn("test_openid");
         when(claims.get("tenantId", String.class)).thenReturn(TENANT_ID);
+        // P0-1：/api/admin/** 必须 role=admin，否则拦截器直接 403
+        when(claims.get(JwtUtil.CLAIM_ROLE, String.class)).thenReturn(JwtUtil.ROLE_ADMIN);
         when(jwtUtil.parseAndValidateToken(anyString())).thenReturn(claims);
         when(jwtUtil.shouldRefresh(anyString())).thenReturn(false);
     }

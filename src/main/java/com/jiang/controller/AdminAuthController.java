@@ -1,6 +1,7 @@
 package com.jiang.controller;
 
 import com.jiang.common.result.Result;
+import com.jiang.security.AdminApi;
 import com.jiang.dto.AdminLoginRequest;
 import com.jiang.service.AdminAuthService;
 import com.jiang.vo.AdminLoginResponse;
@@ -20,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @author StudyMate Team
  * @since 2026-11-05
  */
+@AdminApi
 @RestController
 @RequestMapping("/api/admin/auth")
 @Tag(name = "管理员认证", description = "管理端登录接口")

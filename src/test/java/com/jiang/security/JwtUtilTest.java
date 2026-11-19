@@ -4,6 +4,7 @@ import com.jiang.config.JwtConfig;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.MalformedJwtException;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -186,5 +187,80 @@ class JwtUtilTest {
     @Test
     void should_throwMalformedJwtException_when_parseMalformedToken() {
         assertThrows(MalformedJwtException.class, () -> jwtUtil.parseToken("malformed"));
+    }
+
+    // ==================== P0-1：角色 claim 与旧 token 兼容 ====================
+
+    @Test
+    @DisplayName("默认签发（旧签名）→ role=student")
+    void should_carryStudentRole_when_generateDefaultToken() {
+        String token = jwtUtil.generateToken("test_openid", 1L, "default");
+
+        assertEquals(JwtUtil.ROLE_STUDENT, jwtUtil.parseToken(token).get(JwtUtil.CLAIM_ROLE, String.class));
+        assertFalse(JwtUtil.isAdmin(jwtUtil.parseToken(token)));
+        assertEquals(JwtUtil.ROLE_STUDENT, jwtUtil.getRoleFromToken(token));
+    }
+
+    @Test
+    @DisplayName("generateAdminToken → role=admin 且 sub=管理员ID")
+    void should_carryAdminRole_when_generateAdminToken() {
+        String token = jwtUtil.generateAdminToken("admin_admin", 1L, "default");
+
+        var claims = jwtUtil.parseToken(token);
+        assertEquals(JwtUtil.ROLE_ADMIN, claims.get(JwtUtil.CLAIM_ROLE, String.class));
+        assertEquals("1", claims.getSubject());
+        assertEquals("admin_admin", claims.get("openid", String.class));
+        assertTrue(JwtUtil.isAdmin(claims));
+        assertEquals(JwtUtil.ROLE_ADMIN, jwtUtil.getRoleFromToken(token));
+    }
+
+    @Test
+    @DisplayName("旧 token（无 role claim）→ 按 student 处理（不强制重新登录）")
+    void should_treatAsStudent_when_roleClaimMissing() {
+        String legacyToken = legacyTokenWithoutRole();
+
+        var claims = jwtUtil.parseToken(legacyToken);
+        assertNull(claims.get(JwtUtil.CLAIM_ROLE, String.class));
+        assertEquals(JwtUtil.ROLE_STUDENT, JwtUtil.resolveRole(claims));
+        assertFalse(JwtUtil.isAdmin(claims));
+        assertEquals(JwtUtil.ROLE_STUDENT, jwtUtil.getRoleFromToken(legacyToken));
+    }
+
+    @Test
+    @DisplayName("未知 / 大小写混杂的 role 取值 → 只认 admin（其余按 student）")
+    void should_normalizeRole_when_roleClaimIsUnknownOrMixedCase() {
+        assertEquals(JwtUtil.ROLE_STUDENT, JwtUtil.resolveRole(claimsWithRole("teacher")));
+        assertEquals(JwtUtil.ROLE_STUDENT, JwtUtil.resolveRole(claimsWithRole("")));
+        assertEquals(JwtUtil.ROLE_ADMIN, JwtUtil.resolveRole(claimsWithRole("ADMIN")));
+        assertEquals(JwtUtil.ROLE_ADMIN, JwtUtil.resolveRole(claimsWithRole(" admin ")));
+        // null Claims 也不能 NPE
+        assertEquals(JwtUtil.ROLE_STUDENT, JwtUtil.resolveRole(null));
+    }
+
+    /**
+     * 构造改造前签发的旧 token（无 role claim）
+     */
+    private String legacyTokenWithoutRole() {
+        var key = io.jsonwebtoken.security.Keys.hmacShaKeyFor(
+                "this-is-a-test-secret-key-for-jwt-signing-256-bits"
+                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        java.util.Date now = new java.util.Date();
+        return io.jsonwebtoken.Jwts.builder()
+                .subject("1")
+                .claim("openid", "legacy_openid")
+                .claim("tenantId", "default")
+                .issuedAt(now)
+                .expiration(new java.util.Date(now.getTime() + 600000L))
+                .signWith(key)
+                .compact();
+    }
+
+    /**
+     * 用给定 role 取值构造 Claims（模拟各类历史/异常取值）
+     */
+    private io.jsonwebtoken.Claims claimsWithRole(String role) {
+        io.jsonwebtoken.Claims claims = org.mockito.Mockito.mock(io.jsonwebtoken.Claims.class);
+        org.mockito.Mockito.when(claims.get(JwtUtil.CLAIM_ROLE, String.class)).thenReturn(role);
+        return claims;
     }
 }
