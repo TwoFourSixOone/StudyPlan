@@ -22,7 +22,7 @@
 >
 > 1. 编号 #5–#8 在本文件中**空缺**（历史遗留），**不复用**，新增约定统一从 #21 起顺序编号（起点已按序顺延，当前见第 3 条）。保留空号是为了不破坏已归档 change 中对 #9–#20 的既有引用（`archive/` 只读，无法回改）。
 > 2. 历史工件中出现的「隐性约定 #7 JWT 登录态」为**悬空引用**——该条不存在，其真实出处是 **产品规则 #7**（学生登录态与数据隔离）与 **约定 #15**（管理端 JWT 鉴权）。后续新增工件请直接引用这两处。
-> 3. （2026-11-17 补）当前最大编号为 **#43**，新增约定从 **#44** 起顺序编号；以 §3 维护规则第 2 条为准。
+> 3. （2026-11-19 补）当前最大编号为 **#44**，新增约定从 **#45** 起顺序编号；以 §3 维护规则第 2 条为准。
 
 ### 约定 #1：统一响应结构
 
@@ -575,10 +575,29 @@
 - **发现时间**：2026-11-17（真实卷概率统计题：列联表以 HTML 标签原样显示；demo 阶段要求表格按表格渲染）
 - **正确做法**：存储层"受控 HTML"、展示层"rich-text + 内联样式"、判分层"纯文本派生"，
   三层各管一件事；白名单 + 丢弃属性是安全边界，未知标签按文本处理是防误伤边界
+### 约定 #44：作业读取必须按 student_id 隔离（daily_plan 无 student_id，必须 JOIN learning_goal）
+
+- **约定内容**：
+    - 归属模型：`learning_goal(goal_id, student_id, subject_id, tenant_id)` → `daily_plan(plan_id, goal_id, plan_date, ...)`
+      → `homework_submission_detail(submission_id, plan_id, student_id, ...)`；**`daily_plan` 没有 student_id 列**
+    - 任何"按科目/日期"读计划的 SQL **必须** `JOIN learning_goal` 且带 `lg.student_id = #{studentId}`
+      （不要只写 `subject_id + tenant_id + plan_date`；配 `ORDER BY ... LIMIT 1` 会随机命中同租户其它学生）
+    - 提交明细读取按「`plan_id` + `student_id` + `tenant_id`」三条件（该表已冗余 `student_id` 且有 `idx_student`），
+      即使调用方误传他人 planId 也读不到别人的作答（纵深防御）
+    - 写路径（`submitAnswer` / `gradeHomework`）的归属校验保留：经 `learning_goal.student_id` 反查或
+      `GoalService#getActiveGoals`（内部按 `StudentContext` 过滤）；**不允许**用客户端传入的 studentId
+    - 回归护栏：SQL 形态用反射测试钉死（`HomeworkIsolationSqlTest`），服务层断言"传给 mapper 的是当前 studentId"
+- **影响范围**：`DailyPlanMapper#selectBySubjectAndDate`、`HomeworkSubmissionDetailMapper#selectByPlanId`、
+  `HomeworkServiceImpl#getHomeworkByDate/gradeHomework`、`student-app`（每日作业页仅做只读标记，不做数据过滤）
+- **违反后果**：同租户内任意学生能看到别人的题目、别人的作答与批改状态（真实事故：每日作业页出现
+  "自己没选的科目 + 只读 + 0/15"，点进去是别人的作业）——数据越权 + 判分/掌握度口径被污染的风险
+- **发现时间**：2026-11-19（学生端每日作业页截图：数学 15/15 可批改、语文 0/15 只读且内容不属于本人）
+- **正确做法**：计划归属只能经 `learning_goal` 表达 → 读计划必须带 `student_id`；提交明细双条件；
+  写路径继续用服务端上下文取 studentId；用 SQL 反射测试防回归
 ## 3. 维护规则
 
 1. **新增约定**：在开发过程中发现新的隐性约定时，必须立即补充到本文件
-2. **编号规则**：新增约定从 #44 起顺序编号；#5–#8 为空号，**不得复用**
+2. **编号规则**：新增约定从 #45 起顺序编号；#5–#8 为空号，**不得复用**
 3. **OpenSpec 对齐**：在 design.md 阶段，必须显式检查本文件中的约定
 4. **评审依据**：reviewer 和 verify 阶段，将本文件作为对齐依据
 5. **定期回顾**：每个迭代结束后，回顾是否有遗漏的隐性约定需要补充
