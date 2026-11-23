@@ -47,3 +47,9 @@ mvn test → Tests run: 959, Failures: 0, Errors: 0, Skipped: 5 → BUILD SUCCES
 - 一个科目存在多个并行活跃目标时，仍取"该学生该科目该日期最新创建的一条计划"（沿用现状）；
   若产品要"多目标并行"，需改为按 goalId 列表取计划（另立 change）。
 - 不为 `daily_plan` 增加 `student_id` 列（零 DDL 约定）：归属经 `learning_goal` 表达，SQL 已按索引可覆盖。
+
+## 归档（2026-11-19）
+
+- 按 `openspec/changes/README.md` 约定归档到 `openspec/changes/archive/`（目录名不变）。
+- 归档时状态：全量 `mvn test` **959 通过（跳过 5）**；写路径（submitAnswer / gradeHomework）已核对归属校验未受影响。
+- 未验证：真机双账号复核（需两个学生账号造数）；后续可结合 `2026-11-19_prod_hardening` 的多租户改造一起回归。

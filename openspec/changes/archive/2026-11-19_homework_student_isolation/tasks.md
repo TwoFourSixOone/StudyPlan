@@ -35,3 +35,13 @@
 
 - [x] `mvn -o test` → Tests run: 959, Failures: 0, Errors: 0, Skipped: 5 → BUILD SUCCESS
 - [ ] 真机复核：学生 A 账号的每日作业页不再出现他人科目作业（需两个学生账号造数）
+
+## 归档说明（2026-11-19）
+
+- **归档依据**：`DailyPlanMapper#selectBySubjectAndDate` 增加 `lg.student_id`（并补 `lg.tenant_id`）、
+  `HomeworkSubmissionDetailMapper#selectByPlanId` 内外两层增加 `student_id`，`HomeworkServiceImpl` 传入当前 studentId；
+  回归护栏 `HomeworkIsolationSqlTest`(2) + `HomeworkServiceTest#should_scopeHomeworkByStudent_when_getByDate`。
+  归档时全量 `mvn test` = **959 用例通过**（跳过 5）。隐性约定 #44、产品规则 #3 已同步。
+- **归档时仍未做**：真机双账号复核（需造 A/B 两个学生账号验证"每日作业不再出现他人科目"），属**真实数据依赖**的手工验收，不阻塞归档。
+- **已知取舍**：同一科目多并行目标时仍取该学生最新一条计划（沿用既有语义）；不为 `daily_plan` 增加 `student_id` 列（零 DDL，归属经 `learning_goal` 表达）。
+- **回归方式**：`mvn -o -Dtest=HomeworkIsolationSqlTest,HomeworkServiceTest test`。
