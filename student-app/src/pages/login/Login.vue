@@ -1,7 +1,7 @@
 <template>
   <view class="login-page">
     <view class="login-header">
-      <text class="app-name">智学伴</text>
+      <text class="app-name">AI学习工具</text>
       <text class="app-slogan">AI 自适应学习助手</text>
     </view>
 
