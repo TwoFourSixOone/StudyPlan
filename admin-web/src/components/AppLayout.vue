@@ -52,10 +52,13 @@
             <template #dropdown>
               <el-dropdown-menu>
                 <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
-                <el-dropdown-item command="logout" divided>退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
+          <el-divider direction="vertical" />
+          <el-button link type="primary" class="logout-btn" @click="handleUserCommand('logout')">
+            退出登录
+          </el-button>
         </div>
       </el-header>
 
@@ -238,6 +241,11 @@ function logout() {
 
 .user-info__arrow {
   font-size: 12px;
+}
+
+.logout-btn {
+  margin-left: 12px;
+  font-size: 14px;
 }
 
 .main-content {
