@@ -113,3 +113,9 @@ V1：verifier 将执行 mvn -o clean test 复跑，以 V1 结果为准
 - **admin 账号**：`admin_user` 为唯一新增表，回滚 = `DROP TABLE admin_user`（需确认无引用）；`AdminAuthServiceImpl` 回滚会退回硬编码凭证（不安全，不建议）；
 - **PBKDF2 迭代 210000**：单次登录约 60–80ms，换取抗离线爆破；可用 `ADMIN_BOOTSTRAP_PASSWORD` 重新初始化、不支持在线改密接口（未实现）；
 - **`username` 租户内唯一**而非全局唯一：多租户下同名账号可在不同租户各存在；Demo 只有 `default`。
+
+## 归档（2026-11-19）
+
+- 归档时状态：R3 复核 pass；定向 26 例、全量 `mvn -o clean test` **1023 通过 / 0 跳过**；`admin-web vite build` 与 `student-app build:mp-weixin` 均通过。
+- 未验证：V16/V17 未在真实 MySQL 实跑（工程未接 Flyway，需人工按版本序执行）；admin 登录无 HTTP 端到端测试；admin 登录固定 `default` 租户、登录时序可枚举用户名（后续可加 dummy PBKDF2）。
+- 阻断上线项：`src/main/resources/application-dev.yml` 明文 DB 口令（owner 决策 C：只登记、不修改，需轮换口令）。

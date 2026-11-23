@@ -45,3 +45,10 @@
 
 - [x] R1 复核（t4）verdict=pass；随后 t9 删除 `confirmDiff` 无用变量并强化隔离 SQL 测试第 4 例
 - [ ] R1-b 复评（t14）：按 t9 之后的当前字节确认隔离与护栏强度（落笔时进行中，以最终结论为准）
+
+## 归档说明（2026-11-19）
+
+- **归档依据**：4 个学生端越权入口（triggerAdjustment / getDiffDetail / confirmDiff / rejectDiff）与调整历史列表均已按 `learning_goal.student_id` 归属过滤；定向 43 例 + 全量 `mvn -o clean test` **1023 用例通过**（0 failures / 0 errors / 0 skipped）。
+- **评审**：R1（t4）pass → 收尾后 R1-b（t14）pass，二者均绑定最终字节；R1 提出的 2 项收尾（confirmDiff 无用局部变量、隔离 SQL 测试第 4 例强度）已修复并做变异验证（删 `AND lg.student_id = #{studentId}` 必红）。
+- **已知取舍**：同一科目存在多个并行活跃目标时，查询仍取最新一条计划（沿用既有语义）；系统路径（01:30 自动调整、考试结算）行为零改动，`applyDiff` 的归属校验由调用方负责。
+- **回归方式**：`mvn -o -Dtest=PlanAdjustmentServiceTest,PlanDiffServiceTest,PlanAdjustmentIsolationSqlTest,AutoAdjustmentTaskTest test`。

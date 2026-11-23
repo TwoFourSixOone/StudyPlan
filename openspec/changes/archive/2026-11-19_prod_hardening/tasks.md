@@ -52,3 +52,11 @@
       `ADMIN_BOOTSTRAP_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD` 启动 → bootstrap 幂等创建首个管理员
 - [x] 注明：未执行 V17 时应用仍能启动（bootstrap 只 WARN），但管理员无法登录；V17 只建表、不写入任何账号
 - **验收**：verify 的「发布必做步骤」与「待人工处理」两节可直接作为上线 checklist
+
+## 归档说明（2026-11-19）
+
+- **归档依据**：三项加固全部落地 —— ①多租户读过滤（`TenantHandler.resolveTenantId`）与写填充（`AutoFillHandler#insertFill`）同源，消除"写 default / 读请求租户"；②CORS 改为 `app.cors.allowed-origins` 白名单，空配置不退化 `*`；③`V17__admin_user.sql` + `AdminUser/AdminUserMapper` + PBKDF2（210k / 随机盐 / 常量时间比较）+ 环境变量 bootstrap，删除硬编码账号；另清理 admin-web 明文默认凭证与 `.qoder/settings.local.json` 跟踪。定向 26 例、全量 **1023 通过 / 0 跳过**。
+- **评审**：R3（t6）pass。
+- **发布必做（工程未接入 Flyway）**：按版本序手工执行 `V16`、`V17` → 设置 `ADMIN_BOOTSTRAP_USERNAME`/`ADMIN_BOOTSTRAP_PASSWORD` 启动（幂等建号）→ **上线前改初始密码**；未执行 V17 时应用可启动但管理员无法登录。
+- **owner 决策**：`application-dev.yml` 明文 DB 口令按 **C 方案只登记、本轮不修改**，需 owner 自行改环境变量占位并轮换口令。
+- **回归方式**：`mvn -o -Dtest=TenantHandlerTest,AutoFillHandlerTest,WebMvcConfigTest,AdminAuthServiceTest test` + 全量 `mvn -o clean test`。

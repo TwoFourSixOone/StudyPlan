@@ -76,3 +76,9 @@ V1：verifier 将执行 mvn -o clean test 复跑，以 V1 结果为准
 本次为纯代码 + 测试改动：无 DDL、无数据回填、无配置变更。回滚 = 还原
 `PlanAdjustmentServiceImpl` / `PlanAdjustmentDiffMapper` / `LearningGoalMapper` / `PlanDiffServiceImpl`（仅 Javadoc）与对应测试；
 回滚会重新打开跨学生读/写通道，**不建议**。
+
+## 归档（2026-11-19）
+
+- 按 `openspec/changes/README.md` 约定归档到 `openspec/changes/archive/`（目录名不变）。
+- 归档时状态：定向 43 例、全量 `mvn -o clean test` **1023 通过 / 0 跳过**；R1-b 复评 pass（最终字节）。
+- 未验证项：01:30 自动调整与考试结算的**组合路径**无装配级测试（当前靠代码未改动 + 静态核对 + 分层单测保证），已记入 `2026-11-19_prod_hardening` 残留风险清单。

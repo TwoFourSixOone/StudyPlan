@@ -50,3 +50,10 @@
 
 - [x] 隐性约定 #45、产品规则 #7、本 change 四件套
 - **验收**：文档与实现一致（403 语义、旧 token 兼容、@AdminApi 漏标风险均有对应说明）
+
+## 归档说明（2026-11-19）
+
+- **归档依据**：`/api/admin/**` 改为按已匹配 `HandlerMethod` 的 `@AdminApi` 注解做权威角色判定（路径匹配仅作非 HandlerMethod 兜底），9 个管理端 controller 全部标注；学生/旧 token 一律 HTTP 403 且不执行 handler；admin 身份不再写入 `StudentContext.studentId`；admin-web 403 自动清 token 跳登录。定向 73 例 + 全量 **1023 通过**。
+- **评审两轮**：R2（t5）**needs_revision** —— 实测 `/api/admin;x=1/goal/1`、`/api/%61dmin/goal/1` 可绕过原始 URI 前缀判定（HTTP 200 且执行 admin handler）→ 修复（`@AdminApi` 注解 + 解码路径兜底 + 5 类绕过回归 + flaky 用例 1000ms→60s）→ R2-b（t16）pass，绑定最终字节。
+- **已知影响**：部署后旧 admin token（无 `role` claim）访问管理端会 403，需重新登录（admin-web 已自动清 token 跳登录页）；管理端"跨学生读取"仍依赖 admin 业务自身的 `tenant_id` 过滤。
+- **回归方式**：`mvn -o -Dtest=JwtInterceptorTest,AdminGoalControllerTest,AdminMasteryControllerTest,AdminStandardControllerTest,AdminQuestionControllerTest,AdminDependencyControllerTest,AdminImportLogControllerTest,AdminKnowledgePointControllerTest,DataImportControllerTest,AdminAuthServiceTest test`。

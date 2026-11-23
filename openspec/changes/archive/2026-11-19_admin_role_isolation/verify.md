@@ -81,3 +81,8 @@ V1：verifier 将执行 mvn -o clean test 复跑，以 V1 结果为准
 回滚 = 还原 `AdminApi` / `AdminContext` / `JwtUtil` / `JwtInterceptor` / `WebMvcConfig` 与 9 个管理端 Controller 的注解、
 以及 `admin-web/src/api/request.js` 的 403 分支；同时需回退相关测试（`JwtInterceptorTest`、`JwtUtilTest`、`Admin*ControllerTest`、`AdminAuthServiceTest`）。
 回滚会重新打开"学生 token 可访问管理端"的通道，**不建议**；若只是回滚 admin-web 的 403 分支，管理端鉴权仍生效，仅旧 token 会卡在提示。
+
+## 归档（2026-11-19）
+
+- 归档时状态：两轮评审（needs_revision → pass）均绑定最终字节；定向 10 类 69 例、全量 `mvn -o clean test` **1023 通过**。
+- 未验证：生产若前置 Nginx/网关，需确认不会把 `/api/admin;x=1/...` 与 percent 编码路径改写成可绕过形式（当前已在 Spring MVC + Tomcat 10.1 组合下实测覆盖）。
