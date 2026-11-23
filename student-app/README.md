@@ -17,24 +17,34 @@
 ```
 student-app/
 ├─ src/
-│  ├─ api/                    # API 接口层
-│  │  ├─ request.js           # 统一请求工具（JWT 注入、双通道刷新、401 重登）
-│  │  └─ auth.js              # 登录相关接口
+│  ├─ api/                    # API 接口层（按业务域拆分）
+│  │  ├─ auth.ts              # 登录相关接口
+│  │  ├─ goal.ts              # 学习目标
+│  │  ├─ homework.ts          # 每日作业
+│  │  ├─ exam.ts              # 试卷上传/解析/详情
+│  │  ├─ mastery.ts           # 掌握度看板
+│  │  ├─ plan.ts              # 计划总览与调整
+│  │  ├─ record.ts            # 学习记录
+│  │  └─ error.ts             # 错题
 │  ├─ stores/                 # Pinia 状态管理
-│  │  └─ auth.js              # 登录态 store
+│  │  ├─ auth.ts              # 登录态 store
+│  │  └─ app.ts               # 全局状态（科目、当前日期等）
 │  ├─ utils/                  # 工具函数
-│  │  ├─ date.js              # 日期格式化
-│  │  └─ message.js           # 消息提示（含 500ms 去重节流）
+│  │  ├─ request.ts           # 统一请求工具（JWT 注入、双通道刷新、401 重登、baseURL 解析）
+│  │  ├─ upload.ts            # 上传工具（试卷图片等）
+│  │  ├─ useAuthGuard.ts      # 页面级登录态兜底
+│  │  ├─ date.ts              # 日期格式化
+│  │  └─ message.ts           # 消息提示（含 500ms 去重节流）
 │  ├─ components/             # 通用组件
 │  │  ├─ PageContainer.vue    # 页面容器
 │  │  ├─ LoadingState.vue     # 加载状态
 │  │  └─ EmptyState.vue       # 空数据提示
 │  ├─ pages/                  # 页面
 │  │  ├─ login/Login.vue      # 登录页
-│  │  ├─ index/Index.vue      # 首页（占位）
-│  │  ├─ homework/Homework.vue # 每日作业（占位）
-│  │  ├─ mastery/Mastery.vue   # 掌握度看板（占位）
-│  │  └─ profile/Profile.vue   # 我的（占位）
+│  │  ├─ index/Index.vue      # 首页
+│  │  ├─ homework/Homework.vue # 每日作业
+│  │  ├─ mastery/Mastery.vue   # 掌握度看板
+│  │  └─ profile/Profile.vue   # 我的
 │  ├─ App.vue                 # 根组件
 │  ├─ main.js                 # 入口文件
 │  ├─ manifest.json           # uni-app 配置
@@ -47,6 +57,9 @@ student-app/
 
 ## 安装与运行
 
+> **前置**：先启动后端（端口 **80**，依赖 MySQL + Redis），见根目录 [README.md](../README.md)「本地启动（智学伴）」。
+> 跨域需放行小程序来源时，后端 `app.cors.allowed-origins` 可配置。
+
 ### 1. 安装依赖
 
 ```bash
@@ -54,25 +67,43 @@ cd student-app
 npm install
 ```
 
-### 2. 开发模式（H5）
+### 2. 接口地址配置
+
+请求基址由 `src/utils/request.ts` / `src/utils/upload.ts` 解析：
+
+| 变量 | 说明 |
+|---|---|
+| `VITE_API_BASE_URL` | 本地/调试接口基址，缺省 `http://localhost:80/api`（与后端默认端口一致） |
+| `VITE_CLOUD_BASE_URL` | 云托管环境必填；生产构建走云托管时若为空会直接报错提示配置 |
+
+> 小程序真机调试时 `localhost` 不可用，需把 `VITE_API_BASE_URL` 改成电脑局域网 IP（如 `http://192.168.1.10:80/api`），并在小程序后台配置合法域名。
+
+### 3. 开发模式（H5）
 
 ```bash
 npm run dev:h5
 ```
 
-### 3. 编译微信小程序
+H5 默认 `http://localhost:5173`，`/api` 代理到后端 `http://localhost:80`。
+
+### 4. 编译微信小程序
 
 ```bash
-npm run build:mp-weixin
+npm run dev:mp-weixin     # 开发模式，产物 dist/dev/mp-weixin（支持热更新）
+npm run build:mp-weixin   # 生产构建，产物 dist/build/mp-weixin
 ```
 
-编译产物在 `dist/build/mp-weixin` 目录。
-
-### 4. 微信开发者工具调试
+### 5. 微信开发者工具调试
 
 1. 打开微信开发者工具
-2. 导入项目，选择 `dist/build/mp-weixin` 目录
+2. 导入项目：开发模式选 `dist/dev/mp-weixin`，生产构建选 `dist/build/mp-weixin`
 3. 填写微信小程序 AppID（在 `src/manifest.json` 中配置）
+
+## 登录与权限说明
+
+- 学生端登录**不需要账号密码**：调用 `wx.login()` 拿 code → `POST /api/auth/login` → 后端按 openid 自动建档，签发 `role=student` 的 JWT；
+- 学生 token **不能**访问管理端接口（`/api/admin/**` 一律返回 HTTP 403），管理端账号（`admin_user` 表 + `ADMIN_BOOTSTRAP_*` 初始化）只用于 `admin-web`；
+- token 过期由双通道刷新兜底（见下文「核心机制」）。
 
 ## 核心机制
 
@@ -90,13 +121,20 @@ npm run build:mp-weixin
 
 多个请求同时返回 401 时，只触发一次 `wx.login()`，其余请求挂起等待，含失败回调避免永久挂起。
 
-## 后续开发计划
+## 已实现模块
 
-| Change | 功能 |
-|--------|------|
-| `student_goal` | 学习目标设定 |
-| `student_homework` | 每日作业（核心页面） |
-| `student_mastery_dashboard` | 掌握度看板 |
-| `student_plan` | 计划总览与调整 |
-| `student_exam` | 试卷上传与分析 |
-| `student_assessment` | 专项评测 |
+| Change | 功能 | 状态 |
+|--------|------|------|
+| `student_goal` | 学习目标设定 | ✅ 已实现 |
+| `student_homework` | 每日作业（核心页面） | ✅ 已实现 |
+| `student_mastery_dashboard` | 掌握度看板 | ✅ 已实现 |
+| `student_plan` | 计划总览与调整 | ✅ 已实现 |
+| `student_exam` | 试卷上传与分析 | ✅ 已实现 |
+| `student_assessment` | 专项评测 | ✅ 已实现 |
+
+## 构建验证
+
+```bash
+npm run build:mp-weixin   # 小程序生产构建
+npm run build:h5          # H5 生产构建
+```
