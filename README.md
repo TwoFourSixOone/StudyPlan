@@ -76,10 +76,15 @@ mvn -o spring-boot:run
 
 **登录**：启动 admin-web 后用该账号登录（接口 `POST /api/admin/auth/login`），签发的 token 内含 `role=admin`。
 
-**修改密码**（当前未提供改密接口，两种办法）：
+**修改密码**：
 
-1. **删号重建（最简单）**：`DELETE FROM admin_user WHERE username='admin' AND tenant_id='default';`，换新 `ADMIN_BOOTSTRAP_PASSWORD` 重启即可重新建号；
-2. **直接更新哈希**（与代码参数一致：PBKDF2-HMAC-SHA256、210000 次迭代、16 字节随机盐、32 字节密钥，格式 `pbkdf2$迭代$盐Base64$哈希Base64`）：
+1. **推荐：管理端自助改密**（`2026-11-19_admin_password_change`）——
+   登录 admin-web 后点右上角「管理员」→「修改密码」，填写原密码 + 新密码（6~64 位）确认即可；
+   接口为 `POST /api/admin/auth/change-password`（校验原密码，原密码错返回 `code=1194`、新旧相同返回 `code=1195`），
+   **成功后前端自动清除 token 并跳回登录页**（JWT 无状态，旧 token 在过期前仍有效，故需重新登录）。
+2. **兜底：忘记密码**（运维手工，两种办法）：
+   - **删号重建（最简单）**：`DELETE FROM admin_user WHERE username='admin' AND tenant_id='default';`，换新 `ADMIN_BOOTSTRAP_PASSWORD` 重启即可重新建号；
+   - **直接更新哈希**（与代码参数一致：PBKDF2-HMAC-SHA256、210000 次迭代、16 字节随机盐、32 字节密钥，格式 `pbkdf2$迭代$盐Base64$哈希Base64`）：
 
 ```powershell
 $plain = "新强密码"    # 不要命名为 $pwd（PowerShell 自动变量）

@@ -18,3 +18,14 @@ export function adminLogin(credentials) {
 export function getAdminInfo() {
   return request.get('/admin/auth/current');
 }
+
+/**
+ * 修改当前管理员密码（Change: 2026-11-19_admin_password_change）
+ * @param {Object} payload - 改密参数
+ * @param {string} payload.oldPassword - 原密码
+ * @param {string} payload.newPassword - 新密码（6~64 位）
+ * @returns {Promise<void>}
+ */
+export function changePassword(payload) {
+  return request.post('/admin/auth/change-password', payload);
+}

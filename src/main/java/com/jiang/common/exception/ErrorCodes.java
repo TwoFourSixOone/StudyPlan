@@ -202,7 +202,17 @@ public enum ErrorCodes {
     /**
      * 同一目标去重窗口内已有确认的调整（规则 #5：12h 去重，覆盖手动 / 01:30 / 考试结算三个入口）
      */
-    PLAN_ADJUST_COOLDOWN(1192, "近期已调整过计划，请稍后再试");
+    PLAN_ADJUST_COOLDOWN(1192, "近期已调整过计划，请稍后再试"),
+
+    // 管理员改密（1194-1195，Change: 2026-11-19_admin_password_change）
+    /**
+     * 原密码校验不通过（业务码而非 401：避免前端把用户直接踢下线）
+     */
+    ADMIN_PASSWORD_MISMATCH(1194, "原密码不正确"),
+    /**
+     * 新密码与原密码相同
+     */
+    ADMIN_PASSWORD_UNCHANGED(1195, "新密码不能与原密码相同");
 
     private final Integer code;
     private final String message;

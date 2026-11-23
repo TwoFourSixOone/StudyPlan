@@ -264,6 +264,77 @@ class AdminAuthServiceTest {
         assertEquals("admin", captor.getValue().getUsername());
     }
 
+    // ==================== 修改密码（Change: 2026-11-19_admin_password_change）====================
+
+    @Test
+    @DisplayName("原密码正确 → 更新 PBKDF2 哈希，新密码可验证、旧密码失效")
+    void should_updatePasswordHash_when_oldPasswordCorrect() {
+        when(adminUserMapper.selectById(ADMIN_ID))
+                .thenReturn(buildAdmin(ADMIN_ID, "admin", PASSWORD, "active"));
+        String newPassword = "N3w-pass-word!";
+
+        adminAuthService.changePassword(ADMIN_ID, PASSWORD, newPassword);
+
+        ArgumentCaptor<AdminUser> captor = ArgumentCaptor.forClass(AdminUser.class);
+        verify(adminUserMapper).updateById(captor.capture());
+        AdminUser updated = captor.getValue();
+        assertEquals(ADMIN_ID, updated.getAdminId());
+        assertNotNull(updated.getPasswordHash());
+        assertTrue(AdminAuthServiceImpl.verifyPassword(newPassword, updated.getPasswordHash()),
+                "新密码必须与落库哈希匹配");
+        assertFalse(AdminAuthServiceImpl.verifyPassword(PASSWORD, updated.getPasswordHash()),
+                "旧密码必须失效");
+        assertNotEquals(AdminAuthServiceImpl.hashPassword(PASSWORD), updated.getPasswordHash());
+    }
+
+    @Test
+    @DisplayName("原密码错误 → 抛 1194 且不写库（业务码，不踢下线）")
+    void should_throwPasswordMismatch_when_oldPasswordWrong() {
+        when(adminUserMapper.selectById(ADMIN_ID))
+                .thenReturn(buildAdmin(ADMIN_ID, "admin", PASSWORD, "active"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> adminAuthService.changePassword(ADMIN_ID, "wrong-pass", "N3w-pass-word!"));
+
+        assertEquals(ErrorCodes.ADMIN_PASSWORD_MISMATCH.getCode(), ex.getCode());
+        verify(adminUserMapper, never()).updateById(any(AdminUser.class));
+    }
+
+    @Test
+    @DisplayName("新密码与原密码相同 → 抛 1195 且不写库")
+    void should_throwPasswordUnchanged_when_newPasswordSameAsOld() {
+        when(adminUserMapper.selectById(ADMIN_ID))
+                .thenReturn(buildAdmin(ADMIN_ID, "admin", PASSWORD, "active"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> adminAuthService.changePassword(ADMIN_ID, PASSWORD, PASSWORD));
+
+        assertEquals(ErrorCodes.ADMIN_PASSWORD_UNCHANGED.getCode(), ex.getCode());
+        verify(adminUserMapper, never()).updateById(any(AdminUser.class));
+    }
+
+    @Test
+    @DisplayName("账号不存在 / 已停用 / 无身份 → 统一 401（不区分存在性）")
+    void should_throwUnauthorized_when_adminNotUsable() {
+        when(adminUserMapper.selectById(ADMIN_ID)).thenReturn(null);
+
+        BusinessException notFound = assertThrows(BusinessException.class,
+                () -> adminAuthService.changePassword(ADMIN_ID, PASSWORD, "N3w-pass-word!"));
+        assertEquals(ErrorCodes.UNAUTHORIZED.getCode(), notFound.getCode());
+
+        when(adminUserMapper.selectById(ADMIN_ID))
+                .thenReturn(buildAdmin(ADMIN_ID, "admin", PASSWORD, "disabled"));
+        BusinessException disabled = assertThrows(BusinessException.class,
+                () -> adminAuthService.changePassword(ADMIN_ID, PASSWORD, "N3w-pass-word!"));
+        assertEquals(ErrorCodes.UNAUTHORIZED.getCode(), disabled.getCode());
+
+        BusinessException noIdentity = assertThrows(BusinessException.class,
+                () -> adminAuthService.changePassword(null, PASSWORD, "N3w-pass-word!"));
+        assertEquals(ErrorCodes.UNAUTHORIZED.getCode(), noIdentity.getCode());
+
+        verify(adminUserMapper, never()).updateById(any(AdminUser.class));
+    }
+
     // ==================== 辅助方法 ====================
 
     private AdminUser buildAdmin(Long adminId, String username, String rawPassword, String status) {

@@ -14,6 +14,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.crypto.SecretKeyFactory;
 import javax.crypto.spec.PBEKeySpec;
@@ -180,7 +181,56 @@ public class AdminAuthServiceImpl implements AdminAuthService {
     }
 
     /**
+     * 修改当前管理员密码（Change: 2026-11-19_admin_password_change）
+     *
+     * <p>身份只从服务端上下文取（调用方传 {@code AdminContext#getAdminId()}），租户条件由 MyBatis-Plus
+     * 租户插件按请求上下文追加，因此不会跨租户命中账号。</p>
+     *
+     * <p>校验顺序（见 design §D3）：账号层面统一 401 → 原密码错 1194 → 新旧相同 1195；
+     * 密码错误用业务码而非 401，避免前端把仍在登录态的管理员直接踢下线。</p>
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void changePassword(Long adminId, String oldPassword, String newPassword) {
+        if (adminId == null) {
+            log.warn("管理员改密失败：请求缺少管理员身份");
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED);
+        }
+
+        AdminUser admin = adminUserMapper.selectById(adminId);
+        if (admin == null) {
+            // 与登录同口径：不区分「不存在」与「无权限」，统一 401
+            log.warn("管理员改密失败（账号不存在）: adminId={}", adminId);
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "账号不存在，请重新登录");
+        }
+        if (!STATUS_ACTIVE.equals(admin.getStatus())) {
+            log.warn("管理员改密被拒（账号非启用状态）: adminId={}, status={}", adminId, admin.getStatus());
+            throw new BusinessException(ErrorCodes.UNAUTHORIZED, "账号已停用，请联系运维");
+        }
+
+        if (!verifyPassword(oldPassword, admin.getPasswordHash())) {
+            log.warn("管理员改密被拒（原密码不正确）: adminId={}", adminId);
+            throw new BusinessException(ErrorCodes.ADMIN_PASSWORD_MISMATCH);
+        }
+        if (verifyPassword(newPassword, admin.getPasswordHash())) {
+            log.warn("管理员改密被拒（新旧密码相同）: adminId={}", adminId);
+            throw new BusinessException(ErrorCodes.ADMIN_PASSWORD_UNCHANGED);
+        }
+
+        // 只更新密码哈希，不动 role / status / tenant
+        AdminUser update = new AdminUser();
+        update.setAdminId(admin.getAdminId());
+        update.setPasswordHash(hashPassword(newPassword));
+        adminUserMapper.updateById(update);
+
+        // 不打印任何密码/哈希
+        log.info("管理员修改密码成功: username={}, adminId={}", admin.getUsername(), admin.getAdminId());
+    }
+
+    /**
      * 生成 PBKDF2 密码哈希（随机盐）
+     *
+     * <p>密码只从环境变量/启动参数读取，绝不落仓库、不落日志、不落库明文。</p>
      *
      * @param rawPassword 明文密码（调用方负责来源安全，如环境变量）
      * @return {@code pbkdf2$<iterations>$<saltBase64>$<hashBase64>}

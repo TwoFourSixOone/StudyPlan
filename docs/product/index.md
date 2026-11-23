@@ -301,6 +301,7 @@ m_new = max(0.05, m_current - delta_m_down)
 - **角色隔离与跨学生边界（2026-11-19 补充）**：
     - **管理端接口只允许管理员**：`/api/admin/**` 仅接受 `role=admin` 的 token；学生 token 与改造前签发、无 `role` claim 的旧 token **一律 HTTP 403**（`code=403`「无权限访问」），不进入业务层。管理端 Controller 必须标注 `com.jiang.security.AdminApi`（角色判定的权威依据，漏标即绕过鉴权；护栏为 `AdminGoalControllerTest` 的「管理端映射注解覆盖」用例）。
     - **"跨学生可见"只属于管理端角色**：管理端可按 `studentId` 查询目标、掌握度等（开发者/运维视角；学习记录接口目前仅学生端，不支持跨学生查看），该能力**不对学生端开放**；学生端任何接口都只返回当前登录学生自己的数据。
+    - **管理员改密（2026-11-19 补充）**：管理端提供 `POST /api/admin/auth/change-password`（右上角「管理员」→「修改密码」）。身份只取服务端上下文，请求体只带 `oldPassword` / `newPassword`；原密码错返回 `code=1194`（业务码，不踢下线）、新旧相同返回 `code=1195`、新密码长度 6~64；密码只以 PBKDF2 哈希落库。改密成功后客户端清除 token 并重新登录——JWT 无状态，**服务端不主动吊销旧 token**（如需强制失效须引入 token 版本号，当前未实现，属已知限制）。
     - **学生端跨学生不可读、不可写**：每日作业（隐性约定 #44）、计划调整 diff 与调整历史（隐性约定 #46）、学习记录、试卷、错题、评测均按当前 `studentId + tenantId` 过滤；学生传入他人的 `goalId` / `diffId` / `planId` 一律按"不存在"处理（不区分存在性，避免探测他人数据）。
     - **admin 身份不写入学生上下文**：管理端请求只写 `AdminContext`（adminId/openid/tenantId），不写 `StudentContext.studentId`，避免管理员 ID 被当成真实学生 ID 串数据（隐性约定 #45）。
 - **边界条件**：
