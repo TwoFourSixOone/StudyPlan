@@ -41,31 +41,33 @@ cd admin-web
 npm install
 ```
 
-### 2. 配置环境变量
+### 2. 登录获取 token（不再需要手工配置 token）
 
-复制 `.env.example` 为 `.env`，配置 Demo token：
+管理端已有独立登录页：启动前端后访问 `http://localhost:3000` 会自动跳转 `/login`，
+用后端 `admin_user` 表里的管理员账号登录即可（接口 `POST /api/admin/auth/login`）。
+登录成功后 token 存入 `localStorage` 的 `VITE_DEMO_TOKEN`（历史键名，保留兼容），
+请求拦截器会自动附加 `Authorization: Bearer <token>`。
 
-```bash
-cp .env.example .env
-```
-
-`.env` 文件内容：
-
-```bash
-# Demo 阶段固定 token（通过 /api/auth/login 获取）
-VITE_DEMO_TOKEN=your_demo_token_here
-```
-
-> **获取 token 方式**：先启动后端服务，调用 `POST /api/auth/login` 接口获取 JWT token，填入上述配置。
+> `.env` / `.env.example` 中的 `VITE_DEMO_TOKEN` 已由登录页取代，**无需再手工填写**；
+> 升级前遗留的手工 token（无 `role` claim）会被后端按学生身份处理，访问管理端接口返回 403，
+> 此时前端会自动清除 token 并跳回登录页。
 
 ### 3. 启动后端服务
 
-确保后端 Spring Boot 服务已启动（默认端口 8080）：
+确保后端 Spring Boot 服务已启动（默认端口 **80**，`profile=dev`）：
 
 ```bash
 # 在项目根目录执行
 mvn spring-boot:run
 ```
+
+首次启动前还需：
+
+1. **手工执行数据库迁移**（工程未接入 Flyway）：按版本顺序执行 `src/main/resources/db/V*.sql`（含 `V17__admin_user.sql`）；
+2. **初始化第一个管理员账号**：设置环境变量 `ADMIN_BOOTSTRAP_PASSWORD`（可选 `ADMIN_BOOTSTRAP_USERNAME`，默认 `admin`）后启动，
+   日志出现 `已初始化首个管理员账号` 即成功；未执行 V17 或未设密码时应用仍可启动，但管理员无法登录。
+
+> 完整步骤（含 IDEA 配置、日志判定、改密方法、常见坑）见根目录 [README.md](../README.md) 的「本地启动（智学伴）」→「3. 初始化第一个管理员账号」。
 
 ### 4. 启动前端开发服务器
 
@@ -73,7 +75,7 @@ mvn spring-boot:run
 npm run dev
 ```
 
-访问 `http://localhost:3000`，Vite 会自动将 `/api` 请求代理到后端 `http://localhost:8080`。
+访问 `http://localhost:3000`，Vite 会把 `/api` 请求代理到后端 `http://localhost:80`。
 
 ---
 
@@ -188,11 +190,15 @@ admin-web/
 
 ## 注意事项
 
-- **租户隔离**：前端通过固定 token（方案 B）注入管理端上下文，后端从 token 解析 `tenant_id`
+- **角色隔离**：只有管理员 token（`role=admin`，由 `/api/admin/auth/login` 签发）可访问 `/api/admin/**`；
+  学生 token 或旧的无 `role` token 一律返回 **HTTP 403**，前端收到 403 会清 token 并跳回登录页
+- **租户隔离**：租户来自 JWT 的 `tenantId`（管理端登录当前固定 `default` 租户），后端据此过滤数据
 - **分页参数**：`page` 从 1 开始，知识点列表默认 `size=10`，其他列表默认 `size=20`
 - **统一响应**：所有接口返回 `Result<T>` 结构（`code` / `message` / `data`），Axios 拦截器自动解析
 - **文件上传**：仅支持 `.json` 格式，单文件不超过 10MB
 - **只读不删**：导入日志与错误记录只读，不提供删除功能
+- **数据库迁移**：工程未接入 Flyway，`src/main/resources/db/V*.sql` 需**手工按版本顺序执行**（含 `V17__admin_user.sql`）
+- **管理员账号**：密码只以 PBKDF2 哈希存于 `admin_user` 表，前端不再预填或展示任何默认账号密码
 
 ---
 

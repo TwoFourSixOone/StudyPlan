@@ -14,6 +14,114 @@
 
 ---
 
+## 本地启动（智学伴 StudyMate）
+
+> 本节为**本项目**（智学伴）的本地启动说明；README 其余部分为脚手架模板介绍。
+
+### 0. 环境要求
+
+Java 17+、Maven 3.6+、MySQL 5.7+、Redis 6+（默认 `localhost:6379`）、Node.js 18+（前端），推荐 IntelliJ IDEA。
+
+### 1. 初始化数据库（迁移脚本需**手工按序执行**）
+
+> ⚠️ 本工程**未接入 Flyway**，`src/main/resources/db/V*.sql` 不会随启动自动执行。
+
+```powershell
+mysql -uroot -p -e "CREATE DATABASE IF NOT EXISTS studyplan DEFAULT CHARSET utf8mb4;"
+Get-ChildItem .\src\main\resources\db\V*.sql | Sort-Object Name | ForEach-Object {
+    Get-Content $_.FullName | mysql -uroot -p studyplan
+}
+```
+
+- 只需执行**尚未执行过**的版本，且必须按版本号顺序；每个脚本内含回滚注释；
+- `V16__exam_paper_image_page_nos.sql`：试卷页序字段；`V17__admin_user.sql`：管理员账号表；
+- 数据源配置在 `src/main/resources/application-dev.yml`（`DB_URL` / `DB_USERNAME` / `DB_PASSWORD`，属受保护文件，改动需走 change 流程并经人工审批）。
+
+### 2. 启动后端
+
+```powershell
+mvn -o spring-boot:run
+# 或者：mvn -o package -DskipTests ; java -jar target\StudyPlan-1.0-SNAPSHOT.jar
+```
+
+默认端口 **80**，`spring.profiles.active=dev`，依赖本地 MySQL 与 Redis。
+
+### 3. 初始化第一个管理员账号（admin-web 登录用）
+
+管理端账号存放在 `admin_user` 表，**密码只以 PBKDF2 哈希入库**（源码与迁移里没有任何明文账号密码）。
+首个账号由**启动时的环境变量**创建，逻辑幂等：`admin_user` 非空则直接跳过，不会重复建号或覆盖密码。
+
+```powershell
+# PowerShell 当前会话（本地 demo 最省事）
+$env:ADMIN_BOOTSTRAP_USERNAME = "admin"            # 可选，缺省 admin
+$env:ADMIN_BOOTSTRAP_PASSWORD = "换成一个强密码"      # 必填；为空则不创建账号并 WARN
+mvn -o spring-boot:run
+```
+
+其他设置方式：
+
+| 方式 | 做法 | 说明 |
+|---|---|---|
+| IDEA | Run/Debug Configurations → Environment variables 填两行 | ⚠️ IDE 启动**不继承**终端环境变量，必须在 Run Configuration 里配 |
+| jar 启动参数 | `java -jar target\StudyPlan-1.0-SNAPSHOT.jar --ADMIN_BOOTSTRAP_USERNAME=admin --ADMIN_BOOTSTRAP_PASSWORD=xxx` | 密码会出现在进程列表，仅建议本地使用 |
+| 永久用户变量 | `[Environment]::SetEnvironmentVariable("ADMIN_BOOTSTRAP_PASSWORD","xxx","User")` | 需重开终端 / 重启 IDE 才生效 |
+
+**看启动日志判断结果**：
+
+| 日志 | 含义 |
+|---|---|
+| `已初始化首个管理员账号: username=admin（密码来自环境变量，仅保存 PBKDF2 哈希）` | ✅ 成功 |
+| `admin_user 为空且未设置 ADMIN_BOOTSTRAP_PASSWORD，跳过首个管理员初始化…` | 密码变量没生效（漏设 / IDE 未配 / 名称拼写错误） |
+| `管理员账号初始化跳过（admin_user 不可用，请确认已执行 db/V17__admin_user.sql）` | 表没建 → 先执行 V17 再启动 |
+
+**登录**：启动 admin-web 后用该账号登录（接口 `POST /api/admin/auth/login`），签发的 token 内含 `role=admin`。
+
+**修改密码**（当前未提供改密接口，两种办法）：
+
+1. **删号重建（最简单）**：`DELETE FROM admin_user WHERE username='admin' AND tenant_id='default';`，换新 `ADMIN_BOOTSTRAP_PASSWORD` 重启即可重新建号；
+2. **直接更新哈希**（与代码参数一致：PBKDF2-HMAC-SHA256、210000 次迭代、16 字节随机盐、32 字节密钥，格式 `pbkdf2$迭代$盐Base64$哈希Base64`）：
+
+```powershell
+$plain = "新强密码"    # 不要命名为 $pwd（PowerShell 自动变量）
+$salt  = New-Object byte[] 16
+[System.Security.Cryptography.RandomNumberGenerator]::Fill($salt)
+$kdf   = [System.Security.Cryptography.Rfc2898DeriveBytes]::new($plain, $salt, 210000, [System.Security.Cryptography.HashAlgorithmName]::SHA256)
+'pbkdf2$210000$' + [Convert]::ToBase64String($salt) + '$' + [Convert]::ToBase64String($kdf.GetBytes(32))
+```
+
+```sql
+UPDATE admin_user SET password_hash = '<上一步输出>' WHERE username = 'admin' AND tenant_id = 'default';
+```
+
+**上线前必做**：改掉初始密码，并把 `ADMIN_BOOTSTRAP_PASSWORD` 从环境变量中移除。
+
+### 4. 启动前端
+
+```powershell
+# 管理端（PC）
+cd admin-web
+npm install
+npm run dev            # http://localhost:3000，/api 代理到 http://localhost:80
+
+# 学生端（微信小程序）
+cd student-app
+npm install
+npm run dev:mp-weixin  # 产物在 dist/dev/mp-weixin，用微信开发者工具导入
+```
+
+### 5. 身份与权限（两套登录互不影响）
+
+| 端 | 登录接口 | 账号来源 | token 中的 role |
+|---|---|---|---|
+| 管理端 admin-web | `POST /api/admin/auth/login` | `admin_user` 表（用户名 + PBKDF2 密码） | `role=admin` |
+| 学生端小程序 | `POST /api/auth/login` | 小程序 openid 自动建档（无密码） | `role=student` |
+
+- **学生 token 访问 `/api/admin/**` 一律 HTTP 403**（拦截器按 `@AdminApi` 注解判定，matrix 参数 / percent 编码 / 重复斜杠等路径变体无法绕过）；
+- 管理端 403 时 admin-web 会自动清除本地 token 并跳回登录页；
+- 升级前签发的旧 token（无 `role` claim）按学生处理：学生端不受影响，管理端需重新登录一次。
+
+---
+
 
 | 分支 | 说明 | 使用方式 |
 |------|------|----------|
@@ -159,6 +267,9 @@ your-project/
 
 - Java 17+
 - Maven 3.6+
+- MySQL 5.7+（本地开发库 `studyplan`）
+- Redis 6+（默认 `localhost:6379`，作业队列/缓存使用）
+- Node.js 18+（`admin-web` 与 `student-app`）
 - 推荐使用 IntelliJ IDEA
 
 ---
