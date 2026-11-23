@@ -76,7 +76,10 @@ V1：verifier 将执行 mvn -o clean test 复跑，以 V1 结果为准
   `src/main/resources/application-local.yml`（`.gitignore` 已有该规则）。
 - **必须轮换该 DB 口令**：历史 commit 已含明文，仅改文件不能消除历史泄漏；若仓库需要外发，还要评估历史清理
   （`git filter-repo` 等，另行审批）。
-- **结论**：属"上线前必修"，需 owner 审批后另行 change 或运维手工执行。
+- **owner 决策（2026-11-19）**：**C —— 只登记风险，本轮不修改该文件**（`application-dev.yml` 保持现状）。
+  由 owner 自行安排：①改为环境变量占位（或 `application-local.yml`）②**轮换该 DB 口令**。
+  登记口径：本条作为「上线前必修」的已知风险留在本 change，不阻塞本次代码提交；未完成前不建议对仓库外发或切换生产库。
+- **补充**：受保护文件变更须走 change 流程 + 人工审批（AGENTS.md §5），故本次不代 owner 修改。
 
 ### 2. 归档历史文档含旧口令引用
 
@@ -100,7 +103,7 @@ V1：verifier 将执行 mvn -o clean test 复跑，以 V1 结果为准
 2. **首次部署仍需 bootstrap 初始化**：`ADMIN_BOOTSTRAP_USERNAME` / `ADMIN_BOOTSTRAP_PASSWORD` 未设置时不创建管理员（仅 WARN）；**上线前必须修改初始密码**。
 3. **迁移未在真实 MySQL 实跑**：当前工程未接入 Flyway，V16/V17 需人工按版本顺序执行（见「发布必做步骤」）。
 4. **01:30 自动调整 + 考试结算组合路径无装配级测试**：两者分别有单测，组合未做容器级联调。
-5. **`src/main/resources/application-dev.yml` 明文 DB 口令待人工审批**：受保护文件，本轮未改；需 owner 审批后改环境变量占位并**轮换口令**（历史 commit 已含明文）。
+5. **`src/main/resources/application-dev.yml` 明文 DB 口令（owner 决策 C：只登记、本轮不修）**：受保护文件；owner 自行改环境变量占位并**轮换口令**（历史 commit 已含明文）。完成前不建议仓库外发或切生产库。
 6. **归档历史文档含旧口令引用**：`openspec/changes/archive/2026-11-11_exam_paper_upload_llm/verify.md`；归档只读，不修改。
 
 ## 已知取舍与回滚
