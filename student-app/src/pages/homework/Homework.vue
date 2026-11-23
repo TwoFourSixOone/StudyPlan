@@ -45,12 +45,18 @@
       </view>
     </view>
 
-    <!-- 空状态：生成作业按钮 -->
-    <view class="generate-area" v-if="!loading && homeworkList.length === 0 && activeGoals.length > 0 && canGenerateHomework">
-      <EmptyState text="当日暂无作业" />
-      <button class="btn-generate" @click="generateToday" :disabled="generating">
-        {{ generating ? '生成中...' : '生成今日作业' }}
-      </button>
+    <!-- 空状态：有有效目标 → 可生成；无任何有效目标 → 提示先创建目标 -->
+    <view class="generate-area" v-if="!loading && homeworkList.length === 0 && canGenerateHomework">
+      <template v-if="activeGoals.length > 0">
+        <EmptyState text="当日暂无作业" />
+        <button class="btn-generate" @click="generateToday" :disabled="generating">
+          {{ generating ? '生成中...' : '生成今日作业' }}
+        </button>
+      </template>
+      <template v-else>
+        <EmptyState text="没有学习目标，请先到「我的」页创建学习目标" />
+        <button class="btn-generate" @click="goCreateGoal">去创建学习目标</button>
+      </template>
     </view>
 
     <!-- 加载中 -->
@@ -65,6 +71,7 @@ import { useAppStore } from '@/stores/app';
 import { useAuthGuard } from '@/utils/useAuthGuard';
 import { getGoalList } from '@/api/goal';
 import { getHomeworkByDate, generateHomework, gradeHomework } from '@/api/homework';
+import { formatDate } from '@/utils/date';
 import EmptyState from '@/components/EmptyState.vue';
 import LoadingState from '@/components/LoadingState.vue';
 
@@ -134,7 +141,11 @@ async function fetchGoals() {
   loading.value = true;
   try {
     const result = await getGoalList(1, 50);
-    activeGoals.value = (result?.records || []).filter(g => g.status === 'active');
+    // 有效目标 = status=active 且在有效期内（后端到期任务每日 00:05 才置 expired，这里按日期兜底）
+    const todayStr = formatDate(new Date(), 'YYYY-MM-DD');
+    activeGoals.value = (result?.records || []).filter(
+      g => g.status === 'active' && (!g.endDate || g.endDate >= todayStr)
+    );
     console.log('[Homework] fetchGoals - all goals:', result?.records?.length);
     console.log('[Homework] fetchGoals - active goals:', activeGoals.value.length);
     console.log('[Homework] fetchGoals - subjectList:', appStore.subjectList.length);
@@ -175,20 +186,37 @@ async function fetchHomework() {
 
 // ========== 生成作业 ==========
 async function generateToday() {
-  if (generating.value || activeGoals.value.length === 0) return;
+  if (generating.value) return;
+  if (activeGoals.value.length === 0) {
+    uni.showToast({ title: '没有学习目标，请先创建学习目标', icon: 'none' });
+    return;
+  }
   generating.value = true;
+  let successCount = 0;
   try {
     for (const goal of activeGoals.value) {
       try {
         await generateHomework(goal.subjectId, appStore.currentDate);
+        successCount += 1;
       } catch (e) {
-        console.warn(`[Homework] ${goal.subjectName}作业生成跳过:`, e.message);
+        // 单科目失败只留调试信息（不再输出"无有效学习目标"这类误导文案）
+        console.debug('[Homework] 生成失败', { subjectId: goal.subjectId, message: e?.message });
       }
     }
     await fetchHomework();
+    if (successCount > 0) {
+      uni.showToast({ title: '生成作业成功', icon: 'success' });
+    } else {
+      uni.showToast({ title: '作业生成失败，请稍后重试', icon: 'none' });
+    }
   } finally {
     generating.value = false;
   }
+}
+
+// 去「我的」页创建学习目标
+function goCreateGoal() {
+  uni.switchTab({ url: '/pages/profile/Profile' });
 }
 
 // ========== 事件 ==========

@@ -111,7 +111,7 @@
           <view class="history-item" v-for="g in goalHistory" :key="g.goalId">
             <view class="history-info">
               <text class="history-direction">{{ g.direction || '未设置方向' }}</text>
-              <text class="history-status" :class="'status-' + g.status">{{ g.status }}</text>
+              <text class="history-status" :class="'status-' + g.status">{{ goalStatusLabel(g.status) }}</text>
             </view>
             <text class="history-dates">{{ g.startDate }} ~ {{ g.endDate }}</text>
           </view>
@@ -291,6 +291,15 @@ const goalHistory = ref([]);
 const goalLoading = ref(false);
 const goalSubmitting = ref(false);
 const goalSubjectIndex = ref(0);
+
+/**
+ * 目标状态中文文案（Change: 2026-11-23_goal_expiry_and_homework_hint）
+ * 后端已把"过期仍 active"的目标按 expired 返回，这里只负责展示口径。
+ */
+const GOAL_STATUS_LABELS = { active: '进行中', completed: '已完成', expired: '已过期' };
+function goalStatusLabel(status) {
+  return GOAL_STATUS_LABELS[status] || status || '';
+}
 // 诊断预填（新用户引导方案 A）：诊断页「根据这次诊断创建目标」跳转过来时为 true
 const goalPrefillFromDiagnosis = ref(false);
 const goalForm = ref({

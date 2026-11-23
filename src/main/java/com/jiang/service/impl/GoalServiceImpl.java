@@ -447,6 +447,11 @@ public class GoalServiceImpl implements GoalService {
 
     /**
      * 将 LearningGoal 实体转换为 GoalVO
+     *
+     * <p><b>有效状态映射</b>（Change: 2026-11-23_goal_expiry_and_homework_hint）：DB 里可能仍是
+     * {@code active} 但已过结束日期（到期任务每日 00:05 才跑）。对外统一按"有效状态"返回
+     * {@code expired}，避免前端把过期目标当成可生成作业的活跃目标；此处**不写库**，
+     * 落库由 {@code GoalExpiryTask} 负责。</p>
      */
     private GoalVO toGoalVO(LearningGoal goal, String subjectName) {
         return GoalVO.builder()
@@ -458,9 +463,25 @@ public class GoalServiceImpl implements GoalService {
                 .targetScore(goal.getTargetScore())
                 .startDate(goal.getStartDate())
                 .endDate(goal.getEndDate())
-                .status(goal.getStatus())
+                .status(effectiveStatus(goal))
                 .createdAt(goal.getCreateTime())
                 .updatedAt(goal.getUpdateTime())
                 .build();
+    }
+
+    /**
+     * 计算对外展示的目标有效状态
+     *
+     * <p>判据：{@code status=active} 且 {@code end_date >= today} 才算「进行中」；
+     * 已过期（{@code end_date < today}）一律按 {@code expired} 返回；其它状态原样返回。</p>
+     */
+    private String effectiveStatus(LearningGoal goal) {
+        String status = goal.getStatus();
+        if (GoalStatus.ACTIVE.getCode().equals(status)
+                && goal.getEndDate() != null
+                && goal.getEndDate().isBefore(BusinessDate.today())) {
+            return GoalStatus.EXPIRED.getCode();
+        }
+        return status;
     }
 }

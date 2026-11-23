@@ -16,6 +16,7 @@ import com.jiang.model.entity.KnowledgePoint;
 import com.jiang.model.entity.LearningGoal;
 import com.jiang.model.entity.Student;
 import com.jiang.model.entity.Subject;
+import com.jiang.common.util.BusinessDate;
 import com.jiang.model.enums.GoalStatus;
 import com.jiang.security.StudentContext;
 import com.jiang.service.impl.GoalServiceImpl;
@@ -376,6 +377,41 @@ class GoalServiceTest {
         assertNotNull(result);
         assertEquals(1, result.getTotal());
         assertEquals(1, result.getRecords().size());
+    }
+
+    @Test
+    @DisplayName("目标已过结束日期但 DB 仍是 active → 对外返回 expired（Change: 2026-11-23）")
+    void should_returnExpiredStatus_when_goalActiveButEndDatePast() {
+        LearningGoal overdue = buildActiveGoal(TEST_GOAL_ID);
+        overdue.setEndDate(BusinessDate.today().minusDays(17)); // 模拟 11-06 ~ 11-23
+        Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
+        Page<LearningGoal> page = new Page<>(1, 10);
+        page.setRecords(java.util.List.of(overdue));
+        page.setTotal(1);
+        when(learningGoalMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(page);
+        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+
+        GoalVO vo = goalService.getGoalList(1, 10).getRecords().get(0);
+
+        assertEquals(GoalStatus.EXPIRED.getCode(), vo.getStatus(),
+                "过期目标不能对外显示 active，否则前端会把它当成可生成作业的目标");
+    }
+
+    @Test
+    @DisplayName("目标仍在有效期内 → 保持 active（不误伤）")
+    void should_keepActiveStatus_when_goalWithinPeriod() {
+        LearningGoal current = buildActiveGoal(TEST_GOAL_ID);
+        current.setEndDate(BusinessDate.today().plusDays(7));
+        Subject subject = buildSubject(TEST_SUBJECT_ID, TEST_SUBJECT_NAME);
+        Page<LearningGoal> page = new Page<>(1, 10);
+        page.setRecords(java.util.List.of(current));
+        page.setTotal(1);
+        when(learningGoalMapper.selectPage(any(Page.class), any(LambdaQueryWrapper.class))).thenReturn(page);
+        when(subjectMapper.selectById(TEST_SUBJECT_ID)).thenReturn(subject);
+
+        GoalVO vo = goalService.getGoalList(1, 10).getRecords().get(0);
+
+        assertEquals(GoalStatus.ACTIVE.getCode(), vo.getStatus());
     }
 
     // ==================== 查看目标详情 ====================
