@@ -65,6 +65,14 @@
 
       <text class="size-tip" v-if="processing">正在处理所选图片（压缩 / 体积校验）…</text>
 
+      <!-- 上传失败原因（云端排障：网关拦截 / 域名白名单 / 超时 等都要能看见） -->
+      <view class="upload-error" v-if="failedImages.length > 0">
+        <text class="upload-error-title">{{ failedImages.length }} 张上传失败：</text>
+        <text class="upload-error-detail" v-for="img in failedImages" :key="'err-' + img.pageNo">
+          第 {{ img.pageNo }} 张 — {{ img.error || '上传失败（未返回原因）' }}（{{ formatSizeKb(img.size) }}）
+        </text>
+      </view>
+
       <text class="size-tip">{{ SIZE_TIP }}</text>
       <text class="size-tip">一次可选 {{ MAX_IMAGES }} 张，点一次「上传并解析」即全部同时上传；已上传的图片不能删除</text>
 
@@ -569,6 +577,13 @@ async function chooseImages() {
  * 体积由后端 9.5MB/30MB 上限与下方预检兜底，不靠"压狠一点"来控制。
  * 后续如需改小 quality，必须先跑真实试卷图验证选项文字是否仍可识别。
  */
+/** 上传失败排障用：显示实际要上传的大小 */
+function formatSizeKb(bytes) {
+  const size = Number(bytes) || 0;
+  if (size <= 0) return '大小未知';
+  return size >= 1024 * 1024 ? `${(size / 1024 / 1024).toFixed(2)}MB` : `${Math.round(size / 1024)}KB`;
+}
+
 function compressImage(src, quality = COMPRESS_QUALITY) {
   if (typeof uni.compressImage !== 'function') return Promise.resolve(src);
   return new Promise((resolve) => {
@@ -756,6 +771,13 @@ async function uploadOne(img) {
   } catch (e) {
     img.status = 'failed';
     img.error = e.message || '上传失败';
+    console.error('[ExamUpload] 图片上传失败', {
+      pageNo: img.pageNo,
+      sizeBytes: img.size,
+      error: img.error,
+      statusCode: e?.statusCode,
+      errMsg: e?.errMsg
+    });
   }
 }
 
@@ -1211,6 +1233,28 @@ async function handleRetryParse() {
 .thumb-add-icon {
   font-size: 56rpx;
   color: $text-placeholder;
+}
+
+.upload-error {
+  margin-top: 8rpx;
+  padding: 12rpx 16rpx;
+  background-color: #fef0f0;
+  border-radius: $radius-sm;
+}
+
+.upload-error-title {
+  display: block;
+  font-size: $font-xs;
+  color: #f56c6c;
+  font-weight: 500;
+}
+
+.upload-error-detail {
+  display: block;
+  margin-top: 4rpx;
+  font-size: $font-xs;
+  color: #f56c6c;
+  word-break: break-all;
 }
 
 .size-tip {
