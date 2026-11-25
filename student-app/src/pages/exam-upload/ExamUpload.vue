@@ -74,6 +74,7 @@
       </view>
 
       <text class="size-tip">{{ SIZE_TIP }}</text>
+      <text class="size-tip">上传通道：{{ uploadChannelLabel }}</text>
       <text class="size-tip">一次可选 {{ MAX_IMAGES }} 张，点一次「上传并解析」即全部同时上传；已上传的图片不能删除</text>
 
       <!-- 单张失败重试 -->
@@ -206,6 +207,11 @@ const CLOUD_SAFE_BYTES = 1800 * 1024; // 1.8MB（multipart 通道：已配置合
 const CONTAINER_SAFE_BYTES = 900 * 1024;
 const CLOUD_COMPRESS_QUALITIES = [85, 70, 55, 45];
 const IS_CLOUD_UPLOAD = !resolveUseLocal();
+/** 当前生效的上传通道标签（便于确认构建版本与实际通道，排障时一眼可见） */
+const uploadChannelLabel = computed(() => {
+  if (!IS_CLOUD_UPLOAD) return '本地直连（multipart）';
+  return isCloudContainerEnabled() ? '云端 callContainer（base64）' : '云端公网域名（multipart）';
+});
 const SIZE_TIP = IS_CLOUD_UPLOAD
   ? '云端单次上传上限约 2MB：会自动压缩，单张≤9.5MB、合计≤30MB'
   : '单张≤9.5MB、合计≤30MB（建议每张压到 2MB 内）';
@@ -763,6 +769,7 @@ async function uploadPendingImages() {
 async function uploadOne(img) {
   img.status = 'uploading';
   img.error = '';
+  console.log('[ExamUpload] 上传通道', uploadChannelLabel.value, { pageNo: img.pageNo, sizeBytes: img.size });
   try {
     // img.pageNo 在加入列表时确定、之后不重排；失败重试走同一路径，自动沿用原值。
     const res = await uploadPaperImage(paperId.value, img.path, img.pageNo);

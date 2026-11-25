@@ -278,9 +278,20 @@ export async function uploadPaperImage(
         { pageNo }
       );
     } catch (e: any) {
-      // callContainer 不可用（如未初始化 / 环境不匹配）→ 降级到 multipart；业务错误（有 code）直接抛
+      // 云端不再静默降级到 multipart：云托管默认域名不能用于正式环境，
+      // 降级只会把真实原因掩盖成「uploadFile 合法域名校验出错」。
+      console.error('[exam] callContainer 上传失败', {
+        paperId,
+        pageNo,
+        errMsg: e?.errMsg,
+        code: e?.code,
+        message: e?.message
+      });
       if (e && e.code) throw e;
-      console.warn('[exam] callContainer 上传失败，降级 multipart:', e?.message);
+      throw Object.assign(
+        new Error(`云端通道(callContainer)上传失败：${e?.errMsg || e?.message || '未知错误'}`),
+        { errMsg: e?.errMsg, channel: 'callContainer' }
+      );
     }
   }
   // uni.uploadFile 的 formData 值按字符串传输（design D1.2），显式转换避免端间差异
