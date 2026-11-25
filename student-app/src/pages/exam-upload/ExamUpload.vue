@@ -185,7 +185,27 @@ const MAX_IMAGES = EXAM_MAX_IMAGE_COUNT;
 const MAX_SINGLE_MB = EXAM_MAX_SINGLE_IMAGE_MB;
 const MAX_TOTAL_MB = EXAM_MAX_TOTAL_IMAGE_MB;
 const MAX_OCR_RETRY = EXAM_MAX_OCR_RETRY;
-const SIZE_TIP = '单张≤9.5MB、合计≤30MB（建议每张压到 2MB 内）';
+/**
+ * 云端（微信云托管公网域名）入口有请求体上限（约 2MB），本地直连后端没有该限制。
+ * 因此：**云端模式**下把每张图多档压缩到 {@link CLOUD_SAFE_BYTES} 以内再上传
+ * （留 multipart 头 / boundary 余量）；本地模式保持原策略（仅 >800KB 且 quality 85）。
+ *
+ * 现象依据：微信开发者工具直连本地后端上传正常，云托管环境上传失败（请求体超限）。
+ */
+const CLOUD_SAFE_BYTES = 1800 * 1024; // 1.8MB
+const CLOUD_COMPRESS_QUALITIES = [85, 70, 55, 45];
+const IS_CLOUD_UPLOAD = !resolveUseLocal();
+const SIZE_TIP = IS_CLOUD_UPLOAD
+  ? '云端单次上传上限约 2MB：会自动压缩，单张≤9.5MB、合计≤30MB'
+  : '单张≤9.5MB、合计≤30MB（建议每张压到 2MB 内）';
+
+/** 与 utils/upload.ts 同一套解析规则：显式 VITE_USE_LOCAL 优先，否则 DEV 视为本地 */
+function resolveUseLocal() {
+  const flag = import.meta.env.VITE_USE_LOCAL;
+  if (flag === 'true') return true;
+  if (flag === 'false') return false;
+  return import.meta.env.DEV;
+}
 /**
  * 压缩策略阈值（t20）：**≤800KB 的图不压缩**，直接上传原图。
  * 试卷照片里的选项小字很容易被 JPEG 有损压缩糊掉，小图再压一次只会掉识别率；
@@ -473,7 +493,19 @@ async function chooseImages() {
       let uploadSize = originalSize;
       let compressedApplied = false;
 
-      if (originalSize > COMPRESS_THRESHOLD_BYTES) {
+      if (IS_CLOUD_UPLOAD) {
+        // 云端：多档压缩直到 ≤1.8MB（小图也尝试一次，避免"刚好踩 2MB 线"被网关拒）
+        for (const quality of CLOUD_COMPRESS_QUALITIES) {
+          if (uploadSize > 0 && uploadSize <= CLOUD_SAFE_BYTES) break;
+          const nextPath = await compressImage(uploadPath, quality);
+          if (!nextPath || nextPath === uploadPath) break;
+          const nextSize = await getFileSize(nextPath);
+          if (nextSize <= 0) break;
+          uploadPath = nextPath;
+          uploadSize = nextSize;
+          compressedApplied = true;
+        }
+      } else if (originalSize > COMPRESS_THRESHOLD_BYTES) {
         uploadPath = await compressImage(originalPath);
         compressedApplied = uploadPath !== originalPath;
         const compressedSize = await getFileSize(uploadPath);
@@ -488,6 +520,12 @@ async function chooseImages() {
       if (!resolutionOk) continue;
 
       const sizeMb = uploadSize / 1024 / 1024;
+      if (IS_CLOUD_UPLOAD && uploadSize > CLOUD_SAFE_BYTES) {
+        showError(
+          `云端上传单张需 ≤2MB（已自动压缩，当前 ${sizeMb.toFixed(1)}MB）：请裁剪或重新拍摄后重试`
+        );
+        continue;
+      }
       if (uploadSize > 0 && sizeMb > MAX_SINGLE_MB) {
         // 压缩后仍超限时明确提示，不静默上传（requirement 2）
         showError(
@@ -531,12 +569,12 @@ async function chooseImages() {
  * 体积由后端 9.5MB/30MB 上限与下方预检兜底，不靠"压狠一点"来控制。
  * 后续如需改小 quality，必须先跑真实试卷图验证选项文字是否仍可识别。
  */
-function compressImage(src) {
+function compressImage(src, quality = COMPRESS_QUALITY) {
   if (typeof uni.compressImage !== 'function') return Promise.resolve(src);
   return new Promise((resolve) => {
     uni.compressImage({
       src,
-      quality: COMPRESS_QUALITY,
+      quality,
       success: (res) => resolve(res.tempFilePath || src),
       fail: () => resolve(src)
     });
