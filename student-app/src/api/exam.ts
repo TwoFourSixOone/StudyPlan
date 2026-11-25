@@ -25,7 +25,7 @@
  * 改字段前先对照 `src/main/java/com/jiang/vo/Exam*VO.java`。
  */
 import { get, post } from '@/utils/request';
-import { uploadWithAuth } from '@/utils/upload';
+import { uploadWithAuth, isCloudContainerEnabled, uploadImageViaContainer } from '@/utils/upload';
 
 /** 单卷最多图片张数（后端 1182 兜底） */
 export const EXAM_MAX_IMAGE_COUNT = 8;
@@ -261,15 +261,39 @@ export function createPaper(params: ExamPaperCreateParams): Promise<ExamPaperCre
  * @param filePath 本地图片路径（uni.chooseImage / uni.compressImage 返回值）
  * @param pageNo 卷面页序（1-based 列表下标；后端范围 1–8）
  */
-export function uploadPaperImage(
+export async function uploadPaperImage(
   paperId: number,
   filePath: string,
   pageNo: number
 ): Promise<ExamPaperImageVO> {
+  // 云端（云托管 callContainer 通道，Change: 2026-11-23_upload_via_call_container）：
+  // 云托管默认域名不能用于正式环境的「uploadFile 合法域名」，uni.uploadFile 会被真机拦截；
+  // 因此优先走 callContainer（微信内网通道，无需白名单）+ base64。
+  if (isCloudContainerEnabled()) {
+    try {
+      return await uploadImageViaContainer(
+        `/student/exam/papers/${paperId}/images/base64`,
+        filePath,
+        resolveImageContentType(filePath),
+        { pageNo }
+      );
+    } catch (e: any) {
+      // callContainer 不可用（如未初始化 / 环境不匹配）→ 降级到 multipart；业务错误（有 code）直接抛
+      if (e && e.code) throw e;
+      console.warn('[exam] callContainer 上传失败，降级 multipart:', e?.message);
+    }
+  }
   // uni.uploadFile 的 formData 值按字符串传输（design D1.2），显式转换避免端间差异
   return uploadWithAuth(`/student/exam/papers/${paperId}/images`, filePath, 'file', {
     pageNo: String(pageNo)
   });
+}
+
+/** 由文件扩展名推断 MIME（后端仍以魔数校验为准） */
+function resolveImageContentType(filePath: string): string {
+  const lower = String(filePath || '').toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  return 'image/jpeg';
 }
 
 /**

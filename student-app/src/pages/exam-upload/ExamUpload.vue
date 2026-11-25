@@ -166,6 +166,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app';
 import { useAppStore } from '@/stores/app';
 import { useAuthGuard } from '@/utils/useAuthGuard';
 import { showError, showSuccess } from '@/utils/message';
+import { isCloudContainerEnabled } from '@/utils/upload';
 import { formatDate } from '@/utils/date';
 import {
   createPaper,
@@ -200,7 +201,9 @@ const MAX_OCR_RETRY = EXAM_MAX_OCR_RETRY;
  *
  * 现象依据：微信开发者工具直连本地后端上传正常，云托管环境上传失败（请求体超限）。
  */
-const CLOUD_SAFE_BYTES = 1800 * 1024; // 1.8MB
+const CLOUD_SAFE_BYTES = 1800 * 1024; // 1.8MB（multipart 通道：已配置合法域名时）
+/** callContainer 通道：base64 膨胀 33%，目标原始大小收紧到 900KB（base64 ≈1.2MB） */
+const CONTAINER_SAFE_BYTES = 900 * 1024;
 const CLOUD_COMPRESS_QUALITIES = [85, 70, 55, 45];
 const IS_CLOUD_UPLOAD = !resolveUseLocal();
 const SIZE_TIP = IS_CLOUD_UPLOAD
@@ -502,9 +505,10 @@ async function chooseImages() {
       let compressedApplied = false;
 
       if (IS_CLOUD_UPLOAD) {
-        // 云端：多档压缩直到 ≤1.8MB（小图也尝试一次，避免"刚好踩 2MB 线"被网关拒）
+        // 云端：callContainer（base64）目标 900KB，multipart 目标 1.8MB；多档压缩直到达标
+        const targetBytes = isCloudContainerEnabled() ? CONTAINER_SAFE_BYTES : CLOUD_SAFE_BYTES;
         for (const quality of CLOUD_COMPRESS_QUALITIES) {
-          if (uploadSize > 0 && uploadSize <= CLOUD_SAFE_BYTES) break;
+          if (uploadSize > 0 && uploadSize <= targetBytes) break;
           const nextPath = await compressImage(uploadPath, quality);
           if (!nextPath || nextPath === uploadPath) break;
           const nextSize = await getFileSize(nextPath);
@@ -528,9 +532,10 @@ async function chooseImages() {
       if (!resolutionOk) continue;
 
       const sizeMb = uploadSize / 1024 / 1024;
-      if (IS_CLOUD_UPLOAD && uploadSize > CLOUD_SAFE_BYTES) {
+      if (IS_CLOUD_UPLOAD && uploadSize > (isCloudContainerEnabled() ? CONTAINER_SAFE_BYTES : CLOUD_SAFE_BYTES)) {
+        const limitMb = isCloudContainerEnabled() ? '0.9MB（base64 通道）' : '2MB';
         showError(
-          `云端上传单张需 ≤2MB（已自动压缩，当前 ${sizeMb.toFixed(1)}MB）：请裁剪或重新拍摄后重试`
+          `云端上传单张需 ≤${limitMb}（已自动压缩，当前 ${sizeMb.toFixed(1)}MB）：请裁剪或重新拍摄后重试`
         );
         continue;
       }

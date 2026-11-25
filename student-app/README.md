@@ -78,10 +78,18 @@ npm install
 
 > 小程序真机调试时 `localhost` 不可用，需把 `VITE_API_BASE_URL` 改成电脑局域网 IP（如 `http://192.168.1.10:80/api`），并在小程序后台配置合法域名。
 
-**云端上传限制（2026-11-23）**：切到云托管环境（`VITE_USE_LOCAL=false` + `VITE_CLOUD_BASE_URL`）后，
-云托管入口对单次请求体有上限（约 2MB）。试卷图片上传会自动多档压缩到 **≤1.8MB** 再发（本地模式保持
-"仅 >800KB 压一次 quality 85" 不变）；压缩后仍超限会提示裁剪/重拍，不会把超限请求发出去。
-需要彻底绕开该限制（如单页扫描件）时，可后续接入分片上传 / 直传对象存储。
+**云端上传通道（2026-11-23）**：云托管**默认域名**（`*.sh.run.tcloudbase.com`）被小程序后台明确拒绝
+（"仅用作测试使用，不可用在正式环境下"），因此 `uni.uploadFile`（公网 HTTPS）在体验版/正式版真机上会被拦。
+现有实现改为：
+- **云端模式**（`VITE_USE_LOCAL=false` 且配置了 `VITE_CLOUD_ENV` + `VITE_CLOUD_SERVICE`）：试卷图片读成 base64，
+  走 `wx.cloud.callContainer`（微信内网通道，**不需要 uploadFile 合法域名**）调用
+  `POST /api/student/exam/papers/{paperId}/images/base64`；压缩目标收紧到 **900KB**（base64 约 1.2MB）
+- **本地/已配域名**：仍走 `uni.uploadFile` multipart（压缩目标 1.8MB）
+- 若 callContainer 不可用（未初始化/环境不匹配）自动降级到 multipart
+- 服务端日志可区分通道：`上传试卷图片(base64): ...` vs `上传试卷图片: ...`
+
+> 若将来绑定了**已备案自定义域名**，把它填进后台的 request/uploadFile/downloadFile 三类合法域名即可，
+> multipart 通道会自动可用，无需改代码。
 ### 云端上线前检查清单（真机失败但「真机调试 / 开发者工具」正常时先看这里）
 
 微信小程序的网络请求在**真机（预览/体验版/正式版）**上会走域名白名单校验，而**开发者工具与「真机调试」不校验**——
