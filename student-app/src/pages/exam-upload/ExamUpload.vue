@@ -67,7 +67,7 @@
 
       <!-- 上传失败原因（云端排障：网关拦截 / 域名白名单 / 超时 等都要能看见） -->
       <view class="upload-error" v-if="failedImages.length > 0">
-        <text class="upload-error-title">{{ failedImages.length }} 张上传失败：</text>
+        <text class="upload-error-title">{{ failedImages.length }} 张上传失败（共 {{ images.length }} 张）：</text>
         <text class="upload-error-detail" v-for="img in failedImages" :key="'err-' + img.pageNo">
           第 {{ img.pageNo }} 张 — {{ img.error || '上传失败（未返回原因）' }}（{{ formatSizeKb(img.size) }}）
         </text>
@@ -207,11 +207,19 @@ const CLOUD_SAFE_BYTES = 1800 * 1024; // 1.8MB（multipart 通道：已配置合
 const CONTAINER_SAFE_BYTES = 900 * 1024;
 const CLOUD_COMPRESS_QUALITIES = [85, 70, 55, 45];
 const IS_CLOUD_UPLOAD = !resolveUseLocal();
-/** 当前生效的上传通道标签（便于确认构建版本与实际通道，排障时一眼可见） */
-const uploadChannelLabel = computed(() => {
-  if (!IS_CLOUD_UPLOAD) return '本地直连（multipart）';
-  return isCloudContainerEnabled() ? '云端 callContainer（base64）' : '云端公网域名（multipart）';
-});
+/**
+ * 当前生效的上传通道标签（setup 期一次性计算为字符串，便于排障与确认构建版本）
+ *
+ * <p>用 try/catch 包住：即使通道判定函数不可用，也不能让模板渲染抛错（否则整页按钮会消失）。</p>
+ */
+let uploadChannelLabel = '未知通道';
+try {
+  uploadChannelLabel = !IS_CLOUD_UPLOAD
+    ? '本地直连（multipart）'
+    : (isCloudContainerEnabled() ? '云端 callContainer（base64）' : '云端公网域名（multipart）');
+} catch (e) {
+  console.error('[ExamUpload] 计算上传通道失败', e);
+}
 const SIZE_TIP = IS_CLOUD_UPLOAD
   ? '云端单次上传上限约 2MB：会自动压缩，单张≤9.5MB、合计≤30MB'
   : '单张≤9.5MB、合计≤30MB（建议每张压到 2MB 内）';
@@ -769,7 +777,7 @@ async function uploadPendingImages() {
 async function uploadOne(img) {
   img.status = 'uploading';
   img.error = '';
-  console.log('[ExamUpload] 上传通道', uploadChannelLabel.value, { pageNo: img.pageNo, sizeBytes: img.size });
+  console.log('[ExamUpload] 上传通道', uploadChannelLabel, { pageNo: img.pageNo, sizeBytes: img.size });
   try {
     // img.pageNo 在加入列表时确定、之后不重排；失败重试走同一路径，自动沿用原值。
     const res = await uploadPaperImage(paperId.value, img.path, img.pageNo);
