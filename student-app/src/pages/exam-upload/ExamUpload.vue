@@ -167,7 +167,7 @@ import { onLoad, onUnload } from '@dcloudio/uni-app';
 import { useAppStore } from '@/stores/app';
 import { useAuthGuard } from '@/utils/useAuthGuard';
 import { showError, showSuccess } from '@/utils/message';
-import { isCloudContainerEnabled } from '@/utils/upload';
+import { isCloudStorageUploadEnabled } from '@/utils/upload';
 import { formatDate } from '@/utils/date';
 import {
   createPaper,
@@ -203,8 +203,8 @@ const MAX_OCR_RETRY = EXAM_MAX_OCR_RETRY;
  * 现象依据：微信开发者工具直连本地后端上传正常，云托管环境上传失败（请求体超限）。
  */
 const CLOUD_SAFE_BYTES = 1800 * 1024; // 1.8MB（multipart 通道：已配置合法域名时）
-/** callContainer 通道：base64 膨胀 33%，目标原始大小收紧到 900KB（base64 ≈1.2MB） */
-const CONTAINER_SAFE_BYTES = 900 * 1024;
+/** 云存储直传通道：图片走云存储（无 100KB 限制），但控制单张 ≤2MB 以兼顾 OCR 与上传耗时 */
+const STORAGE_SAFE_BYTES = 2 * 1024 * 1024;
 const CLOUD_COMPRESS_QUALITIES = [85, 70, 55, 45];
 const IS_CLOUD_UPLOAD = !resolveUseLocal();
 /**
@@ -216,12 +216,12 @@ let uploadChannelLabel = '未知通道';
 try {
   uploadChannelLabel = !IS_CLOUD_UPLOAD
     ? '本地直连（multipart）'
-    : (isCloudContainerEnabled() ? '云端 callContainer（base64）' : '云端公网域名（multipart）');
+    : (isCloudStorageUploadEnabled() ? '云端云存储直传' : '云端公网域名（multipart）');
 } catch (e) {
   console.error('[ExamUpload] 计算上传通道失败', e);
 }
 const SIZE_TIP = IS_CLOUD_UPLOAD
-  ? '云端单次上传上限约 2MB：会自动压缩，单张≤9.5MB、合计≤30MB'
+  ? '云端上传：图片经云存储直传，单张自动压到 ≤2MB，单张≤9.5MB、合计≤30MB'
   : '单张≤9.5MB、合计≤30MB（建议每张压到 2MB 内）';
 
 /** 与 utils/upload.ts 同一套解析规则：显式 VITE_USE_LOCAL 优先，否则 DEV 视为本地 */
@@ -520,7 +520,7 @@ async function chooseImages() {
 
       if (IS_CLOUD_UPLOAD) {
         // 云端：callContainer（base64）目标 900KB，multipart 目标 1.8MB；多档压缩直到达标
-        const targetBytes = isCloudContainerEnabled() ? CONTAINER_SAFE_BYTES : CLOUD_SAFE_BYTES;
+        const targetBytes = isCloudStorageUploadEnabled() ? STORAGE_SAFE_BYTES : CLOUD_SAFE_BYTES;
         for (const quality of CLOUD_COMPRESS_QUALITIES) {
           if (uploadSize > 0 && uploadSize <= targetBytes) break;
           const nextPath = await compressImage(uploadPath, quality);
@@ -546,8 +546,8 @@ async function chooseImages() {
       if (!resolutionOk) continue;
 
       const sizeMb = uploadSize / 1024 / 1024;
-      if (IS_CLOUD_UPLOAD && uploadSize > (isCloudContainerEnabled() ? CONTAINER_SAFE_BYTES : CLOUD_SAFE_BYTES)) {
-        const limitMb = isCloudContainerEnabled() ? '0.9MB（base64 通道）' : '2MB';
+      if (IS_CLOUD_UPLOAD && uploadSize > (isCloudStorageUploadEnabled() ? STORAGE_SAFE_BYTES : CLOUD_SAFE_BYTES)) {
+        const limitMb = isCloudStorageUploadEnabled() ? '2MB（云存储通道）' : '1.8MB（multipart 通道）';
         showError(
           `云端上传单张需 ≤${limitMb}（已自动压缩，当前 ${sizeMb.toFixed(1)}MB）：请裁剪或重新拍摄后重试`
         );

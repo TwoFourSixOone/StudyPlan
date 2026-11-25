@@ -125,91 +125,100 @@ function _doUpload(
   });
 }
 
-// ========== 云托管 callContainer 通道（Change: 2026-11-23_upload_via_call_container）==========
+// ========== 云开发存储直传（Change: 2026-11-23_upload_via_cloud_storage）==========
 /**
- * 是否可用 callContainer 上传（云端模式 + 已配置 env/service）
+ * 是否可用「云存储直传」上传（云端模式 + 已配置云开发环境）
  *
- * <p>云托管默认域名不能用于正式环境的「uploadFile 合法域名」，真机预览/体验版会拦截
- * `uni.uploadFile`；而 callContainer 走微信内网通道，不需要域名白名单。</p>
+ * <p>背景：云托管默认域名不能用于正式环境的「uploadFile 合法域名」，而 callContainer 请求体上限只有 100KB
+ * （错误码 -606001），无法直接传图片。因此改为：
+ * ① {@code wx.cloud.uploadFile} 把图片传到云开发存储（不受 100KB 限制、无需域名白名单）；
+ * ② {@code wx.cloud.getTempFileURL} 取临时 HTTPS 地址；
+ * ③ 通过 callContainer 调后端 {@code /images/url}，由服务端下载并复用既有校验/落盘流程。</p>
  */
-export function isCloudContainerEnabled(): boolean {
-  return !USE_LOCAL && CLOUD_CONTAINER_ENABLED;
+export function isCloudStorageUploadEnabled(): boolean {
+  return !USE_LOCAL && Boolean(CLOUD_ENV) && typeof wx !== 'undefined' && !!wx.cloud
+    && typeof wx.cloud.uploadFile === 'function';
 }
 
-/** 读取本地文件为 base64（不含 data URI 前缀） */
-function readFileAsBase64(filePath: string): Promise<string> {
+/** 云存储上传 + 换临时 URL */
+function uploadToCloudStorage(filePath: string, pageNo: number): Promise<{ url: string; contentType: string }> {
+  const lower = String(filePath || '').toLowerCase();
+  const ext = lower.endsWith('.png') ? 'png' : 'jpg';
+  const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
+  const cloudPath = `exam-upload/${Date.now()}-${pageNo}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   return new Promise((resolve, reject) => {
-    const fs = uni.getFileSystemManager?.();
-    if (!fs || typeof fs.readFile !== 'function') {
-      reject(new Error('当前环境不支持读取本地文件'));
-      return;
-    }
-    fs.readFile({
+    wx.cloud.uploadFile({
+      cloudPath,
       filePath,
-      encoding: 'base64',
-      success: (res: any) => resolve(res.data),
-      fail: (err: any) => reject(new Error(err?.errMsg || '读取图片失败'))
+      success: (res: any) => {
+        const fileID = res && res.fileID;
+        if (!fileID) {
+          reject(new Error('云存储上传未返回 fileID'));
+          return;
+        }
+        wx.cloud.getTempFileURL({
+          fileList: [fileID],
+          success: (tempRes: any) => {
+            const first = tempRes && tempRes.fileList && tempRes.fileList[0];
+            const url = first && first.tempFileURL;
+            if (!url) {
+              reject(new Error('获取云存储临时地址失败'));
+              return;
+            }
+            resolve({ url, contentType });
+          },
+          fail: (err: any) => reject(new Error(err?.errMsg || '获取云存储临时地址失败'))
+        });
+      },
+      fail: (err: any) => reject(Object.assign(new Error(err?.errMsg || '云存储上传失败'), { errMsg: err?.errMsg }))
     });
   });
 }
 
 /**
- * 通过云托管 callContainer 以 base64 上传图片
+ * 云存储直传主流程：上传云存储 → 取临时 URL → 调后端落库
  *
- * @param url 接口路径（不含 /api 前缀，例如 /student/exam/papers/4/images/base64）
+ * @param url 后端接口路径（不含 /api，例如 /student/exam/papers/4/images/url）
  * @param filePath 本地图片路径
- * @param contentType MIME 类型
- * @param payload 额外 JSON 字段（如 pageNo）
- * @returns 响应 data（与 multipart 通道一致）
+ * @param pageNo 卷面页序
  */
-export function uploadImageViaContainer(
+export async function uploadExamImageViaCloudStorage(
   url: string,
   filePath: string,
-  contentType: string,
-  payload: Record<string, any> = {}
+  pageNo: number
 ): Promise<any> {
+  const { url: tempUrl, contentType } = await uploadToCloudStorage(filePath, pageNo);
+  const authStore = useAuthStore();
   return new Promise((resolve, reject) => {
-    const authStore = useAuthStore();
-    readFileAsBase64(filePath)
-      .then((dataBase64) => {
-        const body = JSON.stringify({ ...payload, contentType, dataBase64 });
-        if (typeof wx === 'undefined' || !wx.cloud || typeof wx.cloud.callContainer !== 'function') {
-          reject(new Error('callContainer 不可用'));
+    wx.cloud.callContainer({
+      config: { env: CLOUD_ENV },
+      path: '/api' + url,
+      method: 'POST',
+      header: {
+        'Content-Type': 'application/json',
+        'X-WX-SERVICE': CLOUD_SERVICE,
+        'Authorization': `Bearer ${authStore.token}`
+      },
+      // 只传 URL（几十字节），远低于 callContainer 100KB 上限
+      data: JSON.stringify({ url: tempUrl, contentType, pageNo }),
+      timeout: 60000,
+      success: (res: any) => {
+        let data: any;
+        try {
+          data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
+        } catch (e) {
+          showError(`上传失败：响应格式异常（HTTP ${res.statusCode}）`);
+          reject(Object.assign(new Error('上传响应解析失败'), { statusCode: res.statusCode }));
           return;
         }
-        wx.cloud.callContainer({
-          config: { env: CLOUD_ENV },
-          path: '/api' + url,
-          method: 'POST',
-          header: {
-            'Content-Type': 'application/json',
-            'X-WX-SERVICE': CLOUD_SERVICE,
-            'Authorization': `Bearer ${authStore.token}`
-          },
-          data: body,
-          timeout: 60000,
-          success: (res: any) => {
-            let data: any;
-            try {
-              data = typeof res.data === 'string' ? JSON.parse(res.data) : res.data;
-            } catch (e) {
-              showError(`上传失败：响应格式异常（HTTP ${res.statusCode}）`);
-              reject(Object.assign(new Error('上传响应解析失败'), { statusCode: res.statusCode }));
-              return;
-            }
-            if (data && data.code === 200) {
-              resolve(data.data);
-            } else {
-              showError(data?.message || '上传失败');
-              reject(Object.assign(new Error(data?.message || '上传失败'), { code: data?.code }));
-            }
-          },
-          fail: (err: any) => {
-            const errMsg = (err && err.errMsg) || 'callContainer 调用失败';
-            reject(Object.assign(new Error(errMsg), { errMsg }));
-          }
-        });
-      })
-      .catch((e) => reject(e));
+        if (data && data.code === 200) {
+          resolve(data.data);
+        } else {
+          showError(data?.message || '上传失败');
+          reject(Object.assign(new Error(data?.message || '上传失败'), { code: data?.code }));
+        }
+      },
+      fail: (err: any) => reject(Object.assign(new Error(err?.errMsg || '上传失败'), { errMsg: err?.errMsg }))
+    });
   });
 }

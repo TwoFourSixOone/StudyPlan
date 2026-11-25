@@ -5,7 +5,8 @@ import com.jiang.common.exception.ErrorCodes;
 import com.jiang.common.util.InMemoryMultipartFile;
 import com.jiang.common.result.PageResult;
 import com.jiang.common.result.Result;
-import com.jiang.dto.ExamImageBase64Request;
+import com.jiang.client.CloudStorageImageDownloader;
+import com.jiang.dto.ExamImageUrlRequest;
 import com.jiang.dto.ExamPaperCreateRequest;
 import com.jiang.service.ExamPaperService;
 import com.jiang.vo.ExamDiagnosisVO;
@@ -50,6 +51,9 @@ public class ExamPaperController {
 
     @Autowired
     private ExamPaperService examPaperService;
+
+    @Autowired
+    private CloudStorageImageDownloader cloudStorageImageDownloader;
 
     /**
      * 创建试卷上传会话（同学生+科目+日期重复上传 → 1131；30 分钟内 uploading 会话复用）
@@ -116,45 +120,25 @@ public class ExamPaperController {
     }
 
     /**
-     * 追加一张试卷图片（base64，云托管 callContainer 通道）
+     * 追加一张试卷图片（云存储直传，Change: 2026-11-23_upload_via_cloud_storage）
      *
-     * <p>Change: 2026-11-23_upload_via_call_container —— 云托管默认域名不能用于正式环境的
-     * 「uploadFile 合法域名」，因此小程序在云端模式改走 {@code wx.cloud.callContainer}（内网通道，无需白名单），
-     * 图片以 base64 放进 JSON body。解码后用 {@link com.jiang.common.util.InMemoryMultipartFile} 适配，
+     * <p>小程序先用 {@code wx.cloud.uploadFile} 把图片传到云存储（不受 callContainer 100KB 请求体限制，
+     * 也不需要「uploadFile 合法域名」），再用 {@code wx.cloud.getTempFileURL} 取临时地址传给本接口；
+     * 后端下载字节后用 {@link com.jiang.common.util.InMemoryMultipartFile} 适配，
      * **完全复用** multipart 版的校验链（归属/张数/累计大小/类型魔数/分辨率/落盘/页序）。</p>
      */
-    @PostMapping("/papers/{paperId}/images/base64")
-    @Operation(summary = "上传单张试卷图片（base64，云托管通道）")
-    public Result<ExamImageUploadVO> uploadImageBase64(
+    @PostMapping("/papers/{paperId}/images/url")
+    @Operation(summary = "上传单张试卷图片（云存储直传）")
+    public Result<ExamImageUploadVO> uploadImageByUrl(
             @PathVariable("paperId") Long paperId,
-            @RequestBody @Valid ExamImageBase64Request request) {
-        byte[] bytes = decodeBase64Image(request.getDataBase64());
+            @RequestBody @Valid ExamImageUrlRequest request) {
+        byte[] bytes = cloudStorageImageDownloader.download(request.getUrl());
         String contentType = (request.getContentType() == null || request.getContentType().isBlank())
                 ? "image/jpeg" : request.getContentType();
-        log.info("上传试卷图片(base64): paperId={}, size={}, contentType={}, pageNo={}",
+        log.info("上传试卷图片(云存储): paperId={}, size={}, contentType={}, pageNo={}",
                 paperId, bytes.length, contentType, request.getPageNo());
         MultipartFile file = new InMemoryMultipartFile("file", "paper-image", contentType, bytes);
         return Result.success(examPaperService.uploadImage(paperId, file, request.getPageNo()));
-    }
-
-    /**
-     * base64 解码（容忍换行/空白），并做前置长度保护
-     */
-    private byte[] decodeBase64Image(String dataBase64) {
-        if (dataBase64 == null || dataBase64.isBlank()) {
-            throw new BusinessException(ErrorCodes.EXAM_IMAGE_EMPTY);
-        }
-        // base64 长度粗判：解码后字节数 ≈ len * 3 / 4；先拦明显超限的请求，避免无谓的大字符串解码
-        long estimatedBytes = (long) dataBase64.length() * 3 / 4;
-        if (estimatedBytes > 10L * 1024 * 1024) {
-            throw new BusinessException(ErrorCodes.EXAM_IMAGE_TOO_LARGE);
-        }
-        try {
-            return Base64.getMimeDecoder().decode(dataBase64);
-        } catch (IllegalArgumentException e) {
-            log.warn("base64 图片解码失败: paperId 解析前, error={}", e.getMessage());
-            throw new BusinessException(ErrorCodes.EXAM_IMAGE_EMPTY);
-        }
     }
 
     /**

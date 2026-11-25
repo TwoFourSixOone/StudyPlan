@@ -25,7 +25,7 @@
  * 改字段前先对照 `src/main/java/com/jiang/vo/Exam*VO.java`。
  */
 import { get, post } from '@/utils/request';
-import { uploadWithAuth, isCloudContainerEnabled, uploadImageViaContainer } from '@/utils/upload';
+import { uploadWithAuth, isCloudStorageUploadEnabled, uploadExamImageViaCloudStorage } from '@/utils/upload';
 
 /** 单卷最多图片张数（后端 1182 兜底） */
 export const EXAM_MAX_IMAGE_COUNT = 8;
@@ -269,18 +269,15 @@ export async function uploadPaperImage(
   // 云端（云托管 callContainer 通道，Change: 2026-11-23_upload_via_call_container）：
   // 云托管默认域名不能用于正式环境的「uploadFile 合法域名」，uni.uploadFile 会被真机拦截；
   // 因此优先走 callContainer（微信内网通道，无需白名单）+ base64。
-  if (isCloudContainerEnabled()) {
+  if (isCloudStorageUploadEnabled()) {
     try {
-      return await uploadImageViaContainer(
-        `/student/exam/papers/${paperId}/images/base64`,
+      return await uploadExamImageViaCloudStorage(
+        `/student/exam/papers/${paperId}/images/url`,
         filePath,
-        resolveImageContentType(filePath),
-        { pageNo }
+        pageNo
       );
     } catch (e: any) {
-      // 云端不再静默降级到 multipart：云托管默认域名不能用于正式环境，
-      // 降级只会把真实原因掩盖成「uploadFile 合法域名校验出错」。
-      console.error('[exam] callContainer 上传失败', {
+      console.error('[exam] 云存储直传失败', {
         paperId,
         pageNo,
         errMsg: e?.errMsg,
@@ -289,8 +286,8 @@ export async function uploadPaperImage(
       });
       if (e && e.code) throw e;
       throw Object.assign(
-        new Error(`云端通道(callContainer)上传失败：${e?.errMsg || e?.message || '未知错误'}`),
-        { errMsg: e?.errMsg, channel: 'callContainer' }
+        new Error(`云存储直传失败：${e?.errMsg || e?.message || '未知错误'}`),
+        { errMsg: e?.errMsg, channel: 'cloudStorage' }
       );
     }
   }
@@ -300,12 +297,7 @@ export async function uploadPaperImage(
   });
 }
 
-/** 由文件扩展名推断 MIME（后端仍以魔数校验为准） */
-function resolveImageContentType(filePath: string): string {
-  const lower = String(filePath || '').toLowerCase();
-  if (lower.endsWith('.png')) return 'image/png';
-  return 'image/jpeg';
-}
+
 
 /**
  * ③ 显式提交解析（POST /student/exam/papers/{paperId}/submit）
