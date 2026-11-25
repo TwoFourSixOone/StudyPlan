@@ -23,6 +23,12 @@
 - [x] `ExamUpload.vue`：通道文案「云端云存储直传」；云存储通道压缩目标 2MB；SIZE_TIP 同步
 - [x] 通道标签改为 setup 期字符串 + try/catch（避免渲染异常导致按钮消失）
 
+## T2.5 上传成功后清理云存储原图
+
+- [x] `utils/upload.ts`：`uploadToCloudStorage` 返回 `fileID`；后端落库成功后调用 `wx.cloud.deleteFile` 删除原图
+- [x] 仅在**后端返回 code=200** 后删除（避免下载失败/重试时源文件已被删）；删除失败只打日志，不影响上传
+- [x] 对象存储不再堆积：`exam-upload/` 下文件上传成功后即删除
+
 ## T3 测试
 
 - [x] `CloudStorageImageDownloaderTest`（7 例）

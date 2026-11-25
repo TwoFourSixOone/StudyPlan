@@ -140,8 +140,11 @@ export function isCloudStorageUploadEnabled(): boolean {
     && typeof wx.cloud.uploadFile === 'function';
 }
 
-/** 云存储上传 + 换临时 URL */
-function uploadToCloudStorage(filePath: string, pageNo: number): Promise<{ url: string; contentType: string }> {
+/** 云存储上传 + 换临时 URL（同时返回 fileID，供上传成功后删除原图） */
+function uploadToCloudStorage(
+  filePath: string,
+  pageNo: number
+): Promise<{ fileID: string; url: string; contentType: string }> {
   const lower = String(filePath || '').toLowerCase();
   const ext = lower.endsWith('.png') ? 'png' : 'jpg';
   const contentType = ext === 'png' ? 'image/png' : 'image/jpeg';
@@ -165,7 +168,7 @@ function uploadToCloudStorage(filePath: string, pageNo: number): Promise<{ url: 
               reject(new Error('获取云存储临时地址失败'));
               return;
             }
-            resolve({ url, contentType });
+            resolve({ fileID, url, contentType });
           },
           fail: (err: any) => reject(new Error(err?.errMsg || '获取云存储临时地址失败'))
         });
@@ -187,7 +190,7 @@ export async function uploadExamImageViaCloudStorage(
   filePath: string,
   pageNo: number
 ): Promise<any> {
-  const { url: tempUrl, contentType } = await uploadToCloudStorage(filePath, pageNo);
+  const { fileID, url: tempUrl, contentType } = await uploadToCloudStorage(filePath, pageNo);
   const authStore = useAuthStore();
   return new Promise((resolve, reject) => {
     wx.cloud.callContainer({
@@ -212,6 +215,8 @@ export async function uploadExamImageViaCloudStorage(
           return;
         }
         if (data && data.code === 200) {
+          // 后端已下载并落库成功 → 删除云存储原图，避免对象存储堆积（失败只记日志，不影响本次上传）
+          deleteCloudFileQuietly(fileID);
           resolve(data.data);
         } else {
           showError(data?.message || '上传失败');
@@ -220,5 +225,21 @@ export async function uploadExamImageViaCloudStorage(
       },
       fail: (err: any) => reject(Object.assign(new Error(err?.errMsg || '上传失败'), { errMsg: err?.errMsg }))
     });
+  });
+}
+/**
+ * 删除云存储临时原图（后端落库成功后调用）
+ *
+ * <p>失败只打日志：残留文件不影响业务，可通过对象存储生命周期规则兜底清理。
+ * 注意：必须等后端**下载成功**后再删，否则重试会因源文件已删而失败。</p>
+ */
+function deleteCloudFileQuietly(fileID: string): void {
+  if (!fileID || typeof wx === 'undefined' || !wx.cloud || typeof wx.cloud.deleteFile !== 'function') {
+    return;
+  }
+  wx.cloud.deleteFile({
+    fileList: [fileID],
+    success: () => console.log('[upload] 云存储原图已删除', fileID),
+    fail: (err: any) => console.warn('[upload] 云存储原图删除失败（可忽略，注意清理）', { fileID, errMsg: err?.errMsg })
   });
 }

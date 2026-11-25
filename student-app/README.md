@@ -93,6 +93,8 @@ npm install
   服务端下载后走**原有多重校验**（归属/张数/累计/魔数/分辨率/落盘/页序），日志为 `上传试卷图片(云存储): ...`
 - 本地模式：仍走 `uni.uploadFile` multipart（压缩目标 1.8MB；云端云存储通道 2MB）
 - 页面会显示「上传通道：云端云存储直传 / 云端公网域名（multipart） / 本地直连（multipart）」，便于排障
+- **上传成功后自动删除云存储原图**（`wx.cloud.deleteFile`）：后端落库返回 200 后才删，失败不影响上传；
+  对象存储目录不会堆积（删除失败只打日志，可再用生命周期规则兜底）
 
 > 安全：后端只接受 **https + 受信域名后缀**（默认 `tcb.qcloud.la,qcloud.la,myqcloud.com,tcloudbase.com`，
 > 可用 `exam.upload.allowed-url-suffixes` 覆盖）且下载上限 10MB，防 SSRF。

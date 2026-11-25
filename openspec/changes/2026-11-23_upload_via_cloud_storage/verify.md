@@ -35,6 +35,13 @@ cd student-app && npm run build:mp-weixin                               → DONE
 | 下载器（7） | 受信域名成功、http 拒绝、非白名单拒绝（含 `tcb.qcloud.la.evil.com` 绕过）、空响应 1183、超 10MB 1184、下载异常 1183、自定义后缀 |
 | 控制器（2） | 下载字节原样交 service、contentType 缺省与 pageNo 透传 |
 
+## 上传成功后清理云存储原图
+
+- 时序：`wx.cloud.uploadFile` → `getTempFileURL` → `callContainer` 调后端落库 → **后端返回 200 后**才 `wx.cloud.deleteFile(fileID)`；
+- 为什么要等成功后再删：若提前删，后端下载失败/用户重试时源文件已不存在，必须重新选图；
+- 删除失败只 `console.warn`（残留文件不影响业务，可再用对象存储生命周期规则兜底）；
+- 验证方式：连续上传几张后到「云托管 → 对象存储」刷新，`exam-upload/` 下应为空（或只剩失败未清理的少量文件）。
+
 ## 未验证（真机）
 
 | 项 | 说明 |
